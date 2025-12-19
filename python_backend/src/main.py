@@ -102,7 +102,9 @@ from .api import (
     facebook_router,
     instagram_router,
     linkedin_router,
-    twitter_router
+    twitter_router,
+    tiktok_router,
+    youtube_router
 )
 app.include_router(content_router)
 app.include_router(improve_media_prompts_router)
@@ -113,6 +115,8 @@ app.include_router(facebook_router)
 app.include_router(instagram_router)
 app.include_router(linkedin_router)
 app.include_router(twitter_router)
+app.include_router(tiktok_router)
+app.include_router(youtube_router)
 
 
 # Global exception handler

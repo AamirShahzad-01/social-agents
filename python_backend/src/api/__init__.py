@@ -8,7 +8,9 @@ from .v1 import (
     facebook_router,
     instagram_router,
     linkedin_router,
-    twitter_router
+    twitter_router,
+    tiktok_router,
+    youtube_router
 )
 
 __all__ = [
@@ -20,5 +22,7 @@ __all__ = [
     "facebook_router",
     "instagram_router",
     "linkedin_router",
-    "twitter_router"
+    "twitter_router",
+    "tiktok_router",
+    "youtube_router"
 ]
