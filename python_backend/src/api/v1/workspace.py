@@ -10,7 +10,7 @@ from typing import Optional, Literal, Dict, Any
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Query, Depends
-from pydantic import BaseModel, Field, EmailStr, validator
+from pydantic import BaseModel, Field, EmailStr, field_validator
 
 from src.services.supabase_service import get_supabase_client
 from src.config import settings
@@ -35,7 +35,8 @@ class UpdateWorkspaceRequest(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     max_members: Optional[int] = Field(None, alias="maxMembers", ge=1, le=100)
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         if v is not None and not v.strip():
             raise ValueError('Workspace name cannot be empty or whitespace')
@@ -51,12 +52,6 @@ class CreateInviteRequest(BaseModel):
     role: Literal["admin", "editor", "viewer"] = "editor"
     expires_in_days: int = Field(7, alias="expiresInDays", ge=1, le=365)
     
-    @validator('email', 'role')
-    def validate_not_empty(cls, v, field):
-        if field.name == 'email' and v is not None and not v.strip():
-            raise ValueError('Email cannot be empty')
-        return v
-    
     class Config:
         populate_by_name = True
 
@@ -65,7 +60,8 @@ class AcceptInviteRequest(BaseModel):
     """Request to accept an invitation"""
     token: str = Field(..., min_length=1)
     
-    @validator('token')
+    @field_validator('token')
+    @classmethod
     def validate_token(cls, v):
         if not v or not v.strip():
             raise ValueError('Token cannot be empty')
@@ -85,15 +81,17 @@ class BusinessSettingsRequest(BaseModel):
     social_links: Optional[dict] = Field(None, alias="socialLinks")
     tone_of_voice: Optional[str] = Field(None, alias="toneOfVoice", max_length=100)
     target_audience: Optional[str] = Field(None, alias="targetAudience", max_length=500)
-    brand_colors: Optional[list[str]] = Field(None, alias="brandColors", max_items=10)
+    brand_colors: Optional[list[str]] = Field(None, alias="brandColors", max_length=10)
     
-    @validator('business_name', 'industry')
+    @field_validator('business_name', 'industry')
+    @classmethod
     def validate_not_empty(cls, v):
         if not v or not v.strip():
             raise ValueError('Field cannot be empty')
         return v.strip()
     
-    @validator('brand_colors')
+    @field_validator('brand_colors')
+    @classmethod
     def validate_brand_colors(cls, v):
         if v is not None:
             hex_pattern = re.compile(r'^#(?:[0-9a-fA-F]{3}){1,2}$')

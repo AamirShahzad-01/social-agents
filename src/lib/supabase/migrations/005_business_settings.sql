@@ -186,7 +186,6 @@ END $$;
 
 -- Grant authenticated users access to business_settings
 GRANT SELECT, INSERT, UPDATE, DELETE ON business_settings TO authenticated;
-GRANT USAGE ON SEQUENCE business_settings_id_seq TO authenticated;
 
 -- ============================================
 -- MIGRATION COMPLETE
