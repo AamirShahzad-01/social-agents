@@ -6,16 +6,17 @@
 # ============================================================================
 FROM node:22-alpine AS deps
 
-# Add libc6-compat for Alpine compatibility
+# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files for dependency installation
 COPY package.json package-lock.json ./
 
-# Install dependencies
-RUN npm ci --legacy-peer-deps
+# Install dependencies strictly from lock file
+# Added sharp for image optimization
+RUN npm ci --legacy-peer-deps && npm install sharp
 
 # ============================================================================
 # Stage 2: Builder - Build the Next.js application
@@ -32,8 +33,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# Build arguments passed from Render (or docker build --build-arg)
-# Render automatically passes environment variables as build arguments for Docker builds
+# Build arguments passed from Render
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ARG NEXT_PUBLIC_PYTHON_BACKEND_URL
@@ -41,15 +41,11 @@ ARG NEXT_PUBLIC_USE_PYTHON_BACKEND_ALL
 ARG NEXT_PUBLIC_APP_URL
 
 # Make them available as environment variables during build
-# These get embedded into the Next.js bundle at build time
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
 ENV NEXT_PUBLIC_PYTHON_BACKEND_URL=${NEXT_PUBLIC_PYTHON_BACKEND_URL}
 ENV NEXT_PUBLIC_USE_PYTHON_BACKEND_ALL=${NEXT_PUBLIC_USE_PYTHON_BACKEND_ALL}
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
-
-# Debug: Print env vars during build (remove in production if needed)
-RUN echo "Building with NEXT_PUBLIC_PYTHON_BACKEND_URL=${NEXT_PUBLIC_PYTHON_BACKEND_URL}"
 
 # Build the application
 RUN npm run build
@@ -61,7 +57,6 @@ FROM node:22-alpine AS runner
 
 WORKDIR /app
 
-# Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -69,13 +64,13 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Copy necessary files from builder
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# Copy public folder
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Set correct ownership
-RUN chown -R nextjs:nodejs /app
+# Automatically leverage output traces to reduce image size
+# https://nextjs.org/docs/advanced-features/output-file-tracing
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Switch to non-root user
 USER nextjs
@@ -83,9 +78,8 @@ USER nextjs
 # Expose port
 EXPOSE 3000
 
-# Set hostname
-ENV HOSTNAME="0.0.0.0"
 ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \

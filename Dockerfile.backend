@@ -6,21 +6,20 @@
 # ============================================================================
 FROM python:3.13-slim AS builder
 
-# Install uv
+# Install uv for fast dependency management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Set working directory
 WORKDIR /app
 
 # Set environment variables for uv
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 
-# Copy dependency files from python_backend
+# Copy dependency files only
 COPY python_backend/pyproject.toml ./pyproject.toml
 COPY python_backend/uv.lock ./uv.lock
 
-# Compile to requirements.txt first, then install
+# Compile dependencies to requirements.txt and install
 RUN uv pip compile pyproject.toml -o requirements.txt && \
     uv pip install --system -r requirements.txt
 
@@ -37,7 +36,6 @@ ENV PYTHONUNBUFFERED=1
 RUN groupadd --gid 1000 appgroup && \
     useradd --uid 1000 --gid 1000 --no-create-home appuser
 
-# Set working directory
 WORKDIR /app
 
 # Copy installed packages from builder
@@ -45,10 +43,7 @@ COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application source code
-COPY python_backend/src ./src
-
-# Change ownership to non-root user
-RUN chown -R appuser:appgroup /app
+COPY --chown=appuser:appgroup python_backend/src ./src
 
 # Switch to non-root user
 USER appuser
@@ -56,7 +51,7 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Health check
+# Health check (requires python to be available, which it is)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 

@@ -24,6 +24,7 @@ services:
     region: oregon
     plan: starter
     healthCheckPath: /health
+    numReplicas: 1
     envVars:
       # Server Config
       - key: HOST
@@ -101,6 +102,7 @@ services:
     region: oregon
     plan: starter
     healthCheckPath: /
+    numReplicas: 1
     envVars:
       - key: NODE_ENV
         value: production
