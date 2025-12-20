@@ -106,18 +106,25 @@ services:
         value: production
       
       # Python Backend URL (auto-linked to backend service)
-      # Frontend code automatically transforms internal URL to external HTTPS URL
+      # Uses 'host' property which returns just hostname, frontend config adds https://
       - key: NEXT_PUBLIC_PYTHON_BACKEND_URL
         fromService:
           type: web
           name: content-creator-backend
-          property: hostport
+          property: host
       
       # Supabase Client (set in Render Dashboard)
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
         sync: false
+      
+      # App URL for OAuth redirects (auto-linked)
+      - key: NEXT_PUBLIC_APP_URL
+        fromService:
+          type: web
+          name: content-creator-frontend
+          property: host
       
       # Feature Flags
       - key: NEXT_PUBLIC_USE_PYTHON_BACKEND_ALL
