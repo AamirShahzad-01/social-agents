@@ -34,8 +34,15 @@ const nextConfig = {
   },
 
   // Proxy API requests to Python backend
+  // Proxy API requests to Python backend
   async rewrites() {
-    const pythonBackendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000';
+    let pythonBackendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000';
+
+    // Ensure URL has a protocol
+    if (!pythonBackendUrl.startsWith('http://') && !pythonBackendUrl.startsWith('https://')) {
+      pythonBackendUrl = `http://${pythonBackendUrl}`;
+    }
+
     return [
       {
         source: '/py-api/:path*',
