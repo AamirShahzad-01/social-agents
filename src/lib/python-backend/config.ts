@@ -6,8 +6,32 @@
  */
 
 // Environment-based backend URL configuration
-export const PYTHON_BACKEND_URL =
-    process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000';
+// Normalize URL to handle various formats including Render's internal service URLs
+const rawBackendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000';
+export const PYTHON_BACKEND_URL = (() => {
+    let url = rawBackendUrl.trim();
+
+    // Handle Render's internal hostport format: "service-name:8000"
+    // Transform to external URL: "https://service-name.onrender.com"
+    if (!url.includes('://') && !url.includes('localhost') && !url.includes('127.0.0.1')) {
+        // Remove port if present (e.g., ":8000")
+        url = url.replace(/:\d+$/, '');
+        // Add .onrender.com if not already a full domain
+        if (!url.includes('.')) {
+            url = `${url}.onrender.com`;
+        }
+        // Add https:// for production
+        url = `https://${url}`;
+    } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        // Local development URL without protocol
+        url = url.includes('localhost') || url.includes('127.0.0.1')
+            ? `http://${url}`
+            : `https://${url}`;
+    }
+
+    // Remove trailing slash if present
+    return url.replace(/\/$/, '');
+})();
 
 // API version
 export const API_VERSION = process.env.PYTHON_BACKEND_API_VERSION || 'v1';

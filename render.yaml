@@ -106,6 +106,7 @@ services:
         value: production
       
       # Python Backend URL (auto-linked to backend service)
+      # Frontend code automatically transforms internal URL to external HTTPS URL
       - key: NEXT_PUBLIC_PYTHON_BACKEND_URL
         fromService:
           type: web
