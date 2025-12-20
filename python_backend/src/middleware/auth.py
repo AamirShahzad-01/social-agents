@@ -178,6 +178,7 @@ PUBLIC_PATHS = [
     "/openapi.json",
     "/redoc",
     "/api/v1/providers",
+    "/api/v1/workspace/invites/",  # Public invite token lookup (GET /api/v1/workspace/invites/{token})
 ]
 
 # Paths that allow optional authentication
