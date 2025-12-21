@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel, Field, EmailStr, field_validator
 
-from src.services.supabase_service import get_supabase_client
+from src.services.supabase_service import get_supabase_client, get_supabase_admin_client
 from src.config import settings
 from src.middleware.auth import get_current_user
 
@@ -115,7 +115,7 @@ async def get_workspace(user: Dict[str, Any] = Depends(get_current_user)):
     try:
         workspace_id, _ = await get_user_workspace_role(user)
         
-        supabase = get_supabase_client()
+        supabase = get_supabase_admin_client()
         result = supabase.table("workspaces").select("*").eq(
             "id", workspace_id
         ).execute()
@@ -152,7 +152,7 @@ async def update_workspace(
                 detail="At least one field must be provided for update"
             )
         
-        supabase = get_supabase_client()
+        supabase = get_supabase_admin_client()
         
         # Build update data
         update_data = {"updated_at": datetime.now().isoformat()}
@@ -202,7 +202,7 @@ async def delete_workspace(user: Dict[str, Any] = Depends(get_current_user)):
         workspace_id, role = await get_user_workspace_role(user)
         require_admin(role)
         
-        supabase = get_supabase_client()
+        supabase = get_supabase_admin_client()
         
         # Soft delete - mark as inactive
         supabase.table("workspaces").update({
