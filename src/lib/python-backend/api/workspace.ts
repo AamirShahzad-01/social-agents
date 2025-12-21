@@ -2,10 +2,10 @@
  * Workspace API
  * 
  * API client for workspace management including CRUD operations,
- * team member management, invitations, and business settings.
+ * team member management, and invitations.
  */
 
-import { get, post, patch, del, put } from '../client'
+import { get, post, patch, del } from '../client'
 import { ENDPOINTS } from '../config'
 import type {
   Workspace,
@@ -14,10 +14,8 @@ import type {
   WorkspaceInvite,
   CreateInviteRequest,
   AcceptInviteRequest,
-  InviteDetails,
   InviteDetailsResponse,
   ActivityOptions,
-  BusinessSettings,
   PaginatedActivityLog,
   WorkspaceInfo,
 } from '../types'
@@ -256,59 +254,6 @@ export async function getActivity(
 }
 
 // =============================================================================
-// BUSINESS SETTINGS
-// =============================================================================
-
-/**
- * Get business settings
- * 
- * Retrieves business profile and branding settings for the workspace.
- * 
- * @param workspaceId - Workspace ID
- * @returns Promise resolving to business settings
- */
-export async function getBusinessSettings(): Promise<BusinessSettings | null> {
-  const result = await get<{ success: boolean; data: BusinessSettings | null }>(
-    ENDPOINTS.workspace.businessSettings
-  )
-  return result?.data ?? null
-}
-
-/**
- * Update business settings
- * 
- * Updates business profile, branding, and other settings.
- * 
- * @param workspaceId - Workspace ID
- * @param settings - Settings to update
- * @returns Promise resolving to updated settings
- */
-export async function updateBusinessSettings(
-  settings: Partial<BusinessSettings>
-): Promise<BusinessSettings> {
-  const result = await put<{ success: boolean; data: BusinessSettings }>(
-    ENDPOINTS.workspace.businessSettings,
-    settings
-  )
-  if (!result?.data) {
-    throw new Error('Failed to update business settings')
-  }
-  return result.data
-}
-
-/**
- * Delete business settings
- * 
- * Removes all business settings for the workspace.
- * 
- * @param workspaceId - Workspace ID
- * @returns Promise resolving when deletion is complete
- */
-export async function deleteBusinessSettings(): Promise<{ success: boolean }> {
-  return del<{ success: boolean }>(ENDPOINTS.workspace.businessSettings)
-}
-
-// =============================================================================
 // WORKSPACE INFO
 // =============================================================================
 
@@ -316,7 +261,7 @@ export async function deleteBusinessSettings(): Promise<{ success: boolean }> {
  * Get complete workspace info
  * 
  * Retrieves comprehensive workspace information including
- * settings, members, and business settings.
+ * settings and members.
  * 
  * @param workspaceId - Workspace ID
  * @returns Promise resolving to workspace info
@@ -324,3 +269,4 @@ export async function deleteBusinessSettings(): Promise<{ success: boolean }> {
 export async function getWorkspaceInfo(): Promise<WorkspaceInfo> {
   return get<WorkspaceInfo>(ENDPOINTS.workspace.info)
 }
+

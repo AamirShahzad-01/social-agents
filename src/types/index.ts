@@ -269,5 +269,3 @@ export interface AccountConnection {
   error?: string;
 }
 
-// Business Info types
-export * from './businessInfo.types';

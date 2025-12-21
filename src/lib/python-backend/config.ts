@@ -248,7 +248,6 @@ export const ENDPOINTS = {
         acceptInvite: '/workspace/invites/accept',
         inviteDetails: (token: string) => `/workspace/invites/${token}`,
         activity: '/workspace/activity',
-        businessSettings: '/workspace/business-settings',
         info: '/workspace/info',
     },
 

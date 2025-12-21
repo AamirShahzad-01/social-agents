@@ -13,7 +13,6 @@ import { useChatHistory } from './hooks/useChatHistory';
 import { useThreadManagement } from './hooks/useThreadManagement';
 import { useFileUpload } from './hooks/useFileUpload';
 import { useVoiceInput } from './hooks/useVoiceInput';
-import { useBusinessInfo } from '@/hooks/useBusinessInfo';
 
 // Handlers
 import { handleCreatePost } from './handlers/postCreation';
@@ -47,7 +46,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
     const [selectedModelId, setSelectedModelId] = useState(DEFAULT_AI_MODEL_ID);
     const [isVoiceActive, setIsVoiceActive] = useState(false);
     const voiceButtonRef = useRef<VoiceButtonRef>(null);
-    
+
     // Use refs to prevent unnecessary re-runs of effects when auth context updates
     const workspaceIdRef = useRef(workspaceId);
     const userRef = useRef(user);
@@ -55,7 +54,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
     const isMountedRef = useRef(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const isVisibleRef = useRef(true);
-    
+
     // Custom hooks
     const { chatHistory, deleteThread, addThread } = useChatHistory(isHistoryVisible, workspaceId);
     const {
@@ -69,7 +68,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
         updateThreadMetadata,
         setActiveThreadId
     } = useThreadManagement();
-    
+
     const {
         attachedFiles,
         showUploadMenu,
@@ -82,11 +81,8 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
         setShowUploadMenu,
         setError: setFileError
     } = useFileUpload();
-    
+
     const { isRecording, toggleVoiceInput } = useVoiceInput(setUserInput, setError);
-    
-    // Business context for personalized content generation
-    const { businessInfo, isComplete: isBusinessInfoComplete } = useBusinessInfo();
 
     // Mark component as mounted on first render
     useEffect(() => {
@@ -95,20 +91,20 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
             isMountedRef.current = false;
         };
     }, []);
-    
+
     // Update refs when values change
     useEffect(() => {
         const workspaceChanged = workspaceIdRef.current !== workspaceId;
         const userChanged = userRef.current !== user;
-        
+
         if (workspaceChanged) {
             workspaceIdRef.current = workspaceId;
         }
-        
+
         if (userChanged) {
             userRef.current = user;
         }
-        
+
         if (workspaceId && user && !isInitializedRef.current) {
             isInitializedRef.current = true;
         }
@@ -143,7 +139,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
         if (!currentThreadId || !langThreadId || activeThreadId !== currentThreadId || isLoading || isCreatingNewChat) {
             return;
         }
-        
+
         const currentWorkspaceId = workspaceIdRef.current;
         if (!currentWorkspaceId) return;
 
@@ -179,7 +175,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
     const handleSelectThread = useCallback(async (thread: any) => {
         setIsLoading(true);
         setError(null);
-        
+
         try {
             const uiMessages = await loadThread(thread);
             setMessages(uiMessages);
@@ -220,8 +216,8 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
         if (!userInput.trim() || isLoading || isCreatingNewChat) return;
 
         const currentMessage = userInput;
-        const userMessage: Message = { 
-            role: 'user', 
+        const userMessage: Message = {
+            role: 'user',
             content: userInput,
             attachments: attachedFiles.length > 0 ? attachedFiles : undefined
         };
@@ -230,7 +226,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
         clearAttachments();
         setIsLoading(true);
         setError(null);
-        
+
         if (!hasUserSentMessage) {
             setHasUserSentMessage(true);
         }
@@ -240,13 +236,12 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
                 message: currentMessage,
                 threadId: langThreadId ?? '',
                 attachedFiles: attachedFiles,
-                businessContext: businessInfo,
                 modelId: selectedModelId,
             });
 
             const currentWorkspaceId = workspaceIdRef.current;
             const currentUser = userRef.current;
-            
+
             // Create thread on first successful response
             if (!currentThreadId && currentWorkspaceId && currentUser && langThreadId) {
                 try {
@@ -266,27 +261,27 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
 
         } catch (err: any) {
             const userFriendlyMessage = formatErrorMessage(err);
-            
+
             setError(userFriendlyMessage);
             setMessages(prev => [...prev, { role: 'system', content: userFriendlyMessage }]);
         } finally {
             setIsLoading(false);
         }
-    }, [userInput, isLoading, isCreatingNewChat, attachedFiles, hasUserSentMessage, langThreadId, currentThreadId, createThread, addThread, clearAttachments, businessInfo]);
-    
+    }, [userInput, isLoading, isCreatingNewChat, attachedFiles, hasUserSentMessage, langThreadId, currentThreadId, createThread, addThread, clearAttachments]);
+
     // Send a message directly (used by suggestion clicks)
     const sendMessageDirect = useCallback(async (messageText: string) => {
         if (isLoading || isCreatingNewChat) return;
-        
-        const userMessage: Message = { 
-            role: 'user', 
+
+        const userMessage: Message = {
+            role: 'user',
             content: messageText,
         };
         setMessages(prev => [...prev, userMessage]);
         setUserInput('');
         setIsLoading(true);
         setError(null);
-        
+
         if (!hasUserSentMessage) {
             setHasUserSentMessage(true);
         }
@@ -296,7 +291,6 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
                 message: messageText,
                 threadId: langThreadId ?? '',
                 attachedFiles: [],
-                businessContext: businessInfo,
             });
 
             handleMessageResult(result, setMessages);
@@ -307,7 +301,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
         } finally {
             setIsLoading(false);
         }
-    }, [isLoading, isCreatingNewChat, hasUserSentMessage, langThreadId, businessInfo]);
+    }, [isLoading, isCreatingNewChat, hasUserSentMessage, langThreadId]);
 
     // Handle suggestion click - send suggestion as message
     const handleSuggestionClick = useCallback((suggestion: string) => {
@@ -317,10 +311,10 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
     // Handle voice-generated content
     const handleVoiceContentGenerated = useCallback((content: any) => {
         // Format content for display - handle both string and object responses
-        const contentText = typeof content === 'string' 
-            ? content 
+        const contentText = typeof content === 'string'
+            ? content
             : JSON.stringify(content, null, 2);
-        
+
         // Add a system message with the generated content
         setMessages(prev => [...prev, {
             role: 'model',
@@ -347,7 +341,6 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
             const result = await sendMessage({
                 message: 'yes',
                 threadId: langThreadId ?? '',
-                businessContext: businessInfo,
             });
 
             const aiResponse = result?.response;
@@ -364,7 +357,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
         } finally {
             setIsLoading(false);
         }
-    }, [langThreadId, businessInfo]);
+    }, [langThreadId]);
 
     // Show loading skeleton while authentication is initializing
     if (authLoading || !workspaceId || !user) {
@@ -428,7 +421,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
                                     {isHistoryVisible ? <PanelLeftClose className="w-5 h-5 text-foreground" /> : <History className="w-5 h-5 text-foreground" />}
                                 </button>
                             </div>
-                            
+
                             <div className="max-w-4xl mx-auto px-6 pt-8 pb-4">
                                 <Suspense fallback={
                                     <div className="flex items-start gap-3 py-4 animate-pulse">
@@ -440,8 +433,8 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
                                     </div>
                                 }>
                                     {messages.map((msg, index) => (
-                                        <MessageBubble 
-                                            key={index} 
+                                        <MessageBubble
+                                            key={index}
                                             msg={msg}
                                             isLoading={isLoading}
                                             onConfirmGeneration={handleConfirmGeneration}

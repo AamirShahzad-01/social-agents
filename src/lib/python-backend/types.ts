@@ -460,31 +460,15 @@ export interface PaginatedActivityLog {
     hasMore: boolean;
 }
 
-/** Business settings */
-export interface BusinessSettings {
-    id?: string;
-    workspace_id: string;
-    name?: string;
-    business_name?: string; // legacy alias
-    industry?: string;
-    description?: string;
-    target_audience?: string;
-    brand_voice?: string;
-    tone_of_voice?: string; // legacy alias
-    brand_colors?: string[];
-    logo_url?: string;
-    website?: string;
-    social_links?: Record<string, string>;
-}
 
 /** Workspace info */
 export interface WorkspaceInfo {
     workspace: Workspace;
     members: WorkspaceMember[];
-    business_settings?: BusinessSettings;
     member_count: number;
     role: string;
 }
+
 
 // =============================================================================
 // POSTS TYPES

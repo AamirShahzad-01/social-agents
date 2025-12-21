@@ -46,7 +46,7 @@ async def get_connection_status(
         
         # Get all credentials for the workspace
         result = supabase.table("social_accounts").select(
-            "platform, provider_account_id, account_name, created_at, expires_at"
+            "platform, account_id, account_name, created_at, expires_at"
         ).eq("workspace_id", workspace_id).execute()
         
         # Build status map
@@ -62,7 +62,7 @@ async def get_connection_status(
             if cred:
                 status[platform] = {
                     "connected": True,
-                    "accountId": cred.get("provider_account_id"),
+                    "accountId": cred.get("account_id"),
                     "accountName": cred.get("account_name"),
                     "connectedAt": cred.get("created_at"),
                     "expiresAt": cred.get("expires_at")
@@ -166,7 +166,7 @@ async def get_platform_credential(
         supabase = get_supabase_client()
         
         result = supabase.table("social_accounts").select(
-            "platform, provider_account_id, account_name, account_type, created_at, expires_at, scopes"
+            "platform, account_id, account_name, created_at, expires_at"
         ).eq("workspace_id", workspace_id).eq("platform", platform).single().execute()
         
         if not result.data:
@@ -180,12 +180,10 @@ async def get_platform_credential(
         return {
             "connected": True,
             "platform": platform,
-            "accountId": cred.get("provider_account_id"),
+            "accountId": cred.get("account_id"),
             "accountName": cred.get("account_name"),
-            "accountType": cred.get("account_type"),
             "connectedAt": cred.get("created_at"),
-            "expiresAt": cred.get("expires_at"),
-            "scopes": cred.get("scopes")
+            "expiresAt": cred.get("expires_at")
         }
         
     except HTTPException:

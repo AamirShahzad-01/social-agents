@@ -1,6 +1,5 @@
 import { Message } from '../types';
 import { ContentThread } from '@/services/database/threadService.client';
-import { BusinessInfo } from '@/types/businessInfo.types';
 
 export interface SendMessageParams {
     message: string;
@@ -11,7 +10,6 @@ export interface SendMessageParams {
         url: string;
         size: number;
     }>;
-    businessContext?: BusinessInfo;
     modelId?: string;
 }
 
@@ -42,9 +40,9 @@ function convertToAttachmentFormat(files: SendMessageParams['attachedFiles']): A
         // Detect file type from name and mime type
         let type: 'image' | 'pdf' | 'docx' | 'pptx' | 'document' | 'text' | 'csv' | 'json' = 'document';
         let mimeType: string | undefined;
-        
+
         const fileName = file.name.toLowerCase();
-        
+
         // Detect mime type from data URL
         if (file.url.startsWith('data:')) {
             const mimeMatch = file.url.match(/^data:([^;]+);/);
@@ -52,7 +50,7 @@ function convertToAttachmentFormat(files: SendMessageParams['attachedFiles']): A
                 mimeType = mimeMatch[1];
             }
         }
-        
+
         if (file.type === 'image' || fileName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|heic|heif)$/)) {
             type = 'image';
         } else if (fileName.endsWith('.pdf')) {
@@ -91,7 +89,6 @@ export const sendMessage = async (params: SendMessageParams): Promise<SendMessag
             message: params.message,
             threadId: params.threadId,
             attachments,
-            businessContext: params.businessContext,
             modelId: params.modelId,
         })
     });
@@ -119,7 +116,7 @@ export const handleMessageResult = (
             content: aiResponse,
         }]);
         shouldCreateThread = true;
-    } 
+    }
     // Check if ready to generate (show parameters for confirmation)
     else if (result?.readyToGenerate && result?.parameters) {
         setMessages(prev => [...prev, {
@@ -130,11 +127,11 @@ export const handleMessageResult = (
         shouldCreateThread = true;
     } else {
         // Regular conversation response
-        const newMessage: Message = { 
-            role: 'model', 
-            content: aiResponse 
+        const newMessage: Message = {
+            role: 'model',
+            content: aiResponse
         };
-        
+
         // Check if AI response includes generated media URLs
         if (result?.generatedImage) {
             newMessage.generatedImage = result.generatedImage;
@@ -145,7 +142,7 @@ export const handleMessageResult = (
         if (result?.isGeneratingMedia) {
             newMessage.isGeneratingMedia = true;
         }
-        
+
         setMessages(prev => [...prev, newMessage]);
         shouldCreateThread = true;
     }
@@ -155,47 +152,47 @@ export const handleMessageResult = (
 
 export const formatErrorMessage = (err: any): string => {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    
+
     // API Key / Authentication errors
     if (errorMessage.includes('API_KEY') || errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('API key')) {
         return '🔑 API key not configured or invalid. Please check your API settings.';
     }
-    
+
     // Rate limit / Quota errors
     if (errorMessage.includes('429') || errorMessage.includes('rate') || errorMessage.includes('quota') || errorMessage.includes('insufficient') || errorMessage.includes('Rate limit')) {
         return '⏳ Rate limit or quota exceeded. Please wait a moment or try a different model.';
     }
-    
+
     // Model not found / unavailable
     if (errorMessage.includes('Model not allowed') || (errorMessage.includes('model') && (errorMessage.includes('not found') || errorMessage.includes('does not exist') || errorMessage.includes('unexpected')))) {
         return '🤖 Selected model is unavailable. Please try a different model.';
     }
-    
+
     // Bad request / Invalid format
     if (errorMessage.includes('400') || errorMessage.includes('Bad Request') || errorMessage.includes('Invalid')) {
         return '❌ Invalid request. Please check your input and try again.';
     }
-    
+
     // Module / Service errors
     if (errorMessage.includes('MODULE_NOT_FOUND') || errorMessage.includes('Cannot find module')) {
         return '🔧 Service temporarily unavailable. Please try again later.';
     }
-    
+
     // Network / Connection errors
     if (errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('ECONNREFUSED') || err.code === 'ERR_NETWORK') {
         return '🌐 Connection error. Please check your internet connection.';
     }
-    
+
     // Timeout errors
     if (err.code === 'ECONNABORTED' || errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
         return '⏱️ Request timed out. Please try again.';
     }
-    
+
     // Server errors
     if (errorMessage.includes('500') || errorMessage.includes('502') || errorMessage.includes('503') || errorMessage.includes('Internal Server')) {
         return '🔧 Server error. Please try again in a few seconds.';
     }
-    
+
     // Generic fallback
     return '❌ Something went wrong. Please try again.';
 };

@@ -11,7 +11,6 @@ import {
     User,
     Wand2,
     Sparkles,
-    Building2,
     Palette,
     FolderOpen,
     Megaphone,
@@ -100,13 +99,6 @@ export function Sidebar() {
             <div className="border-t border-border p-4">
                 {/* Secondary Navigation */}
                 <div className="space-y-1 mb-3">
-                    <Link
-                        href="/dashboard/business-info"
-                        className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted hover:shadow-sm transition-all duration-200"
-                    >
-                        <Building2 className="h-4 w-4 text-muted-foreground transition-colors" />
-                        <span>Business Info</span>
-                    </Link>
                     <Link
                         href="/settings?tab=members"
                         className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted hover:shadow-sm transition-all duration-200"

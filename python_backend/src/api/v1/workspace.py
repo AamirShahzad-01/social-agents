@@ -68,40 +68,7 @@ class AcceptInviteRequest(BaseModel):
         return v.strip()
 
 
-class BusinessSettingsRequest(BaseModel):
-    """Request to update business settings"""
-    business_name: str = Field(..., alias="businessName", min_length=1, max_length=255)
-    industry: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = Field(None, max_length=2000)
-    website: Optional[str] = Field(None, max_length=500)
-    contact_email: Optional[EmailStr] = Field(None, alias="contactEmail")
-    phone: Optional[str] = Field(None, max_length=20)
-    address: Optional[str] = Field(None, max_length=500)
-    logo_url: Optional[str] = Field(None, alias="logoUrl", max_length=500)
-    social_links: Optional[dict] = Field(None, alias="socialLinks")
-    tone_of_voice: Optional[str] = Field(None, alias="toneOfVoice", max_length=100)
-    target_audience: Optional[str] = Field(None, alias="targetAudience", max_length=500)
-    brand_colors: Optional[list[str]] = Field(None, alias="brandColors", max_length=10)
-    
-    @field_validator('business_name', 'industry')
-    @classmethod
-    def validate_not_empty(cls, v):
-        if not v or not v.strip():
-            raise ValueError('Field cannot be empty')
-        return v.strip()
-    
-    @field_validator('brand_colors')
-    @classmethod
-    def validate_brand_colors(cls, v):
-        if v is not None:
-            hex_pattern = re.compile(r'^#(?:[0-9a-fA-F]{3}){1,2}$')
-            for color in v:
-                if not hex_pattern.match(color):
-                    raise ValueError(f'Invalid hex color: {color}')
-        return v
-    
-    class Config:
-        populate_by_name = True
+
 
 
 # ================== HELPER FUNCTIONS ==================
@@ -776,111 +743,6 @@ async def get_activity_log(
         raise HTTPException(status_code=500, detail="Failed to get activity log")
 
 
-# ================== BUSINESS SETTINGS ENDPOINTS ==================
-
-@router.get("/business-settings")
-async def get_business_settings(user: Dict[str, Any] = Depends(get_current_user)):
-    """
-    GET /api/v1/workspace/business-settings
-    Get business settings for the workspace.
-    """
-    try:
-        workspace_id, _ = await get_user_workspace_role(user)
-        
-        supabase = get_supabase_client()
-        
-        result = supabase.table("business_settings").select("*").eq(
-            "workspace_id", workspace_id
-        ).single().execute()
-        
-        return {
-            "success": True,
-            "data": result.data  # May be None if not set
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        # Not found is OK - return null
-        if "PGRST116" in str(e):  # No rows returned
-            return {"success": True, "data": None}
-        logger.error(f"Error getting business settings: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get business settings")
-
-
-@router.put("/business-settings")
-async def update_business_settings(
-    request: BusinessSettingsRequest,
-    user: Dict[str, Any] = Depends(get_current_user)
-):
-    """
-    PUT /api/v1/workspace/business-settings
-    Update business settings for the workspace.
-    """
-    try:
-        workspace_id, _ = await get_user_workspace_role(user)
-        user_id = user.get("id")
-        
-        supabase = get_supabase_client()
-        
-        settings_data = {
-            "workspace_id": workspace_id,
-            "business_name": request.business_name,
-            "industry": request.industry,
-            "description": request.description,
-            "website": request.website,
-            "contact_email": request.contact_email,
-            "phone": request.phone,
-            "address": request.address,
-            "logo_url": request.logo_url,
-            "social_links": request.social_links,
-            "tone_of_voice": request.tone_of_voice,
-            "target_audience": request.target_audience,
-            "brand_colors": request.brand_colors,
-            "updated_at": datetime.now().isoformat(),
-            "updated_by": user_id
-        }
-        
-        # Upsert settings
-        result = supabase.table("business_settings").upsert(
-            settings_data,
-            on_conflict="workspace_id"
-        ).execute()
-        
-        return {
-            "success": True,
-            "data": result.data[0] if result.data else None
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating business settings: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to save business settings")
-
-
-@router.delete("/business-settings")
-async def clear_business_settings(user: Dict[str, Any] = Depends(get_current_user)):
-    """
-    DELETE /api/v1/workspace/business-settings
-    Clear business settings for the workspace.
-    """
-    try:
-        workspace_id, _ = await get_user_workspace_role(user)
-        
-        supabase = get_supabase_client()
-        
-        supabase.table("business_settings").delete().eq(
-            "workspace_id", workspace_id
-        ).execute()
-        
-        return {"success": True}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error clearing business settings: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to clear business settings")
 
 
 # ================== INFO ENDPOINT ==================
@@ -919,12 +781,8 @@ async def get_workspace_api_info():
             },
             "/activity": {
                 "GET": "Get activity log (admin)"
-            },
-            "/business-settings": {
-                "GET": "Get business settings",
-                "PUT": "Update business settings",
-                "DELETE": "Clear business settings"
             }
         },
         "roles": ["admin", "editor", "viewer"]
     }
+

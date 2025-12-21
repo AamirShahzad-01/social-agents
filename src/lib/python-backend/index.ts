@@ -125,7 +125,6 @@ export type {
     InviteDetails,
     ActivityLogEntry,
     ActivityOptions,
-    BusinessSettings,
     WorkspaceInfo,
 
     // Posts types
