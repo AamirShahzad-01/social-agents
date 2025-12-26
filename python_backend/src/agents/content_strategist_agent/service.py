@@ -90,7 +90,7 @@ async def get_agent():
     global _agent
     if _agent is None:
         model = ChatGoogleGenerativeAI(
-            model="gemini-3-flash-preview",
+            model="gemini-2.5-flash",
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=0.7,
         )
@@ -174,24 +174,34 @@ async def content_strategist_chat(
         
         agent = await get_agent()
         
-        async for chunk in agent.astream(
+        # Track accumulated response for final message
+        accumulated_content = ""
+        
+        # Use stream_mode="messages" for token-by-token streaming
+        async for event in agent.astream(
             {"messages": [{"role": "user", "content": message_content}]},
             {"configurable": {"thread_id": thread_id}},
-            stream_mode="updates",
+            stream_mode="messages",
         ):
-            for step, data in chunk.items():
-                messages = data.get("messages", [])
-                if messages:
-                    last_message = messages[-1]
-                    raw_content = (
-                        last_message.content 
-                        if hasattr(last_message, 'content') 
-                        else str(last_message)
-                    )
+            # stream_mode="messages" yields (message_chunk, metadata) tuples
+            if isinstance(event, tuple) and len(event) == 2:
+                message_chunk, metadata = event
+                
+                # Extract content from the message chunk
+                if hasattr(message_chunk, 'content'):
+                    chunk_content = message_chunk.content
                     
-                    # Extract text from content - handle both string and list formats
-                    content = extract_text_content(raw_content)
-                    yield {"step": step, "content": content}
+                    # Handle list-format content from Gemini
+                    if isinstance(chunk_content, list):
+                        for block in chunk_content:
+                            if isinstance(block, dict) and block.get("type") == "text":
+                                text = block.get("text", "")
+                                if text:
+                                    accumulated_content += text
+                                    yield {"step": "streaming", "content": accumulated_content}
+                    elif isinstance(chunk_content, str) and chunk_content:
+                        accumulated_content += chunk_content
+                        yield {"step": "streaming", "content": accumulated_content}
         
         logger.info(f"Content strategist completed - Thread: {thread_id}")
         

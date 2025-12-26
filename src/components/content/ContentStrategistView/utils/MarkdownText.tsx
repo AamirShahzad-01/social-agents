@@ -85,13 +85,13 @@ const components = {
         </a>
     ),
     ul: ({ children }: { children?: React.ReactNode }) => (
-        <ul className="list-disc list-inside space-y-1.5 my-3 ml-1">{children}</ul>
+        <ul className="pl-6 space-y-1.5 my-3 list-disc [&_ul]:list-[circle] [&_ul_ul]:list-square marker:text-primary/70">{children}</ul>
     ),
     ol: ({ children }: { children?: React.ReactNode }) => (
-        <ol className="list-decimal list-inside space-y-1.5 my-3 ml-1">{children}</ol>
+        <ol className="pl-6 space-y-1.5 my-3 list-decimal [&_ol]:list-[lower-alpha] [&_ol_ol]:list-[lower-roman] marker:text-primary/70">{children}</ol>
     ),
     li: ({ children }: { children?: React.ReactNode }) => (
-        <li className="text-[15px] text-foreground">{children}</li>
+        <li className="text-[15px] text-foreground pl-1 leading-relaxed [&>ul]:mt-1.5 [&>ol]:mt-1.5">{children}</li>
     ),
     blockquote: ({ children }: { children?: React.ReactNode }) => (
         <blockquote className="border-l-4 border-border pl-4 my-3 text-muted-foreground italic">
@@ -122,6 +122,21 @@ const components = {
     ),
     em: ({ children }: { children?: React.ReactNode }) => (
         <em className="italic">{children}</em>
+    ),
+    img: ({ src, alt }: { src?: string; alt?: string }) => (
+        <span className="block my-3">
+            <img
+                src={src}
+                alt={alt || 'Image'}
+                className="max-w-full h-auto rounded-lg border border-border shadow-sm"
+                loading="lazy"
+            />
+            {alt && (
+                <span className="block text-xs text-muted-foreground mt-1 text-center">
+                    {alt}
+                </span>
+            )}
+        </span>
     ),
     code: ({ inline, className, children }: { inline?: boolean; className?: string; children?: React.ReactNode }) => {
         const match = /language-(\w+)/.exec(className || '');

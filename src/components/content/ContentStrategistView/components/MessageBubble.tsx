@@ -139,18 +139,14 @@ const AIMessage: React.FC<{
                     </div>
                 )}
 
-                {/* Message content with markdown */}
-                {msg.content && !msg.isStreaming && (
+                {/* Message content with markdown - render during both streaming and complete */}
+                {msg.content && (
                     <div className="text-[15px] leading-[1.7]">
                         <MarkdownText>{msg.content}</MarkdownText>
-                    </div>
-                )}
-
-                {/* Streaming content (no markdown processing) */}
-                {msg.content && msg.isStreaming && (
-                    <div className="text-[15px] leading-[1.7]">
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
-                        <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5" />
+                        {/* Typing cursor for streaming */}
+                        {msg.isStreaming && (
+                            <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5 align-middle" />
+                        )}
                     </div>
                 )}
 
