@@ -37,7 +37,6 @@ async def chat_strategist(request_body: ChatStrategistRequest):
     - Multiple LLM provider support (OpenAI, Anthropic, Google, Groq)
     - Vision model auto-selection for image inputs
     - Conversation memory with PostgreSQL persistence
-    - Business context integration
     - Structured output (conversational vs content generation)
     
     Args:

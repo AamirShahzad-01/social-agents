@@ -5,7 +5,6 @@ from .schemas import (
     ChatStrategistResponse,
     PlatformContent,
     GeneratedContent,
-    BusinessContext,
     AttachmentInput
 )
 from .prompts import get_unified_supervisor_system_instruction, PLATFORMS
@@ -17,7 +16,6 @@ __all__ = [
     "ChatStrategistResponse",
     "PlatformContent",
     "GeneratedContent",
-    "BusinessContext",
     "AttachmentInput",
     "get_unified_supervisor_system_instruction",
     "PLATFORMS",

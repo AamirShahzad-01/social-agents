@@ -3,7 +3,6 @@
 # Import from agent folders
 from ..agents.content_agent import (
     AttachmentInput,
-    BusinessContext,
     ChatMessage,
     ChatStrategistRequest,
     ChatStrategistResponse,
@@ -30,7 +29,6 @@ MediaImprovePromptResponse = ImprovePromptResponse
 __all__ = [
     # Content Agent
     "AttachmentInput",
-    "BusinessContext",
     "ChatMessage",
     "ChatStrategistRequest",
     "ChatStrategistResponse",

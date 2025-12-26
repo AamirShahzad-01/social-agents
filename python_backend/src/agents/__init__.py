@@ -9,7 +9,6 @@ from .content_agent import (
     ChatStrategistResponse,
     PlatformContent,
     GeneratedContent,
-    BusinessContext,
     AttachmentInput,
 )
 
@@ -83,7 +82,6 @@ __all__ = [
     "ChatStrategistResponse",
     "PlatformContent",
     "GeneratedContent",
-    "BusinessContext",
     "AttachmentInput",
     # Content Improvement Agent
     "improve_content_description",

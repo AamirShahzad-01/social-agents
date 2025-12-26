@@ -17,15 +17,6 @@ class AttachmentInput(BaseModel):
     size: Optional[int] = Field(None, description="File size in bytes")
 
 
-class BusinessContext(BaseModel):
-    """Business context for content generation"""
-    brandName: Optional[str] = Field(None, description="Brand or business name")
-    brandVoice: Optional[str] = Field(None, description="Brand voice and tone guidelines")
-    targetAudience: Optional[str] = Field(None, description="Target audience description")
-    keyMessages: Optional[List[str]] = Field(None, description="Key messages to communicate")
-    industry: Optional[str] = Field(None, description="Industry or sector")
-
-
 class ChatMessage(BaseModel):
     """Chat message in conversation history"""
     role: Literal["user", "assistant"] = Field(..., description="Message role")
@@ -38,7 +29,6 @@ class ChatStrategistRequest(BaseModel):
     userId: Optional[str] = Field(None, description="User ID for memory")
     threadId: Optional[str] = Field(None, description="Thread ID for conversation continuity")
     attachments: Optional[List[AttachmentInput]] = Field(None, description="Multimodal attachments")
-    businessContext: Optional[BusinessContext] = Field(None, description="Business context")
     modelId: Optional[str] = Field(None, description="LLM model ID (e.g., 'openai:gpt-4o')")
 
 
