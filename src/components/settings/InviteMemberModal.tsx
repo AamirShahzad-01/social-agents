@@ -1,314 +1,408 @@
 'use client'
 
 import React, { useState } from 'react'
+import { X, Mail, Link as LinkIcon, Copy, Check, Loader2 } from 'lucide-react'
 import { useNotifications } from '@/contexts/NotificationContext'
-import { X, Mail, Link2, Copy, Check, Loader2, AlertTriangle } from 'lucide-react'
-import { createInvite, getMembers, getWorkspace } from '@/lib/python-backend/api/workspace'
-import type { Workspace } from '@/lib/python-backend/types'
+import { createInvite } from '@/lib/python-backend/api/workspace'
+import { RoleBadge } from '@/components/ui/RoleBadge'
+
+type UserRole = 'admin' | 'editor' | 'viewer'
 
 interface InviteMemberModalProps {
   onClose: () => void
   onSuccess: () => void
 }
 
-type InviteType = 'email' | 'link'
-
-export default function InviteMemberModal({ onClose, onSuccess }: InviteMemberModalProps) {
+/**
+ * Invite Member Modal
+ * Modal dialog for inviting members via email or shareable link
+ * Features:
+ * - Email-specific invitations
+ * - Shareable links
+ * - Role selection with visual badges
+ * - Expiration settings
+ */
+export default function InviteMemberModal({
+  onClose,
+  onSuccess,
+}: InviteMemberModalProps) {
   const { addNotification } = useNotifications()
-  const [inviteType, setInviteType] = useState<InviteType>('email')
+  
+  // Email invitation state
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<'admin' | 'editor' | 'viewer'>('editor')
-  const [expiresInDays, setExpiresInDays] = useState(7)
-  const [loading, setLoading] = useState(false)
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [capacityError, setCapacityError] = useState<string | null>(null)
+  const [role, setRole] = useState<UserRole>('editor')
+  const [expiresInDays, setExpiresInDays] = useState<number | null>(7)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Validate email
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  const isValidEmail = email.trim() === '' || emailRegex.test(email.trim())
+  // Shareable link state
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
 
-  // Check workspace capacity on mount
-  React.useEffect(() => {
-    const checkCapacity = async () => {
-      try {
-        const [members, workspace] = await Promise.all([
-          getMembers(),
-          getWorkspace().catch(() => null as Workspace | null)
-        ])
-        const max = workspace?.max_users ?? 0
-        if (max && members.length >= max) {
-          setCapacityError(`Workspace is at capacity (${max} members)`)
-        }
-      } catch (error) {
-        console.error('Failed to check capacity:', error)
-      }
-    }
-    checkCapacity()
-  }, [])
+  // UI state
+  const [activeTab, setActiveTab] = useState<'email' | 'link'>('email')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  /**
+   * Close modal and reset all state
+   */
+  const handleClose = () => {
+    setEmail('')
+    setRole('editor')
+    setExpiresInDays(7)
+    setGeneratedLink(null)
+    setLinkCopied(false)
+    setActiveTab('email')
+    setIsSubmitting(false)
+    onClose()
+  }
+
+  /**
+   * Send email invitation
+   */
+  const handleEmailInvite = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validation
-    if (inviteType === 'email') {
-      if (!email.trim()) {
-        addNotification('error', 'Email Required', 'Please enter an email address')
-        return
-      }
-      if (!isValidEmail) {
-        addNotification('error', 'Invalid Email', 'Please enter a valid email address')
-        return
-      }
+    if (!email.trim()) {
+      addNotification('error', 'Email Required', 'Please enter an email address')
+      return
     }
 
+    if (!email.includes('@')) {
+      addNotification('error', 'Invalid Email', 'Please enter a valid email address')
+      return
+    }
+
+    setIsSubmitting(true)
+
     try {
-      setLoading(true)
-      const response = await createInvite({
-        email: inviteType === 'email' ? email.trim() : undefined,
+      const result = await createInvite({
+        email,
         role,
-        expiresInDays
+        expiresInDays: expiresInDays || undefined,
       })
 
-      setInviteUrl(response.inviteUrl)
-      addNotification('post_published', 'Invitation Created',
-        inviteType === 'email'
-          ? `Invitation sent to ${email}`
-          : 'Shareable invite link created'
-      )
+      addNotification('post_published', 'Invitation Sent', `Invitation sent to ${email}`)
+      setGeneratedLink(result.inviteUrl)
+      onSuccess()
 
-      // If email invite, close modal after success
-      if (inviteType === 'email') {
-        setTimeout(() => {
-          onSuccess()
-          onClose()
-        }, 1500)
-      }
+      // Reset email form
+      setEmail('')
     } catch (error: any) {
-      console.error('Failed to create invite:', error)
-      const errorMessage = error.response?.data?.detail || error.message || 'Failed to create invitation'
-      addNotification('error', 'Invitation Failed', errorMessage)
+      addNotification('error', 'Invitation Failed', error.message || 'Failed to send invitation')
     } finally {
-      setLoading(false)
+      setIsSubmitting(false)
     }
   }
 
-  const handleCopyLink = async () => {
-    if (!inviteUrl) return
+  /**
+   * Generate shareable link
+   */
+  const handleGenerateLink = async () => {
+    setIsSubmitting(true)
 
     try {
-      await navigator.clipboard.writeText(inviteUrl)
-      setCopied(true)
-      addNotification('post_published', 'Copied', 'Invite link copied to clipboard')
-      setTimeout(() => setCopied(false), 2000)
+      const result = await createInvite({
+        role,
+        expiresInDays: expiresInDays || undefined,
+      })
+
+      setGeneratedLink(result.inviteUrl)
+      addNotification('post_published', 'Link Generated', 'Invite link generated successfully')
+      onSuccess()
+    } catch (error: any) {
+      addNotification('error', 'Generation Failed', error.message || 'Failed to generate link')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  /**
+   * Copy link to clipboard
+   */
+  const handleCopyLink = async () => {
+    if (!generatedLink) return
+
+    try {
+      await navigator.clipboard.writeText(generatedLink)
+      setLinkCopied(true)
+      addNotification('post_published', 'Copied', 'Link copied to clipboard')
+
+      setTimeout(() => setLinkCopied(false), 2000)
     } catch (error) {
       addNotification('error', 'Copy Failed', 'Failed to copy link to clipboard')
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={handleClose}
+    >
+      <div
+        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-700 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Invite Member</h2>
+        <header className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Invite Team Members
+          </h2>
           <button
-            onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-            disabled={loading}
+            onClick={handleClose}
+            className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+            aria-label="Close modal"
           >
-            <X size={20} />
+            <X className="w-6 h-6" />
+          </button>
+        </header>
+
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setActiveTab('email')}
+            className={`flex-1 px-6 py-3 font-medium transition-colors flex items-center justify-center gap-2 ${
+              activeTab === 'email'
+                ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            <Mail className="w-5 h-5" />
+            Email Invitation
+          </button>
+          <button
+            onClick={() => setActiveTab('link')}
+            className={`flex-1 px-6 py-3 font-medium transition-colors flex items-center justify-center gap-2 ${
+              activeTab === 'link'
+                ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            <LinkIcon className="w-5 h-5" />
+            Shareable Link
           </button>
         </div>
 
-        {/* Capacity Warning */}
-        {capacityError && (
-          <div className="mx-6 mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-3">
-            <AlertTriangle className="text-yellow-600 flex-shrink-0 mt-0.5" size={20} />
-            <div className="text-sm">
-              <p className="font-medium text-yellow-900">Workspace At Capacity</p>
-              <p className="text-yellow-800 mt-1">{capacityError}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Show invite URL if created */}
-        {inviteUrl ? (
-          <div className="p-6 space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm font-medium text-green-900 mb-2">Invitation Created!</p>
-              <p className="text-xs text-green-700">
-                Share this link with the person you want to invite:
-              </p>
-            </div>
-
-            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-              <p className="text-xs text-gray-600 mb-2">Invite Link</p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={inviteUrl}
-                  readOnly
-                  className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded text-xs font-mono"
-                />
-                <button
-                  onClick={handleCopyLink}
-                  className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                  title="Copy to clipboard"
-                >
-                  {copied ? <Check size={18} /> : <Copy size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setInviteUrl(null)
-                  setEmail('')
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Create Another
-              </button>
-              <button
-                onClick={() => {
-                  onSuccess()
-                  onClose()
-                }}
-                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            {/* Invite Type Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-3">
-                Invitation Type
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setInviteType('email')}
-                  className={`p-4 border-2 rounded-lg flex flex-col items-center gap-2 transition-all ${inviteType === 'email'
-                    ? 'border-indigo-600 bg-indigo-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                >
-                  <Mail size={24} className={inviteType === 'email' ? 'text-indigo-600' : 'text-gray-400'} />
-                  <span className={`text-sm font-medium ${inviteType === 'email' ? 'text-indigo-900' : 'text-gray-700'}`}>
-                    Email Invite
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setInviteType('link')}
-                  className={`p-4 border-2 rounded-lg flex flex-col items-center gap-2 transition-all ${inviteType === 'link'
-                    ? 'border-indigo-600 bg-indigo-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                >
-                  <Link2 size={24} className={inviteType === 'link' ? 'text-indigo-600' : 'text-gray-400'} />
-                  <span className={`text-sm font-medium ${inviteType === 'link' ? 'text-indigo-900' : 'text-gray-700'}`}>
-                    Shareable Link
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* Email Input (only for email invites) */}
-            {inviteType === 'email' && (
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {activeTab === 'email' ? (
+            // EMAIL TAB
+            <form onSubmit={handleEmailInvite} className="space-y-6">
+              {/* Email Input */}
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
                   Email Address <span className="text-red-500">*</span>
                 </label>
                 <input
-                  id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="colleague@company.com"
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${!isValidEmail ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                    }`}
-                  disabled={loading}
+                  placeholder="colleague@example.com"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  disabled={isSubmitting}
                   required
                 />
-                {!isValidEmail && (
-                  <p className="text-xs text-red-600 mt-1">Please enter a valid email address</p>
-                )}
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  An invitation email will be sent to this address with a secure link
+                </p>
               </div>
-            )}
 
-            {/* Role Selection */}
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-900 mb-2">
-                Role
-              </label>
-              <select
-                id="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value as any)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                disabled={loading}
-              >
-                <option value="viewer">Viewer - Can view content</option>
-                <option value="editor">Editor - Can create and edit</option>
-                <option value="admin">Admin - Full access</option>
-              </select>
-            </div>
+              {/* Role Selection */}
+              <RoleSelector selectedRole={role} onRoleChange={setRole} />
 
-            {/* Expiration */}
-            <div>
-              <label htmlFor="expires" className="block text-sm font-medium text-gray-900 mb-2">
-                Link Expires In
-              </label>
-              <select
-                id="expires"
-                value={expiresInDays}
-                onChange={(e) => setExpiresInDays(parseInt(e.target.value))}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                disabled={loading}
-              >
-                <option value={1}>1 day</option>
-                <option value={7}>7 days</option>
-                <option value={14}>14 days</option>
-                <option value={30}>30 days</option>
-                <option value={90}>90 days</option>
-              </select>
-            </div>
+              {/* Expiration */}
+              <ExpirationSelector
+                expiresInDays={expiresInDays}
+                onExpirationChange={setExpiresInDays}
+              />
 
-            {/* Actions */}
-            <div className="flex gap-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                disabled={loading}
-              >
-                Cancel
-              </button>
+              {/* Generated Link Display */}
+              {generatedLink && (
+                <GeneratedLinkDisplay
+                  link={generatedLink}
+                  onCopy={handleCopyLink}
+                  copied={linkCopied}
+                />
+              )}
+
+              {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading || !!capacityError || (inviteType === 'email' && !isValidEmail)}
-                className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                disabled={isSubmitting}
+                className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
               >
-                {loading ? (
+                {isSubmitting ? (
                   <>
-                    <Loader2 className="animate-spin" size={18} />
-                    <span>Creating...</span>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Sending...
                   </>
                 ) : (
-                  <span>Create Invitation</span>
+                  <>
+                    <Mail className="w-5 h-5" />
+                    Send Invitation
+                  </>
                 )}
               </button>
+            </form>
+          ) : (
+            // LINK TAB
+            <div className="space-y-6">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Generate a shareable link that anyone can use to join your workspace.
+                  No email required!
+                </p>
+              </div>
+
+              <RoleSelector selectedRole={role} onRoleChange={setRole} />
+              <ExpirationSelector expiresInDays={expiresInDays} onExpirationChange={setExpiresInDays} />
+
+              {generatedLink ? (
+                <GeneratedLinkDisplay link={generatedLink} onCopy={handleCopyLink} copied={linkCopied} />
+              ) : (
+                <button
+                  onClick={handleGenerateLink}
+                  disabled={isSubmitting}
+                  className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <LinkIcon className="w-5 h-5" />
+                      Generate Invite Link
+                    </>
+                  )}
+                </button>
+              )}
             </div>
-          </form>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )
 }
+
+/**
+ * Role Selector Component
+ */
+interface RoleSelectorProps {
+  selectedRole: UserRole
+  onRoleChange: (role: UserRole) => void
+}
+
+const RoleSelector: React.FC<RoleSelectorProps> = ({
+  selectedRole,
+  onRoleChange,
+}) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+      Role <span className="text-red-500">*</span>
+    </label>
+    <div className="grid grid-cols-3 gap-3">
+      {(['admin', 'editor', 'viewer'] as UserRole[]).map((r) => (
+        <button
+          key={r}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onRoleChange(r)
+          }}
+          className={`p-3 border-2 rounded-lg transition-all cursor-pointer ${
+            selectedRole === r
+              ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-600/30'
+              : 'border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          <div className="pointer-events-none flex flex-col items-center">
+            <RoleBadge role={r} size="sm" />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+              {r === 'admin' && 'Full control'}
+              {r === 'editor' && 'Create & edit'}
+              {r === 'viewer' && 'View only'}
+            </p>
+          </div>
+        </button>
+      ))}
+    </div>
+  </div>
+)
+
+/**
+ * Expiration Selector Component
+ */
+interface ExpirationSelectorProps {
+  expiresInDays: number | null
+  onExpirationChange: (days: number | null) => void
+}
+
+const ExpirationSelector: React.FC<ExpirationSelectorProps> = ({
+  expiresInDays,
+  onExpirationChange,
+}) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+      Link Expiration
+    </label>
+    <select
+      value={expiresInDays?.toString() || 'never'}
+      onChange={(e) =>
+        onExpirationChange(e.target.value === 'never' ? null : parseInt(e.target.value))
+      }
+      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+    >
+      <option value="1">24 hours</option>
+      <option value="7">7 days</option>
+      <option value="30">30 days</option>
+      <option value="never">Never expires</option>
+    </select>
+  </div>
+)
+
+/**
+ * Generated Link Display Component
+ */
+interface GeneratedLinkDisplayProps {
+  link: string
+  onCopy: () => void
+  copied: boolean
+}
+
+const GeneratedLinkDisplay: React.FC<GeneratedLinkDisplayProps> = ({
+  link,
+  onCopy,
+  copied,
+}) => (
+  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+    <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-2">
+      Invitation link generated:
+    </p>
+    <div className="flex gap-2">
+      <input
+        type="text"
+        value={link}
+        readOnly
+        className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-green-300 dark:border-green-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100"
+      />
+      <button
+        type="button"
+        onClick={onCopy}
+        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+      >
+        {copied ? (
+          <>
+            <Check className="w-4 h-4" />
+            Copied
+          </>
+        ) : (
+          <>
+            <Copy className="w-4 h-4" />
+            Copy
+          </>
+        )}
+      </button>
+    </div>
+  </div>
+)

@@ -259,10 +259,18 @@ async def log_activity(
     user_id: Optional[str] = None,
     old_values: Optional[Dict[str, Any]] = None,
     new_values: Optional[Dict[str, Any]] = None,
+    details: Optional[Dict[str, Any]] = None,
     ip_address: Optional[str] = None,
     user_agent: Optional[str] = None
 ) -> Dict[str, Any]:
     """Log activity to activity_logs table"""
+    # Combine old_values/new_values into details if details not provided
+    combined_details = details or {}
+    if old_values:
+        combined_details["old_values"] = old_values
+    if new_values:
+        combined_details["new_values"] = new_values
+    
     data = {
         "workspace_id": workspace_id,
         "action": action,
@@ -271,11 +279,107 @@ async def log_activity(
         "user_id": user_id,
         "old_values": old_values,
         "new_values": new_values,
+        "details": combined_details,
         "ip_address": ip_address,
         "user_agent": user_agent,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     return await db_insert("activity_logs", data)
+
+
+async def ensure_user_workspace(
+    user_id: str,
+    user_email: Optional[str] = None
+) -> str:
+    """
+    Ensure user has a workspace, creating one if needed.
+    Matches reference project's ensureUserWorkspace pattern.
+    
+    Returns workspace_id.
+    """
+    try:
+        client = get_supabase_admin_client()
+        
+        # Check if user already has a workspace
+        user_result = client.table("users").select(
+            "workspace_id, role"
+        ).eq("id", user_id).maybeSingle().execute()
+        
+        if user_result.data and user_result.data.get("workspace_id"):
+            return user_result.data["workspace_id"]
+        
+        # User doesn't have workspace - create one
+        workspace_name = f"{user_email.split('@')[0]}'s Workspace" if user_email else "New Workspace"
+        
+        # Create workspace
+        workspace_result = client.table("workspaces").insert({
+            "name": workspace_name,
+            "max_users": 10,
+            "is_active": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }).execute()
+        
+        if not workspace_result.data:
+            raise Exception("Failed to create workspace")
+        
+        workspace_id = workspace_result.data[0]["id"]
+        
+        # Create or update user record with workspace
+        if user_result.data:
+            # Update existing user
+            client.table("users").update({
+                "workspace_id": workspace_id,
+                "role": "admin",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", user_id).execute()
+        else:
+            # Create new user record
+            client.table("users").insert({
+                "id": user_id,
+                "workspace_id": workspace_id,
+                "email": user_email,
+                "role": "admin",
+                "is_active": True,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }).execute()
+        
+        logger.info(f"Created workspace {workspace_id} for user {user_id}")
+        return workspace_id
+        
+    except Exception as e:
+        logger.error(f"Error ensuring user workspace: {e}")
+        raise Exception(f"Failed to initialize workspace: {str(e)}")
+
+
+async def is_workspace_full(workspace_id: str) -> bool:
+    """Check if workspace has reached maximum member capacity"""
+    try:
+        client = get_supabase_admin_client()
+        
+        # Get workspace max_users
+        workspace = client.table("workspaces").select(
+            "max_users"
+        ).eq("id", workspace_id).single().execute()
+        
+        if not workspace.data:
+            return True  # Fail safe - block if workspace not found
+        
+        max_users = workspace.data.get("max_users", 10)
+        
+        # Count current members
+        members = client.table("users").select(
+            "id", count="exact"
+        ).eq("workspace_id", workspace_id).eq("is_active", True).execute()
+        
+        current_count = members.count or 0
+        
+        return current_count >= max_users
+        
+    except Exception as e:
+        logger.error(f"Error checking workspace capacity: {e}")
+        return True  # Fail safe
 
 
 async def register_media_asset(

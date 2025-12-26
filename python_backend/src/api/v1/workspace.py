@@ -12,7 +12,13 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel, Field, EmailStr, field_validator
 
-from src.services.supabase_service import get_supabase_client, get_supabase_admin_client
+from src.services.supabase_service import (
+    get_supabase_client, 
+    get_supabase_admin_client,
+    ensure_user_workspace,
+    is_workspace_full,
+    log_activity
+)
 from src.config import settings
 from src.middleware.auth import get_current_user
 
