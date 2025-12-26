@@ -193,11 +193,9 @@ export const ENDPOINTS = {
     health: '/health',
     providers: '/api/v1/providers',
 
-    // Content Agent
+    // Content Agent (single streaming endpoint)
     content: {
         chat: '/content/strategist/chat',
-        chatStream: '/content/strategist/chat-stream',
-        history: (threadId: string) => `/content/strategist/history/${threadId}`,
     },
 
     // Media Generation

@@ -43,73 +43,45 @@ export interface PaginatedResponse<T> {
 // CONTENT AGENT TYPES
 // =============================================================================
 
-/** Attachment types for content agent */
-export interface ContentAttachment {
-    type: 'image' | 'document' | 'pdf';
-    url?: string;
-    base64?: string;
+/** Multimodal content block for LangChain */
+export interface ContentBlock {
+    type: 'text' | 'image' | 'file';
     mimeType?: string;
-    filename?: string;
-}
-
-/** Business context for content generation */
-export interface BusinessContext {
-    name?: string;
-    industry?: string;
-    description?: string;
-    targetAudience?: string;
-    brandVoice?: string;
+    data?: string;  // Base64 encoded
+    text?: string;
+    metadata?: {
+        name?: string;
+        filename?: string;
+    };
 }
 
 /** Request to chat with content strategist */
 export interface ChatStrategistRequest {
     message: string;
     threadId: string;
-    userId?: string;
     modelId?: string;
-    attachments?: ContentAttachment[];
-    businessContext?: BusinessContext;
-}
-
-/** Generated content from content agent */
-export interface GeneratedContent {
-    topic: string;
-    platforms: string[];
-    platformTemplates?: Record<string, string>;
+    contentBlocks?: ContentBlock[];
 }
 
 /** Response from content strategist chat */
 export interface ChatStrategistResponse {
-    message: string;
+    response: string;
     threadId: string;
     contentGenerated: boolean;
-    content?: GeneratedContent;
-    error?: string;
+    readyToGenerate: boolean;
+    isGeneratingMedia: boolean;
 }
 
 /** SSE event types for streaming */
-export type StreamEventType = 'token' | 'content' | 'done' | 'error';
+export type StreamEventType = 'update' | 'done' | 'error';
 
 /** SSE event data */
 export interface StreamEvent {
     type: StreamEventType;
+    step?: string;
     content?: string;
-    fullResponse?: string;
+    response?: string;
     message?: string;
-}
-
-/** Chat history checkpoint */
-export interface ChatCheckpoint {
-    checkpoint_id?: string;
-    created_at?: string;
-    step?: number;
-}
-
-/** Chat history response */
-export interface ChatHistoryResponse {
-    success: boolean;
-    thread_id: string;
-    checkpoints: ChatCheckpoint[];
 }
 
 // =============================================================================

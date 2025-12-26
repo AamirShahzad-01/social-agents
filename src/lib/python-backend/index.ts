@@ -73,15 +73,11 @@ export type {
     PaginatedResponse,
 
     // Content types
-    ContentAttachment,
-    BusinessContext,
+    ContentBlock,
     ChatStrategistRequest,
     ChatStrategistResponse,
-    GeneratedContent,
     StreamEvent,
     StreamEventType,
-    ChatCheckpoint,
-    ChatHistoryResponse,
 
     // Media types
     MediaGenerationRequest,

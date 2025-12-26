@@ -1,138 +1,112 @@
 /**
  * Content Agent API
  * 
- * API client for the Python backend content strategist agent.
- * Provides chat, streaming, and history retrieval functionality.
+ * Streaming chat with the Python backend content strategist agent.
+ * Supports multimodal input (text, images, PDFs).
  */
 
-import { get, post, streamPost } from '../client';
-import { ENDPOINTS } from '../config';
-import type {
-    ChatStrategistRequest,
-    ChatStrategistResponse,
-    ChatHistoryResponse,
-    StreamEvent,
-} from '../types';
+import { ENDPOINTS, getEndpointUrl } from '../config';
+import { ContentBlock } from '@/lib/multimodal-utils';
+
+export interface ChatRequest {
+    message: string;
+    threadId: string;
+    modelId?: string;
+    /** Content blocks for multimodal input (images, PDFs) */
+    contentBlocks?: ContentBlock[];
+}
+
+export interface StreamEvent {
+    type: 'update' | 'done' | 'error';
+    step?: string;
+    content?: string;
+    response?: string;
+    message?: string;
+}
 
 /**
- * Chat with the content strategist agent
+ * Chat with content strategist (streaming)
  * 
- * Sends a message to the AI content strategist and receives a response.
- * Supports multimodal input (text, images, documents).
+ * Opens SSE connection and streams response.
+ * Supports multimodal input via contentBlocks.
  * 
- * @param request - Chat request with message and optional attachments
- * @returns Promise resolving to chat response
- * 
- * @example
- * ```typescript
- * const response = await chatStrategist({
- *   message: "Create a LinkedIn post about AI trends",
- *   threadId: "thread-123",
- *   modelId: "gemini-2.5-flash"
- * });
- * ```
+ * @param request - Chat request with message, threadId, and optional contentBlocks
+ * @param onUpdate - Callback for each content update
+ * @param onComplete - Callback when stream completes
+ * @param onError - Callback for errors
  */
 export async function chatStrategist(
-    request: ChatStrategistRequest
-): Promise<ChatStrategistResponse> {
-    return post<ChatStrategistResponse>(
-        ENDPOINTS.content.chat,
-        request
-    );
-}
-
-/**
- * Chat with content strategist using streaming response
- * 
- * Opens a Server-Sent Events connection for real-time token streaming.
- * Useful for displaying response as it's generated.
- * 
- * @param request - Chat request
- * @param onToken - Callback invoked for each token received
- * @param onContent - Callback for generated content chunks
- * @param onComplete - Callback when stream completes with full response
- * @param onError - Callback for error handling
- * 
- * @example
- * ```typescript
- * await chatStrategistStream(
- *   { message: "Create a post", threadId: "thread-123" },
- *   (token) => appendToDisplay(token),
- *   (content) => setGeneratedContent(content),
- *   (fullResponse) => console.log("Complete:", fullResponse),
- *   (error) => console.error("Error:", error)
- * );
- * ```
- */
-export async function chatStrategistStream(
-    request: ChatStrategistRequest,
-    onToken: (token: string) => void,
-    onContent?: (content: string) => void,
-    onComplete?: (fullResponse: string) => void,
-    onError?: (error: Error) => void
+    request: ChatRequest,
+    onUpdate: (content: string) => void,
+    onComplete: (response: string) => void,
+    onError: (error: Error) => void
 ): Promise<void> {
-    return streamPost<StreamEvent>(
-        ENDPOINTS.content.chatStream,
-        request,
-        (event) => {
-            switch (event.type) {
-                case 'token':
-                    if (event.content) {
-                        onToken(event.content);
-                    }
-                    break;
-                case 'content':
-                    if (event.content && onContent) {
-                        onContent(event.content);
-                    }
-                    break;
-                case 'done':
-                    if (event.fullResponse && onComplete) {
-                        onComplete(event.fullResponse);
-                    }
-                    break;
-                case 'error':
-                    if (onError) {
-                        onError(new Error(event.message || 'Stream error'));
-                    }
-                    break;
-            }
-        },
-        onError,
-        () => {
-            // Stream completed without explicit done event
+    const url = getEndpointUrl(ENDPOINTS.content.chat);
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'text/event-stream',
+            },
+            body: JSON.stringify(request),
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-    );
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+            throw new Error('No response body');
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let fullResponse = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+
+            // Process complete SSE messages
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const data: StreamEvent = JSON.parse(line.slice(6));
+
+                        if (data.type === 'update' && data.content) {
+                            fullResponse = data.content;
+                            onUpdate(data.content);
+                        } else if (data.type === 'done') {
+                            onComplete(data.response || fullResponse);
+                            return;
+                        } else if (data.type === 'error') {
+                            throw new Error(data.message || 'Stream error');
+                        }
+                    } catch (parseError) {
+                        // Skip invalid JSON
+                    }
+                }
+            }
+        }
+
+        onComplete(fullResponse);
+
+    } catch (error) {
+        onError(error instanceof Error ? error : new Error(String(error)));
+    }
 }
 
 /**
- * Get chat history for a thread
- * 
- * Retrieves conversation checkpoints for memory persistence.
- * 
- * @param threadId - Thread ID to retrieve history for
- * @returns Promise resolving to chat history with checkpoints
- * 
- * @example
- * ```typescript
- * const history = await getChatHistory("thread-123");
- * console.log("Checkpoints:", history.checkpoints);
- * ```
- */
-export async function getChatHistory(
-    threadId: string
-): Promise<ChatHistoryResponse> {
-    return get<ChatHistoryResponse>(
-        ENDPOINTS.content.history(threadId)
-    );
-}
-
-/**
- * Create a new chat thread ID
- * 
- * Utility function to generate a unique thread ID for new conversations.
- * 
- * @returns Unique thread ID string
+ * Create a unique thread ID
  */
 export function createThreadId(): string {
     return `thread-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;

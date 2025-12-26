@@ -4,29 +4,26 @@ export interface ContentStrategistViewProps {
     onPostCreated: (post: Post) => void;
 }
 
-export type Message = {
-    role: 'user' | 'model' | 'system';
-    content: string;
-    postData?: any;
-    parameters?: any;
-    isFirstMessage?: boolean;
-    attachments?: Array<{
-        type: 'image' | 'file';
-        name: string;
-        url: string;
-        size?: number;
-    }>;
-    generatedImage?: string;
-    generatedVideo?: string;
-    isGeneratingMedia?: boolean;
-    suggestions?: string[];
-};
-
 export interface AttachedFile {
     type: 'image' | 'file';
     name: string;
     url: string;
-    size: number;
+    size?: number;
+}
+
+export interface Message {
+    role: 'user' | 'model' | 'system';
+    content: string;
+    attachments?: AttachedFile[];
+    isStreaming?: boolean;
+    suggestions?: string[];
+    // Media generation
+    generatedImage?: string;
+    generatedVideo?: string;
+    isGeneratingMedia?: boolean;
+    // Post creation (legacy)
+    postData?: any;
+    parameters?: any;
 }
 
 export interface CarouselSlide {

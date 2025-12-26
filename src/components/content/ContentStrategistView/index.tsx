@@ -70,6 +70,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
     } = useThreadManagement();
 
     const {
+        contentBlocks,
         attachedFiles,
         showUploadMenu,
         fileInputRef,
@@ -77,7 +78,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
         error: fileError,
         handleFileUpload,
         removeAttachment,
-        clearAttachments,
+        clearBlocks,
         setShowUploadMenu,
         setError: setFileError
     } = useFileUpload();
@@ -223,7 +224,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
         };
         setMessages(prev => [...prev, userMessage]);
         setUserInput('');
-        clearAttachments();
+        clearBlocks();
         setIsLoading(true);
         setError(null);
 
@@ -235,7 +236,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
             const result = await sendMessage({
                 message: currentMessage,
                 threadId: langThreadId ?? '',
-                attachedFiles: attachedFiles,
+                contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
                 modelId: selectedModelId,
             });
 
@@ -267,7 +268,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
         } finally {
             setIsLoading(false);
         }
-    }, [userInput, isLoading, isCreatingNewChat, attachedFiles, hasUserSentMessage, langThreadId, currentThreadId, createThread, addThread, clearAttachments]);
+    }, [userInput, isLoading, isCreatingNewChat, contentBlocks, attachedFiles, hasUserSentMessage, langThreadId, currentThreadId, createThread, addThread, clearBlocks, selectedModelId]);
 
     // Send a message directly (used by suggestion clicks)
     const sendMessageDirect = useCallback(async (messageText: string) => {
@@ -290,7 +291,6 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
             const result = await sendMessage({
                 message: messageText,
                 threadId: langThreadId ?? '',
-                attachedFiles: [],
             });
 
             handleMessageResult(result, setMessages);

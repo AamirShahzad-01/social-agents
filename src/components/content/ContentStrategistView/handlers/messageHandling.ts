@@ -1,198 +1,110 @@
+/**
+ * Message Handling for Content Strategist
+ * 
+ * Handles sending messages with multimodal content (text, images, PDFs).
+ */
+
+import { chatStrategist, createThreadId, ChatRequest } from '@/lib/python-backend/api/content';
+import { ContentBlock } from '@/lib/multimodal-utils';
 import { Message } from '../types';
-import { ContentThread } from '@/services/database/threadService.client';
 
 export interface SendMessageParams {
     message: string;
     threadId: string;
-    attachedFiles?: Array<{
-        type: 'image' | 'file';
-        name: string;
-        url: string;
-        size: number;
-    }>;
+    contentBlocks?: ContentBlock[];
     modelId?: string;
 }
 
-export interface SendMessageResult {
+export interface MessageResult {
     response: string;
-    contentGenerated?: boolean;
-    generatedContent?: any;
-    readyToGenerate?: boolean;
-    parameters?: any;
-    generatedImage?: string;
-    generatedVideo?: string;
-    isGeneratingMedia?: boolean;
+    threadId: string;
 }
 
 /**
- * Convert frontend AttachedFile to API AttachmentInput format
+ * Send message to content strategist
+ * 
+ * Internally uses streaming but returns final result.
+ * Supports multimodal input via contentBlocks.
  */
-function convertToAttachmentFormat(files: SendMessageParams['attachedFiles']): Array<{
-    type: 'image' | 'pdf' | 'docx' | 'pptx' | 'document' | 'text' | 'csv' | 'json';
-    name: string;
-    data: string;
-    mimeType?: string;
-    size?: number;
-}> | undefined {
-    if (!files || files.length === 0) return undefined;
+export async function sendMessage(params: SendMessageParams): Promise<MessageResult> {
+    const { message, threadId, contentBlocks, modelId } = params;
 
-    return files.map(file => {
-        // Detect file type from name and mime type
-        let type: 'image' | 'pdf' | 'docx' | 'pptx' | 'document' | 'text' | 'csv' | 'json' = 'document';
-        let mimeType: string | undefined;
+    const request: ChatRequest = {
+        message,
+        threadId: threadId || createThreadId(),
+        modelId,
+        contentBlocks,
+    };
 
-        const fileName = file.name.toLowerCase();
+    return new Promise((resolve, reject) => {
+        let finalResponse = '';
 
-        // Detect mime type from data URL
-        if (file.url.startsWith('data:')) {
-            const mimeMatch = file.url.match(/^data:([^;]+);/);
-            if (mimeMatch) {
-                mimeType = mimeMatch[1];
+        chatStrategist(
+            request,
+            (content) => {
+                finalResponse = content;
+            },
+            (response) => {
+                resolve({
+                    response: response || finalResponse,
+                    threadId: request.threadId,
+                });
+            },
+            (error) => {
+                reject(error);
             }
-        }
-
-        if (file.type === 'image' || fileName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|heic|heif)$/)) {
-            type = 'image';
-        } else if (fileName.endsWith('.pdf')) {
-            type = 'pdf';
-        } else if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
-            type = 'docx';
-        } else if (fileName.endsWith('.pptx') || fileName.endsWith('.ppt')) {
-            type = 'pptx';
-        } else if (fileName.endsWith('.csv')) {
-            type = 'csv';
-        } else if (fileName.endsWith('.json')) {
-            type = 'json';
-        } else if (fileName.endsWith('.txt') || fileName.endsWith('.md')) {
-            type = 'text';
-        }
-
-
-        return {
-            type,
-            name: file.name,
-            data: file.url, // base64 data URL
-            mimeType,
-            size: file.size,
-        };
+        );
     });
 }
 
-export const sendMessage = async (params: SendMessageParams): Promise<SendMessageResult> => {
-    const attachments = convertToAttachmentFormat(params.attachedFiles);
+/**
+ * Send message with streaming callbacks
+ */
+export async function sendMessageStream(
+    params: SendMessageParams,
+    onUpdate: (content: string) => void,
+    onComplete: (response: string) => void,
+    onError: (error: Error) => void
+): Promise<void> {
+    const { message, threadId, contentBlocks, modelId } = params;
 
+    const request: ChatRequest = {
+        message,
+        threadId: threadId || createThreadId(),
+        modelId,
+        contentBlocks,
+    };
 
-    const response = await fetch('/api/ai/content/strategist/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            message: params.message,
-            threadId: params.threadId,
-            attachments,
-            modelId: params.modelId,
-        })
-    });
+    return chatStrategist(request, onUpdate, onComplete, onError);
+}
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get response');
-    }
-
-    return await response.json();
-};
-
-export const handleMessageResult = (
-    result: SendMessageResult,
+/**
+ * Handle message result - add AI response to messages
+ */
+export function handleMessageResult(
+    result: MessageResult,
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>
-): boolean => {
-    const aiResponse = result?.response;
-    let shouldCreateThread = false;
-
-    // Check if content was generated by the agent
-    if (result?.contentGenerated && result?.generatedContent) {
-        // Just show the AI response, don't create post automatically
+): void {
+    if (result?.response) {
         setMessages(prev => [...prev, {
             role: 'model',
-            content: aiResponse,
+            content: result.response,
         }]);
-        shouldCreateThread = true;
     }
-    // Check if ready to generate (show parameters for confirmation)
-    else if (result?.readyToGenerate && result?.parameters) {
-        setMessages(prev => [...prev, {
-            role: 'model',
-            content: aiResponse,
-            parameters: result.parameters,
-        }]);
-        shouldCreateThread = true;
-    } else {
-        // Regular conversation response
-        const newMessage: Message = {
-            role: 'model',
-            content: aiResponse
-        };
+}
 
-        // Check if AI response includes generated media URLs
-        if (result?.generatedImage) {
-            newMessage.generatedImage = result.generatedImage;
+/**
+ * Format error message for user display
+ */
+export function formatErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+        if (error.message.includes('fetch')) {
+            return 'Unable to connect to the AI service. Please check your connection.';
         }
-        if (result?.generatedVideo) {
-            newMessage.generatedVideo = result.generatedVideo;
+        if (error.message.includes('HTTP')) {
+            return `Server error: ${error.message}`;
         }
-        if (result?.isGeneratingMedia) {
-            newMessage.isGeneratingMedia = true;
-        }
-
-        setMessages(prev => [...prev, newMessage]);
-        shouldCreateThread = true;
+        return error.message;
     }
-
-    return shouldCreateThread;
-};
-
-export const formatErrorMessage = (err: any): string => {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-
-    // API Key / Authentication errors
-    if (errorMessage.includes('API_KEY') || errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('API key')) {
-        return '🔑 API key not configured or invalid. Please check your API settings.';
-    }
-
-    // Rate limit / Quota errors
-    if (errorMessage.includes('429') || errorMessage.includes('rate') || errorMessage.includes('quota') || errorMessage.includes('insufficient') || errorMessage.includes('Rate limit')) {
-        return '⏳ Rate limit or quota exceeded. Please wait a moment or try a different model.';
-    }
-
-    // Model not found / unavailable
-    if (errorMessage.includes('Model not allowed') || (errorMessage.includes('model') && (errorMessage.includes('not found') || errorMessage.includes('does not exist') || errorMessage.includes('unexpected')))) {
-        return '🤖 Selected model is unavailable. Please try a different model.';
-    }
-
-    // Bad request / Invalid format
-    if (errorMessage.includes('400') || errorMessage.includes('Bad Request') || errorMessage.includes('Invalid')) {
-        return '❌ Invalid request. Please check your input and try again.';
-    }
-
-    // Module / Service errors
-    if (errorMessage.includes('MODULE_NOT_FOUND') || errorMessage.includes('Cannot find module')) {
-        return '🔧 Service temporarily unavailable. Please try again later.';
-    }
-
-    // Network / Connection errors
-    if (errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('ECONNREFUSED') || err.code === 'ERR_NETWORK') {
-        return '🌐 Connection error. Please check your internet connection.';
-    }
-
-    // Timeout errors
-    if (err.code === 'ECONNABORTED' || errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
-        return '⏱️ Request timed out. Please try again.';
-    }
-
-    // Server errors
-    if (errorMessage.includes('500') || errorMessage.includes('502') || errorMessage.includes('503') || errorMessage.includes('Internal Server')) {
-        return '🔧 Server error. Please try again in a few seconds.';
-    }
-
-    // Generic fallback
-    return '❌ Something went wrong. Please try again.';
-};
+    return 'An unexpected error occurred. Please try again.';
+}
