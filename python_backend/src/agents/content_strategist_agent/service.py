@@ -174,21 +174,23 @@ async def content_strategist_chat(
         
         agent = await get_agent()
         
-        async for chunk in agent.astream(
+        accumulated_content = ""
+        
+        # Use astream_events (v2) for token-level streaming
+        # This provides immediate feedback vs waiting for full response
+        async for event in agent.astream_events(
             {"messages": [{"role": "user", "content": message_content}]},
-            {"configurable": {"thread_id": thread_id}},
-            stream_mode="updates",
+            config={"configurable": {"thread_id": thread_id}},
+            version="v2"
         ):
-            for step, data in chunk.items():
-                messages = data.get("messages", [])
-                if messages:
-                    last_message = messages[-1]
-                    content = (
-                        last_message.content 
-                        if hasattr(last_message, 'content') 
-                        else str(last_message)
-                    )
-                    yield {"step": step, "content": content}
+            kind = event["event"]
+            
+            # Stream tokens from the model
+            if kind == "on_chat_model_stream":
+                chunk = event["data"]["chunk"]
+                if hasattr(chunk, "content") and chunk.content:
+                    accumulated_content += chunk.content
+                    yield {"step": "stream", "content": accumulated_content}
         
         logger.info(f"Content strategist completed - Thread: {thread_id}")
         
