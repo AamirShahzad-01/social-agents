@@ -46,3 +46,6 @@ tenacity==9.0.0
 
 # Logging & Monitoring
 structlog==24.4.0
+
+# Cloudinary (Media Storage & CDN)
+cloudinary==1.40.0

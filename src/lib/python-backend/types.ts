@@ -879,3 +879,82 @@ export interface HealthResponse {
     llm_factory: string;
     environment: 'debug' | 'production';
 }
+
+// =============================================================================
+// CLOUDINARY TYPES
+// =============================================================================
+
+/** Cloudinary media type */
+export type CloudinaryMediaType = 'image' | 'video' | 'audio';
+
+/** Cloudinary resource type */
+export type CloudinaryResourceType = 'image' | 'video';
+
+/** Cloudinary upload result */
+export interface CloudinaryUploadResult {
+    success: boolean;
+    public_id: string;
+    url: string;
+    secure_url: string;
+    resource_type: string;
+    format: string;
+    bytes: number;
+    width?: number;
+    height?: number;
+    duration?: number;
+    error?: string;
+}
+
+/** Cloudinary media info */
+export interface CloudinaryMediaInfo {
+    public_id: string;
+    resource_type: string;
+    format: string;
+    bytes: number;
+    url: string;
+    secure_url: string;
+    width?: number;
+    height?: number;
+    duration?: number;
+    created_at?: string;
+}
+
+/** Cloudinary transform options */
+export interface CloudinaryTransformOptions {
+    width?: number;
+    height?: number;
+    platform?: string;
+    quality?: string;
+    format?: string;
+}
+
+/** Cloudinary transform result */
+export interface CloudinaryTransformResult {
+    url: string;
+    public_id: string;
+    platform?: string;
+}
+
+/** Cloudinary platform preset */
+export interface CloudinaryPlatformPreset {
+    width: number;
+    height: number;
+    aspect_ratio?: string;
+    max_duration?: number | null;
+}
+
+/** Cloudinary presets response */
+export interface CloudinaryPresetsResponse {
+    video_presets: Record<string, CloudinaryPlatformPreset>;
+    image_presets: Record<string, CloudinaryPlatformPreset>;
+}
+
+/** Cloudinary service info */
+export interface CloudinaryServiceInfo {
+    service: string;
+    version: string;
+    configured: boolean;
+    status: string;
+    features: Record<string, boolean>;
+}
+

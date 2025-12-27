@@ -56,7 +56,7 @@ interface CanvaEditorProps {
 }
 
 export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
-  const { workspaceId } = useAuth();
+  const { workspaceId, user } = useAuth();
 
   // Connection state
   const [isConnected, setIsConnected] = useState(false);
@@ -81,12 +81,12 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
   // Send to Post state
   const [sendModalOpen, setSendModalOpen] = useState(false);
   const [mediaToSend, setMediaToSend] = useState<MediaToSend | null>(null);
-  
+
   // Send to Meta Ads state
   const [adModalOpen, setAdModalOpen] = useState(false);
   const [mediaToAd, setMediaToAd] = useState<MediaToSendToAd | null>(null);
   const [sendingDesignToAdId, setSendingDesignToAdId] = useState<string | null>(null);
-  
+
   // Dashboard context for refreshing posts
   const { refreshData } = useDashboard();
 
@@ -265,23 +265,23 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
     }
 
     setExportingDesignId(design.id);
-    
+
     try {
       // First, check available export formats to determine if this is a video design
       // This is more reliable than checking design_type or title
       const formatsResponse = await fetch(`/api/canva/export-formats?designId=${design.id}`);
-      
+
       let format = 'png'; // Default to PNG for images
       let isVideoDesign = false;
-      
+
       if (formatsResponse.ok) {
         const formatsData = await formatsResponse.json();
-        
+
         // If MP4 is available and PNG is NOT available, it's a video-only design
         // If both are available, check design_type/title for hints
         const hasMp4 = formatsData.formats?.mp4;
         const hasPng = formatsData.formats?.png;
-        
+
         if (hasMp4 && !hasPng) {
           // Video-only design (e.g., Canva video templates)
           format = 'mp4';
@@ -291,27 +291,27 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
           const designTypeStr = (design.design_type || '').toLowerCase();
           const titleStr = (design.title || '').toLowerCase();
           const videoIndicators = ['video', 'animation', 'reel', 'story'];
-          
-          isVideoDesign = videoIndicators.some(indicator => 
+
+          isVideoDesign = videoIndicators.some(indicator =>
             designTypeStr.includes(indicator) || titleStr.includes(indicator)
           );
-          
+
           format = isVideoDesign ? 'mp4' : 'png';
         }
         // If only PNG available, keep default
-        
+
       } else {
         // Fallback to design_type/title detection if formats API fails
         const designTypeStr = (design.design_type || '').toLowerCase();
         const titleStr = (design.title || '').toLowerCase();
         const videoIndicators = ['video', 'animation', 'reel', 'story'];
-        
-        isVideoDesign = videoIndicators.some(indicator => 
+
+        isVideoDesign = videoIndicators.some(indicator =>
           designTypeStr.includes(indicator) || titleStr.includes(indicator)
         );
-        
+
         format = isVideoDesign ? 'mp4' : 'png';
-        
+
       }
 
       // Now export with the determined format
@@ -382,19 +382,19 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
     }
 
     setSendingDesignToAdId(design.id);
-    
+
     try {
       // Check available export formats
       const formatsResponse = await fetch(`/api/canva/export-formats?designId=${design.id}`);
-      
+
       let format = 'png';
       let isVideoDesign = false;
-      
+
       if (formatsResponse.ok) {
         const formatsData = await formatsResponse.json();
         const hasMp4 = formatsData.formats?.mp4;
         const hasPng = formatsData.formats?.png;
-        
+
         if (hasMp4 && !hasPng) {
           format = 'mp4';
           isVideoDesign = true;
@@ -402,11 +402,11 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
           const designTypeStr = (design.design_type || '').toLowerCase();
           const titleStr = (design.title || '').toLowerCase();
           const videoIndicators = ['video', 'animation', 'reel', 'story'];
-          
-          isVideoDesign = videoIndicators.some(indicator => 
+
+          isVideoDesign = videoIndicators.some(indicator =>
             designTypeStr.includes(indicator) || titleStr.includes(indicator)
           );
-          
+
           format = isVideoDesign ? 'mp4' : 'png';
         }
       }
@@ -429,7 +429,7 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
         const mediaType = data.mediaItem?.type || (isVideoDesign ? 'video' : 'image');
         const exportUrl = data.exportUrl || data.mediaItem?.url;
         const additionalUrls = data.additionalUrls || [];
-        
+
         if (exportUrl) {
           setMediaToAd({
             type: mediaType as 'image' | 'video',
@@ -487,19 +487,19 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
 
     // First export the design to get the URL
     setSendingDesignId(design.id);
-    
+
     try {
       // Check available export formats
       const formatsResponse = await fetch(`/api/canva/export-formats?designId=${design.id}`);
-      
+
       let format = 'png';
       let isVideoDesign = false;
-      
+
       if (formatsResponse.ok) {
         const formatsData = await formatsResponse.json();
         const hasMp4 = formatsData.formats?.mp4;
         const hasPng = formatsData.formats?.png;
-        
+
         if (hasMp4 && !hasPng) {
           format = 'mp4';
           isVideoDesign = true;
@@ -507,11 +507,11 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
           const designTypeStr = (design.design_type || '').toLowerCase();
           const titleStr = (design.title || '').toLowerCase();
           const videoIndicators = ['video', 'animation', 'reel', 'story'];
-          
-          isVideoDesign = videoIndicators.some(indicator => 
+
+          isVideoDesign = videoIndicators.some(indicator =>
             designTypeStr.includes(indicator) || titleStr.includes(indicator)
           );
-          
+
           format = isVideoDesign ? 'mp4' : 'png';
         }
       }
@@ -533,11 +533,11 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
         const data = await response.json();
         const mediaType = data.mediaItem?.type || (isVideoDesign ? 'video' : 'image');
         const exportUrl = data.exportUrl || data.mediaItem?.url;
-        
+
         // Get additional URLs for multi-page designs (carousel support)
         const additionalUrls = data.additionalUrls || [];
         const isMultiPage = data.isMultiPage || additionalUrls.length > 0;
-        
+
         if (exportUrl) {
           // Open send to post modal with the exported media
           // Include additionalUrls for carousel/multi-page designs
@@ -548,7 +548,7 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
             additionalUrls: isMultiPage ? additionalUrls : undefined,
           });
           setSendModalOpen(true);
-          
+
           if (isMultiPage) {
             toast.success(`Design exported! ${data.pageCount} pages detected - select platform to create carousel.`);
           } else {
@@ -573,10 +573,10 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
     try {
       const { platform, postType, media } = config;
       const postId = crypto.randomUUID();
-      
+
       // Always send directly to publish
       const postStatus = 'ready_to_publish';
-      
+
       // Build platform-specific content structure
       const buildPlatformContent = () => {
         const baseContent = {
@@ -595,7 +595,7 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
                 ...(postType === 'reel' && { type: 'video' }),
               }
             };
-          
+
           case 'twitter':
             return {
               twitter: {
@@ -603,7 +603,7 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
                 content: '',
               }
             };
-          
+
           case 'facebook':
             return {
               facebook: {
@@ -611,7 +611,7 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
                 ...(postType === 'reel' && { type: 'video', format: 'reel' }),
               }
             };
-          
+
           case 'linkedin':
             return {
               linkedin: {
@@ -619,7 +619,7 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
                 ...(postType === 'article' && { format: 'article' }),
               }
             };
-          
+
           case 'youtube':
             return {
               youtube: {
@@ -631,7 +631,7 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
                 privacyStatus: 'public' as const,
               }
             };
-          
+
           case 'tiktok':
             return {
               tiktok: {
@@ -642,7 +642,7 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
                 hashtags: [],
               }
             };
-          
+
           default:
             return { [platform]: baseContent };
         }
@@ -652,7 +652,7 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
       const getMediaFields = () => {
         const isVideoPostType = ['reel', 'video', 'short'].includes(postType);
         const isCarouselPostType = postType === 'carousel' || postType === 'slideshow';
-        
+
         if (isCarouselPostType && media.additionalUrls && media.additionalUrls.length > 0) {
           return {
             carouselImages: [media.url, ...media.additionalUrls],
@@ -669,7 +669,7 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
         }
       };
 
-      const response = await fetch('/api/posts', {
+      const response = await fetch(`/api/posts?user_id=${user?.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -694,9 +694,9 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to create post');
       }
-      
+
       await refreshData();
-      
+
       const postTypeLabels: Record<string, string> = {
         post: 'Post',
         carousel: 'Carousel',
@@ -709,9 +709,9 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
         article: 'Article',
         thumbnail: 'Thumbnail',
       };
-      
+
       const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
-      
+
       alert(`${postTypeLabels[postType] || 'Post'} created for ${platformName}! Go to Publish to edit caption and publish.`);
     } catch (error) {
       alert('Failed to create post. Please try again.');

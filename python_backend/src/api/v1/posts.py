@@ -11,7 +11,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from src.services.supabase_service import get_supabase_client
+from src.services.supabase_service import get_supabase_admin_client
 
 
 router = APIRouter(prefix="/api/v1/posts", tags=["Posts"])
@@ -135,7 +135,7 @@ async def get_posts(
     Fetch all posts for a workspace.
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_admin_client()
         
         result = supabase.table("posts").select("*").eq(
             "workspace_id", workspace_id
@@ -157,7 +157,7 @@ async def create_post(user_id: str, request: CreatePostRequest):
     Create a new post.
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_admin_client()
         post = request.post
         
         # Build content JSONB
@@ -235,7 +235,7 @@ async def update_post(user_id: str, post_id: str, request: UpdatePostRequest):
     Update an existing post.
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_admin_client()
         post = request.post
         
         # Fetch existing post to preserve content
@@ -325,7 +325,7 @@ async def delete_post(
     Delete a post.
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_admin_client()
         
         supabase.table("posts").delete().eq(
             "id", post_id
@@ -359,7 +359,7 @@ async def get_post(
     Get a single post by ID.
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_admin_client()
         
         result = supabase.table("posts").select("*").eq(
             "id", post_id

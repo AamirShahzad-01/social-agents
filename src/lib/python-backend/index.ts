@@ -203,6 +203,7 @@ import * as webhooks from './api/webhooks';
 import * as auth from './api/auth';
 import * as mediaStudio from './api/mediaStudio';
 import * as social from './api/social';
+import * as cloudinary from './api/cloudinary';
 
 /**
  * Unified API object for all backend operations
@@ -219,6 +220,7 @@ export const api = {
     auth,
     mediaStudio,
     social,
+    cloudinary,
 } as const;
 
 // Also export individual modules for tree-shaking
@@ -234,4 +236,6 @@ export {
     auth as authApi,
     mediaStudio as mediaStudioApi,
     social as socialApi,
+    cloudinary as cloudinaryApi,
 };
+

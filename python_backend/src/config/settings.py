@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: Optional[str] = Field(default=None, description="DeepSeek API key")
     ELEVENLABS_API_KEY: Optional[str] = Field(default=None, description="ElevenLabs API key")
     
+    # Cloudinary Configuration (for media storage)
+    CLOUDINARY_CLOUD_NAME: Optional[str] = Field(default=None, description="Cloudinary cloud name")
+    CLOUDINARY_API_KEY: Optional[str] = Field(default=None, description="Cloudinary API key")
+    CLOUDINARY_API_SECRET: Optional[str] = Field(default=None, description="Cloudinary API secret")
+    
     # Supabase Configuration
     SUPABASE_URL: Optional[str] = Field(default=None, description="Supabase project URL")
     SUPABASE_KEY: Optional[str] = Field(default=None, description="Supabase anon key")
@@ -119,6 +124,12 @@ class Settings(BaseSettings):
     # Canva Integration
     CANVA_CLIENT_ID: Optional[str] = Field(default=None, description="Canva Client ID")
     CANVA_CLIENT_SECRET: Optional[str] = Field(default=None, description="Canva Client Secret")
+    
+    # Cloudinary Configuration (Media Storage & CDN)
+    CLOUDINARY_CLOUD_NAME: Optional[str] = Field(default=None, description="Cloudinary cloud name")
+    CLOUDINARY_API_KEY: Optional[str] = Field(default=None, description="Cloudinary API key")
+    CLOUDINARY_API_SECRET: Optional[str] = Field(default=None, description="Cloudinary API secret")
+
     
     # Rate Limiting
     RATE_LIMIT_REQUESTS: int = Field(default=100, description="Max requests per minute")

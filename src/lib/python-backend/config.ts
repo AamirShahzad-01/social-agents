@@ -318,6 +318,19 @@ export const ENDPOINTS = {
             verify: '/social/youtube/verify',
         },
     },
+
+    // Cloudinary Media Storage
+    cloudinary: {
+        base: '/cloudinary',
+        uploadImage: '/cloudinary/upload/image',
+        uploadVideo: '/cloudinary/upload/video',
+        uploadAudio: '/cloudinary/upload/audio',
+        uploadUrl: '/cloudinary/upload/url',
+        transform: '/cloudinary/transform',
+        media: (publicId: string) => `/cloudinary/media/${publicId}`,
+        presets: '/cloudinary/presets',
+        presetsByType: (type: string) => `/cloudinary/presets/${type}`,
+    },
 } as const;
 
 /**

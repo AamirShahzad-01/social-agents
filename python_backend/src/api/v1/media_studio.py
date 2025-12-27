@@ -1,16 +1,22 @@
 """
 Media Studio API Router
 Image, Video, and Audio processing endpoints
+
+Uses Cloudinary for media storage and CDN delivery.
 """
 
 from typing import Optional, Literal
 from datetime import datetime
+import logging
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, Field
 
 from src.services.media_studio import ImageService, VideoService, AudioService
-from src.services.supabase_service import get_supabase_client
+from src.services.supabase_service import get_supabase_admin_client, verify_jwt  # For database operations only
+from src.services.cloudinary_service import CloudinaryService  # Media storage
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/v1/media-studio", tags=["Media Studio"])
@@ -169,24 +175,26 @@ async def resize_image(request: ImageResizeRequest):
             custom_height=request.custom_height
         )
         
-        # Upload to Supabase storage
-        supabase = get_supabase_client()
+        # Upload to Cloudinary
+        cloudinary = CloudinaryService()
         
         timestamp = int(datetime.now().timestamp() * 1000)
         extension = "jpg" if result.format == "jpeg" else "png"
-        content_type = "image/jpeg" if result.format == "jpeg" else "image/png"
         platform_slug = request.platform or "custom"
-        file_name = f"resized-{platform_slug}-{timestamp}.{extension}"
-        file_path = f"resized/{file_name}"
+        public_id = f"resized/resized-{platform_slug}-{timestamp}"
         
-        upload_response = supabase.storage.from_("media").upload(
-            file_path,
-            result.buffer,
-            {"content-type": content_type}
+        upload_result = cloudinary.upload_image_bytes(
+            image_bytes=result.buffer,
+            public_id=public_id,
+            folder="media-studio",
+            format=extension,
+            tags=[f"workspace:{request.workspace_id}", "resized", platform_slug]
         )
         
-        # Get public URL
-        public_url = supabase.storage.from_("media").get_public_url(file_path)
+        # Get Cloudinary URL
+        public_url = upload_result.get("secure_url")
+        if not public_url:
+            raise ValueError("Failed to get Cloudinary URL")
         
         # Create media library entry
         media_item = {
@@ -204,6 +212,7 @@ async def resize_image(request: ImageResizeRequest):
                 "originalWidth": result.original_width,
                 "originalHeight": result.original_height,
                 "resizedAt": datetime.now().isoformat(),
+                "cloudinaryPublicId": upload_result.get("public_id"),
             },
             "metadata": {
                 "source": "image-editor",
@@ -213,6 +222,8 @@ async def resize_image(request: ImageResizeRequest):
                 "height": result.height,
                 "format": result.format,
                 "fileSize": result.file_size,
+                "cloudinaryPublicId": upload_result.get("public_id"),
+                "cloudinaryFormat": upload_result.get("format"),
             },
             "tags": ["resized", "image-editor", platform_slug],
         }
@@ -275,21 +286,24 @@ async def resize_video(request: VideoResizeRequest):
             custom_height=request.custom_height
         )
         
-        # Upload to Supabase storage
-        supabase = get_supabase_client()
+        # Upload to Cloudinary
+        cloudinary = CloudinaryService()
         
         timestamp = int(datetime.now().timestamp() * 1000)
         platform_slug = request.platform or "custom"
-        file_name = f"resized-{platform_slug}-{timestamp}.mp4"
-        file_path = f"resized/{file_name}"
+        public_id = f"resized/resized-video-{platform_slug}-{timestamp}"
         
-        supabase.storage.from_("media").upload(
-            file_path,
-            result.buffer,
-            {"content-type": "video/mp4"}
+        upload_result = cloudinary.upload_video_bytes(
+            video_bytes=result.buffer,
+            public_id=public_id,
+            folder="media-studio",
+            tags=[f"workspace:{request.workspace_id}", "resized", platform_slug]
         )
         
-        public_url = supabase.storage.from_("media").get_public_url(file_path)
+        # Get Cloudinary URL
+        public_url = upload_result.get("secure_url")
+        if not public_url:
+            raise ValueError("Failed to get Cloudinary URL")
         
         media_item = {
             "type": "video",
@@ -304,6 +318,7 @@ async def resize_video(request: VideoResizeRequest):
                 "targetHeight": result.height,
                 "duration": result.duration,
                 "resizedAt": datetime.now().isoformat(),
+                "cloudinaryPublicId": upload_result.get("public_id"),
             },
             "metadata": {
                 "source": "video-editor",
@@ -312,6 +327,8 @@ async def resize_video(request: VideoResizeRequest):
                 "width": result.width,
                 "height": result.height,
                 "duration": result.duration,
+                "cloudinaryPublicId": upload_result.get("public_id"),
+                "cloudinaryFormat": upload_result.get("format"),
             },
             "tags": ["resized", "video-editor", platform_slug],
         }
@@ -360,20 +377,23 @@ async def merge_videos(request: VideoMergeRequest):
             quality=config.quality
         )
         
-        # Upload to Supabase storage
-        supabase = get_supabase_client()
+        # Upload to Cloudinary
+        cloudinary = CloudinaryService()
         
         timestamp = int(datetime.now().timestamp() * 1000)
-        file_name = f"merged-video-{timestamp}.mp4"
-        file_path = f"merged/{file_name}"
+        public_id = f"merged/merged-video-{timestamp}"
         
-        supabase.storage.from_("media").upload(
-            file_path,
-            result.buffer,
-            {"content-type": "video/mp4"}
+        upload_result = cloudinary.upload_video_bytes(
+            video_bytes=result.buffer,
+            public_id=public_id,
+            folder="media-studio",
+            tags=[f"workspace:{request.workspace_id}", "merged", "video-editor"]
         )
         
-        public_url = supabase.storage.from_("media").get_public_url(file_path)
+        # Get Cloudinary URL
+        public_url = upload_result.get("secure_url")
+        if not public_url:
+            raise ValueError("Failed to get Cloudinary URL")
         
         tags = ["merged", "video-editor", "edited"]
         if result.is_vertical:
@@ -393,6 +413,7 @@ async def merge_videos(request: VideoMergeRequest):
                 "quality": config.quality,
                 "isVertical": result.is_vertical,
                 "totalDuration": result.total_duration,
+                "cloudinaryPublicId": upload_result.get("public_id"),
             },
             "metadata": {
                 "source": "video-editor",
@@ -402,6 +423,8 @@ async def merge_videos(request: VideoMergeRequest):
                 "duration": result.total_duration,
                 "isVertical": result.is_vertical,
                 "audioNormalized": True,
+                "cloudinaryPublicId": upload_result.get("public_id"),
+                "cloudinaryFormat": upload_result.get("format"),
             },
             "tags": tags,
         }
@@ -455,20 +478,23 @@ async def process_audio(request: AudioProcessRequest):
             music_volume=request.music_volume
         )
         
-        # Upload to Supabase storage
-        supabase = get_supabase_client()
+        # Upload to Cloudinary
+        cloudinary = CloudinaryService()
         
         timestamp = int(datetime.now().timestamp() * 1000)
-        file_name = f"audio-remix-{timestamp}.mp4"
-        file_path = f"processed/{file_name}"
+        public_id = f"processed/audio-remix-{timestamp}"
         
-        supabase.storage.from_("media").upload(
-            file_path,
-            result.buffer,
-            {"content-type": "video/mp4"}
+        upload_result = cloudinary.upload_video_bytes(
+            video_bytes=result.buffer,
+            public_id=public_id,
+            folder="media-studio",
+            tags=[f"workspace:{request.workspace_id}", "audio-remix", "edited"]
         )
         
-        public_url = supabase.storage.from_("media").get_public_url(file_path)
+        # Get Cloudinary URL
+        public_url = upload_result.get("secure_url")
+        if not public_url:
+            raise ValueError("Failed to get Cloudinary URL")
         
         media_item = {
             "type": "video",
@@ -483,11 +509,14 @@ async def process_audio(request: AudioProcessRequest):
                 "originalVolume": request.original_volume,
                 "musicVolume": request.music_volume,
                 "duration": result.duration,
+                "cloudinaryPublicId": upload_result.get("public_id"),
             },
             "metadata": {
                 "duration": result.duration,
                 "hasBackgroundMusic": request.background_music_url is not None,
                 "originalMuted": request.mute_original,
+                "cloudinaryPublicId": upload_result.get("public_id"),
+                "cloudinaryFormat": upload_result.get("format"),
             },
             "tags": ["edited", "audio-remix"],
         }
@@ -522,7 +551,7 @@ async def get_media_library(
 ):
     """Get media library items with filters"""
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_admin_client()
         
         # Build query
         query = supabase.table("media_library").select("*").eq("workspace_id", workspace_id)
@@ -553,33 +582,75 @@ async def get_media_library(
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to fetch media items")
+        logger.error(f"Failed to fetch media items: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch media items: {str(e)}")
 
 
 @router.post("/library")
-async def create_media_item(request: CreateMediaItemRequest):
+async def create_media_item(payload: CreateMediaItemRequest, request: Request):
     """Create a new media item in the library"""
     try:
-        supabase = get_supabase_client()
+        # Verify JWT to get user ID
+        auth_header = request.headers.get("authorization")
+        user_id = None
         
-        media_item = request.media_item
-        media_item["workspace_id"] = request.workspace_id
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1]
+            jwt_result = await verify_jwt(token)
+            logger.info(f"JWT Verification result: {jwt_result.get('success')}")
+            if jwt_result.get("success") and jwt_result.get("user"):
+                user_id = jwt_result["user"]["id"]
+        
+        logger.info(f"Auth Header Present: {bool(auth_header)}")
+        logger.info(f"User ID from Token: {user_id}")
+        logger.info(f"Payload keys: {plugin_keys if (plugin_keys := payload.media_item.keys()) else 'Empty'}")
+
+        # If user_id provided in payload, prioritize that (fallback), otherwise use token
+        if not user_id and "user_id" in payload.media_item:
+            user_id = payload.media_item["user_id"]
+            
+        supabase = get_supabase_admin_client()
+        
+        if not user_id:
+            logger.warning("No user_id found in token or payload, attempting fallback lookup via workspace_id")
+            try:
+                # Find any user in this workspace to attribute the media to
+                u_res = supabase.table("users").select("id").eq("workspace_id", payload.workspace_id).limit(1).execute()
+                if u_res.data:
+                    user_id = u_res.data[0]["id"]
+                    logger.info(f"Fallback user_id found: {user_id}")
+            except Exception as e:
+                logger.error(f"Fallback lookup failed: {e}")
+
+        if not user_id:
+            logger.error("Create media item failed: user_id is required but missing.")
+            # We must fail if we can't find a user_id, as DB requires it
+            raise HTTPException(status_code=400, detail="Missing user_id. Please log in again.")
+        
+        media_item = payload.media_item
+        media_item["workspace_id"] = payload.workspace_id
+        if user_id:
+            media_item["user_id"] = user_id
+            
         media_item["created_at"] = datetime.now().isoformat()
         media_item["updated_at"] = datetime.now().isoformat()
+        
+        logger.info(f"Creating media item: {media_item}")
         
         result = supabase.table("media_library").insert(media_item).execute()
         
         return {"success": True, "data": result.data[0] if result.data else None}
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to create media item")
+        logger.error(f"Failed to create media item: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create media item: {str(e)}")
 
 
 @router.patch("/library")
 async def update_media_item(request: UpdateMediaItemRequest):
     """Update a media item"""
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_admin_client()
         
         updates = request.updates
         updates["updated_at"] = datetime.now().isoformat()
@@ -598,22 +669,50 @@ async def update_media_item(request: UpdateMediaItemRequest):
 async def delete_media_item(workspace_id: str, media_id: str):
     """Delete a media item"""
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_admin_client()
         
-        # Get the item first to find the file URL
-        get_result = supabase.table("media_library").select("url").eq(
+        # Get the item first to find the file URL and Cloudinary public_id
+        get_result = supabase.table("media_library").select("url, config, metadata").eq(
             "id", media_id
         ).eq("workspace_id", workspace_id).execute()
         
-        if get_result.data and get_result.data[0].get("url"):
-            url = get_result.data[0]["url"]
-            # Extract file path from URL
-            if "/storage/v1/object/public/media/" in url:
-                file_path = url.split("/storage/v1/object/public/media/")[1]
+        if get_result.data and get_result.data[0]:
+            item = get_result.data[0]
+            url = item.get("url", "")
+            config = item.get("config") or {}
+            metadata = item.get("metadata") or {}
+            
+            # Try to get Cloudinary public_id from config or metadata
+            cloudinary_public_id = config.get("cloudinaryPublicId") or metadata.get("cloudinaryPublicId")
+            
+            if cloudinary_public_id:
+                # Delete from Cloudinary
                 try:
-                    supabase.storage.from_("media").remove([file_path])
-                except Exception:
-                    pass  # Continue even if storage delete fails
+                    cloudinary = CloudinaryService()
+                    # Determine resource type from URL
+                    resource_type = "video" if "/video/" in url else "image"
+                    cloudinary.delete_media(cloudinary_public_id, resource_type=resource_type)
+                    logger.info(f"Deleted Cloudinary asset: {cloudinary_public_id}")
+                except Exception as cloud_err:
+                    logger.warning(f"Failed to delete from Cloudinary: {cloud_err}")
+                    # Continue even if Cloudinary delete fails
+            elif "cloudinary.com" in url:
+                # Try to extract public_id from Cloudinary URL
+                try:
+                    cloudinary = CloudinaryService()
+                    # Determine resource type from URL
+                    resource_type = "video" if "/video/" in url else "image"
+                    # Extract public_id from URL (format: .../upload/vXXXX/folder/public_id.ext)
+                    import re
+                    match = re.search(r'/upload/(?:v\d+/)?(.+?)(?:\.[^.]+)?$', url)
+                    if match:
+                        extracted_public_id = match.group(1)
+                        cloudinary.delete_media(extracted_public_id, resource_type=resource_type)
+                        logger.info(f"Deleted Cloudinary asset from URL: {extracted_public_id}")
+                except Exception as cloud_err:
+                    logger.warning(f"Failed to delete from Cloudinary URL: {cloud_err}")
+            # Note: Legacy Supabase storage URLs are no longer supported
+            # All new media is stored in Cloudinary
         
         # Delete the database record
         supabase.table("media_library").delete().eq(
@@ -623,6 +722,7 @@ async def delete_media_item(workspace_id: str, media_id: str):
         return {"success": True}
         
     except Exception as e:
+        logger.error(f"Failed to delete media item: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete media item")
 
 

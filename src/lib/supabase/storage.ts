@@ -1,83 +1,35 @@
 import { createServerClient } from './server';
 
 /**
- * Upload a base64 image or video to Supabase Storage
- * @param base64Data - Base64 data URL (e.g., "data:image/png;base64,..." or "data:video/mp4;base64,...")
- * @param fileName - Name for the file
- * @param bucket - Storage bucket name (default: 'media')
- * @returns Public URL of the uploaded file
+ * @deprecated This method is deprecated. Use Cloudinary for all media uploads.
+ * See src/lib/python-backend/api/cloudinary.ts
  */
 export async function uploadBase64Image(
   base64Data: string,
   fileName: string,
   bucket: string = 'media'
 ): Promise<string> {
-  const supabase = await createServerClient();
-
-  // Extract base64 content and mime type
-  const matches = base64Data.match(/^data:(.+);base64,(.+)$/);
-  if (!matches) {
-    throw new Error('Invalid base64 data URL format');
-  }
-
-  const mimeType = matches[1];
-  const base64Content = matches[2];
-  
-  // Convert base64 to buffer
-  const buffer = Buffer.from(base64Content, 'base64');
-  
-  // Log file size for debugging
-  const fileSizeMB = (buffer.length / (1024 * 1024)).toFixed(2);
-  
-  // Generate unique file path with proper extension
-  const timestamp = Date.now();
-  const extension = mimeType.split('/')[1]?.replace('quicktime', 'mov') || 'bin';
-  const filePath = `${timestamp}-${fileName}.${extension}`;
-
-  // Upload to Supabase Storage
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .upload(filePath, buffer, {
-      contentType: mimeType,
-      upsert: false,
-    });
-
-  if (error) {
-    throw new Error(`Failed to upload file: ${error.message}`);
-  }
-
-  // Get public URL
-  const { data: publicUrlData } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(filePath);
-
-  return publicUrlData.publicUrl;
+  throw new Error(
+    'DEPRECATED: Supabase Storage is no longer supported for new media. ' +
+    'Please use Cloudinary via the Python Backend API. ' +
+    'See src/lib/python-backend/api/cloudinary.ts'
+  );
 }
 
 /**
- * Delete a file from Supabase Storage
- * @param fileUrl - Public URL of the file
- * @param bucket - Storage bucket name (default: 'media')
+ * @deprecated This method is deprecated. Use Cloudinary for all media deletions.
+ * See src/lib/python-backend/api/cloudinary.ts
  */
 export async function deleteFileFromStorage(
   fileUrl: string,
   bucket: string = 'media'
 ): Promise<void> {
-  const supabase = await createServerClient();
-
-  // Extract file path from URL
-  const urlParts = fileUrl.split(`/storage/v1/object/public/${bucket}/`);
-  if (urlParts.length < 2) {
-    return;
-  }
-
-  const filePath = urlParts[1];
-
-  const { error } = await supabase.storage
-    .from(bucket)
-    .remove([filePath]);
-
-  if (error) {
-    throw new Error(`Failed to delete file: ${error.message}`);
-  }
+  // Gracefully handle legacy deletions or throw error?
+  // Since we migrated, we should probably throw or log warning.
+  // For safety, let's throw to identify if any code still uses it.
+  throw new Error(
+    'DEPRECATED: Supabase Storage is no longer supported. ' +
+    'Please use Cloudinary via the Python Backend API. ' +
+    'See src/lib/python-backend/api/cloudinary.ts'
+  );
 }

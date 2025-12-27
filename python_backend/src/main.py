@@ -125,6 +125,7 @@ from .api import (
     workspace_router,
     posts_router,
     credentials_router,
+    cloudinary_router,
     facebook_router,
     instagram_router,
     linkedin_router,
@@ -144,6 +145,7 @@ app.include_router(canva_router)
 app.include_router(workspace_router)
 app.include_router(posts_router)
 app.include_router(credentials_router)
+app.include_router(cloudinary_router)
 app.include_router(facebook_router)
 app.include_router(instagram_router)
 app.include_router(linkedin_router)

@@ -11,6 +11,7 @@ from .canva import router as canva_router
 from .workspace import router as workspace_router
 from .posts import router as posts_router
 from .credentials import router as credentials_router
+from .cloudinary import router as cloudinary_router
 from .social import facebook_router, instagram_router, linkedin_router, twitter_router, tiktok_router, youtube_router
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     "workspace_router",
     "posts_router",
     "credentials_router",
+    "cloudinary_router",
     "facebook_router",
     "instagram_router",
     "linkedin_router",

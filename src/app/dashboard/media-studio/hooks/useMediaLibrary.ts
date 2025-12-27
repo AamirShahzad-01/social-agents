@@ -61,13 +61,90 @@ export interface UpdateHistoryOptions {
 
 /**
  * Hook for saving generated media to the database
- * Automatically handles workspace context
+ * Automatically handles workspace context and Cloudinary upload
  */
 export function useMediaLibrary() {
-  const { workspaceId } = useAuth();
+  const { workspaceId, user } = useAuth();
+
+  /**
+   * Upload base64 data URL to Cloudinary
+   */
+  const uploadToCloudinary = useCallback(async (
+    dataUrl: string,
+    type: MediaType,
+    tags: string[] = []
+  ): Promise<{ url: string; publicId: string; metadata: Record<string, any> } | null> => {
+    if (!workspaceId) return null;
+
+    try {
+      // Convert data URL to File/Blob
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+
+      // Determine file extension and MIME type
+      let ext = 'bin';
+      let mimeType = blob.type;
+      if (type === 'image') {
+        ext = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg';
+      } else if (type === 'video') {
+        ext = mimeType.includes('webm') ? 'webm' : 'mp4';
+      } else if (type === 'audio') {
+        ext = mimeType.includes('wav') ? 'wav' : mimeType.includes('mpeg') ? 'mp3' : 'mp3';
+      }
+
+      const file = new File([blob], `${type}_${Date.now()}.${ext}`, { type: mimeType });
+
+      // Upload to Cloudinary
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'generated');
+      formData.append('tags', [...tags, `workspace:${workspaceId}`, 'generated'].join(','));
+
+      const pythonBackendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000';
+      const uploadEndpoint = type === 'image'
+        ? '/api/v1/cloudinary/upload/image'
+        : type === 'video'
+          ? '/api/v1/cloudinary/upload/video'
+          : '/api/v1/cloudinary/upload/audio';
+
+      const uploadResponse = await fetch(`${pythonBackendUrl}${uploadEndpoint}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        console.warn('Cloudinary upload failed, using original URL');
+        return null;
+      }
+
+      const result = await uploadResponse.json();
+
+      if (!result.success) {
+        console.warn('Cloudinary upload failed:', result.error);
+        return null;
+      }
+
+      return {
+        url: result.secure_url,
+        publicId: result.public_id,
+        metadata: {
+          cloudinaryPublicId: result.public_id,
+          cloudinaryFormat: result.format,
+          bytes: result.bytes,
+          width: result.width,
+          height: result.height,
+          duration: result.duration,
+        }
+      };
+    } catch (error) {
+      console.warn('Cloudinary upload error:', error);
+      return null;
+    }
+  }, [workspaceId]);
 
   /**
    * Save generated media to the library
+   * If URL is a data URL, upload to Cloudinary first
    */
   const saveMedia = useCallback(async (options: SaveMediaOptions): Promise<string | null> => {
     if (!workspaceId) {
@@ -75,6 +152,26 @@ export function useMediaLibrary() {
     }
 
     try {
+      let finalUrl = options.url;
+      let additionalMetadata = {};
+
+      // If URL is a data URL, upload to Cloudinary first
+      if (options.url.startsWith('data:')) {
+        const cloudinaryResult = await uploadToCloudinary(
+          options.url,
+          options.type,
+          options.tags
+        );
+
+        if (cloudinaryResult) {
+          finalUrl = cloudinaryResult.url;
+          additionalMetadata = cloudinaryResult.metadata;
+        }
+        // If Cloudinary upload fails, fall back to original URL
+      }
+
+      console.log('Sending to backend:', { workspaceId, userId: user?.id });
+
       const response = await fetch('/api/media-studio/library', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,14 +180,15 @@ export function useMediaLibrary() {
           mediaItem: {
             type: options.type,
             source: options.source,
-            url: options.url,
+            url: finalUrl,
             thumbnailUrl: options.thumbnailUrl,
             prompt: options.prompt,
             revisedPrompt: options.revisedPrompt,
             model: options.model,
-            config: options.config,
-            metadata: options.metadata,
+            config: { ...options.config, ...additionalMetadata },
+            metadata: { ...options.metadata, ...additionalMetadata },
             tags: options.tags,
+            user_id: user?.id,
           },
         }),
       });
@@ -105,7 +203,7 @@ export function useMediaLibrary() {
     } catch (error) {
       return null;
     }
-  }, [workspaceId]);
+  }, [workspaceId, uploadToCloudinary]);
 
   /**
    * Create a history entry when generation starts

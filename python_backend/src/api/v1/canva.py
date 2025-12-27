@@ -649,11 +649,71 @@ async def export_design(user_id: str, request: ExportDesignRequest):
                     detail="Export timed out. Video exports may take longer."
                 )
             
-            # For production: download from Canva and upload to Supabase
-            # Canva URLs expire after ~8 hours
-            permanent_urls = all_export_urls  # In production, re-upload to storage
+            # Download from Canva and upload to Cloudinary for permanent storage
+            # Canva URLs expire after ~8 hours, so we need permanent storage
+            permanent_urls = []
+            
+            try:
+                from src.services.cloudinary_service import CloudinaryService, MediaType
+                
+                for idx, canva_url in enumerate(all_export_urls):
+                    # Download from Canva
+                    download_response = await client.get(canva_url)
+                    if download_response.status_code != 200:
+                        logger.warning(f"Failed to download from Canva: {canva_url}")
+                        permanent_urls.append(canva_url)  # Fallback to temp URL
+                        continue
+                    
+                    file_data = download_response.content
+                    
+                    # Determine media type and upload to Cloudinary
+                    if request.format == "mp4":
+                        result = await CloudinaryService.upload_video(
+                            file_data=file_data,
+                            filename=f"canva_export_{request.design_id}_{idx}.mp4",
+                            folder="canva-exports",
+                            tags=["canva", "export", request.workspace_id],
+                        )
+                    elif request.format in ["png", "jpg"]:
+                        result = await CloudinaryService.upload_image(
+                            file_data=file_data,
+                            filename=f"canva_export_{request.design_id}_{idx}.{request.format}",
+                            folder="canva-exports",
+                            tags=["canva", "export", request.workspace_id],
+                        )
+                    else:
+                        # PDF/GIF - upload as raw
+                        result = await CloudinaryService.upload_image(
+                            file_data=file_data,
+                            filename=f"canva_export_{request.design_id}_{idx}.{request.format}",
+                            folder="canva-exports",
+                            tags=["canva", "export", request.workspace_id],
+                        )
+                    
+                    if result.success:
+                        permanent_urls.append(result.secure_url)
+                        logger.info(f"Uploaded Canva export to Cloudinary: {result.public_id}")
+                    else:
+                        logger.warning(f"Cloudinary upload failed: {result.error}")
+                        permanent_urls.append(canva_url)  # Fallback to temp URL
+                        
+            except ImportError:
+                # Cloudinary not configured - use Canva URLs directly
+                logger.warning("Cloudinary not available, using temporary Canva URLs")
+                permanent_urls = all_export_urls
+            except Exception as e:
+                logger.warning(f"Cloudinary upload error: {e}, using temporary URLs")
+                permanent_urls = all_export_urls if not permanent_urls else permanent_urls
+            
+            if not permanent_urls:
+                permanent_urls = all_export_urls  # Final fallback
             
             media_type = detect_media_type(export_url, request.format)
+            
+            # Get Cloudinary metadata if available
+            cloudinary_metadata = {}
+            if permanent_urls[0].startswith("https://res.cloudinary.com"):
+                cloudinary_metadata = {"storageProvider": "cloudinary"}
             
             # Save to media library if requested
             media_item = None
@@ -669,14 +729,16 @@ async def export_design(user_id: str, request: ExportDesignRequest):
                     "config": {
                         "canvaDesignId": request.design_id,
                         "exportFormat": request.format,
-                        "exportQuality": request.quality
+                        "exportQuality": request.quality,
+                        **cloudinary_metadata
                     },
                     "metadata": {
                         "source": "canva",
                         "designId": request.design_id,
                         "designTitle": design_title,
                         "exportedAt": datetime.now().isoformat(),
-                        "pageCount": len(permanent_urls)
+                        "pageCount": len(permanent_urls),
+                        **cloudinary_metadata
                     },
                     "tags": ["canva", "edited", media_type],
                     "workspace_id": request.workspace_id,
@@ -693,7 +755,8 @@ async def export_design(user_id: str, request: ExportDesignRequest):
                 "exportUrl": permanent_urls[0],
                 "allExportUrls": permanent_urls if len(permanent_urls) > 1 else None,
                 "isMultiPage": len(permanent_urls) > 1,
-                "pageCount": len(permanent_urls)
+                "pageCount": len(permanent_urls),
+                "storageProvider": "cloudinary" if permanent_urls[0].startswith("https://res.cloudinary.com") else "canva"
             }
         
     except HTTPException:

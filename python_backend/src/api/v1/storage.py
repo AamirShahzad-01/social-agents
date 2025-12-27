@@ -1,20 +1,23 @@
 """
 Storage API Router
-File upload and signed URL generation endpoints for Supabase Storage
+File upload and media management endpoints using Cloudinary.
+
+All media is stored in Cloudinary CDN for optimal delivery.
 """
 
 import base64
 import uuid
 import mimetypes
+import logging
 from typing import Optional
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel, Field
 
-from src.services.supabase_service import get_supabase_client
-from src.services.storage_service import storage_service
+from src.services.cloudinary_service import CloudinaryService
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/storage", tags=["Storage"])
 
@@ -26,17 +29,7 @@ class Base64UploadRequest(BaseModel):
     base64_data: str = Field(..., alias="base64Data")
     file_name: str = Field(..., alias="fileName")
     folder: str = "uploads"
-    type: str = "image"
-    
-    class Config:
-        populate_by_name = True
-
-
-class SignedUrlRequest(BaseModel):
-    """Request for signed upload URL"""
-    file_name: str = Field(..., alias="fileName")
-    content_type: Optional[str] = Field(None, alias="contentType")
-    folder: str = "uploads"
+    type: str = "image"  # image, video, audio
     
     class Config:
         populate_by_name = True
@@ -45,26 +38,37 @@ class SignedUrlRequest(BaseModel):
 class UploadResponse(BaseModel):
     """Response from file upload"""
     url: str
-    path: str
+    public_id: str = Field(..., alias="publicId")
+    format: Optional[str] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    duration: Optional[float] = None
     message: str = "File uploaded successfully"
+    
+    class Config:
+        populate_by_name = True
 
 
-class SignedUrlResponse(BaseModel):
-    """Response from signed URL generation"""
-    signed_url: str = Field(..., alias="signedUrl")
-    token: str
-    path: str
-    public_url: str = Field(..., alias="publicUrl")
+class DeleteRequest(BaseModel):
+    """Request to delete a file"""
+    public_id: str = Field(..., alias="publicId")
+    resource_type: str = Field("image", alias="resourceType")  # image, video, raw
+    
+    class Config:
+        populate_by_name = True
 
 
 # ================== HELPER FUNCTIONS ==================
 
-def generate_unique_filename(original_filename: str, user_id: str, folder: str) -> str:
-    """Generate unique file path with user ID and timestamp"""
-    file_ext = original_filename.split('.')[-1] if '.' in original_filename else 'bin'
-    random_suffix = uuid.uuid4().hex[:7]
+def generate_public_id(original_filename: str, folder: str) -> str:
+    """Generate unique public_id for Cloudinary"""
+    file_ext = original_filename.rsplit('.', 1)[-1] if '.' in original_filename else ''
+    random_suffix = uuid.uuid4().hex[:8]
     timestamp = int(datetime.now().timestamp() * 1000)
-    return f"{folder}/{user_id}/{timestamp}_{random_suffix}.{file_ext}"
+    base_name = original_filename.rsplit('.', 1)[0] if '.' in original_filename else original_filename
+    # Sanitize the base name
+    base_name = ''.join(c if c.isalnum() or c in '-_' else '_' for c in base_name)[:20]
+    return f"{folder}/{base_name}_{timestamp}_{random_suffix}"
 
 
 def decode_base64_data(base64_data: str) -> tuple[bytes, str]:
@@ -87,6 +91,18 @@ def decode_base64_data(base64_data: str) -> tuple[bytes, str]:
     return file_bytes, content_type
 
 
+def get_resource_type(content_type: str) -> str:
+    """Determine Cloudinary resource type from content type"""
+    if content_type.startswith("video/"):
+        return "video"
+    elif content_type.startswith("audio/"):
+        return "video"  # Cloudinary treats audio as video
+    elif content_type.startswith("image/"):
+        return "image"
+    else:
+        return "raw"
+
+
 # ================== ENDPOINTS ==================
 
 @router.post("/upload", response_model=UploadResponse)
@@ -95,20 +111,17 @@ async def upload_file(
     folder: Optional[str] = Form("uploads"),
     base64_data: Optional[str] = Form(None, alias="base64Data"),
     file_name: Optional[str] = Form(None, alias="fileName"),
+    media_type: Optional[str] = Form(None, alias="mediaType"),  # image, video, audio
 ):
     """
-    Upload a file to Supabase Storage.
+    Upload a file to Cloudinary CDN.
     
     Supports two upload methods:
     1. FormData file upload (multipart/form-data) - preferred for large files
     2. Base64 JSON upload (for smaller files or from canvas/generated content)
     """
     try:
-        supabase = get_supabase_client()
-        
-        # For production, you'd get user_id from auth token
-        # Here we use a placeholder - in real implementation, use authentication
-        user_id = "public"  # Replace with actual user ID from auth
+        cloudinary = CloudinaryService()
         
         # Handle FormData file upload
         if file and file.filename:
@@ -117,43 +130,69 @@ async def upload_file(
                 raise HTTPException(status_code=400, detail="Empty file provided")
             
             content_type = file.content_type or mimetypes.guess_type(file.filename)[0] or "application/octet-stream"
-            file_path = generate_unique_filename(file.filename, user_id, folder or "uploads")
+            public_id = generate_public_id(file.filename, folder or "uploads")
+            resource_type = get_resource_type(content_type)
             
-            # Upload to Supabase Storage
-            supabase.storage.from_("media").upload(
-                file_path,
-                file_data,
-                {"content-type": content_type}
-            )
-            
-            # Get public URL
-            public_url = supabase.storage.from_("media").get_public_url(file_path)
+            # Upload based on type
+            if resource_type == "video":
+                result = cloudinary.upload_video_bytes(
+                    video_bytes=file_data,
+                    public_id=public_id,
+                    folder="",  # Already included in public_id
+                    tags=["uploaded", f"folder:{folder}"]
+                )
+            else:
+                file_ext = file.filename.rsplit('.', 1)[-1] if '.' in file.filename else 'jpg'
+                result = cloudinary.upload_image_bytes(
+                    image_bytes=file_data,
+                    public_id=public_id,
+                    folder="",  # Already included in public_id
+                    format=file_ext if file_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'] else 'jpg',
+                    tags=["uploaded", f"folder:{folder}"]
+                )
             
             return UploadResponse(
-                url=public_url,
-                path=file_path,
-                message="File uploaded successfully"
+                url=result["secure_url"],
+                public_id=result["public_id"],
+                format=result.get("format"),
+                width=result.get("width"),
+                height=result.get("height"),
+                duration=result.get("duration"),
+                message="File uploaded successfully to Cloudinary"
             )
         
         # Handle Base64 upload
         if base64_data and file_name:
             file_bytes, content_type = decode_base64_data(base64_data)
-            file_path = generate_unique_filename(file_name, user_id, folder or "uploads")
+            public_id = generate_public_id(file_name, folder or "uploads")
+            resource_type = media_type or get_resource_type(content_type)
             
-            # Upload to Supabase Storage
-            supabase.storage.from_("media").upload(
-                file_path,
-                file_bytes,
-                {"content-type": content_type}
-            )
-            
-            # Get public URL
-            public_url = supabase.storage.from_("media").get_public_url(file_path)
+            # Upload based on type
+            if resource_type in ["video", "audio"]:
+                result = cloudinary.upload_video_bytes(
+                    video_bytes=file_bytes,
+                    public_id=public_id,
+                    folder="",
+                    tags=["uploaded", "base64", f"folder:{folder}"]
+                )
+            else:
+                file_ext = file_name.rsplit('.', 1)[-1] if '.' in file_name else 'jpg'
+                result = cloudinary.upload_image_bytes(
+                    image_bytes=file_bytes,
+                    public_id=public_id,
+                    folder="",
+                    format=file_ext if file_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'] else 'jpg',
+                    tags=["uploaded", "base64", f"folder:{folder}"]
+                )
             
             return UploadResponse(
-                url=public_url,
-                path=file_path,
-                message="File uploaded successfully"
+                url=result["secure_url"],
+                public_id=result["public_id"],
+                format=result.get("format"),
+                width=result.get("width"),
+                height=result.get("height"),
+                duration=result.get("duration"),
+                message="File uploaded successfully to Cloudinary"
             )
         
         raise HTTPException(
@@ -163,192 +202,137 @@ async def upload_file(
         
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Upload failed: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to upload file: {str(e)}"
         )
 
 
-@router.post("/upload/json")
+@router.post("/upload/json", response_model=UploadResponse)
 async def upload_file_json(request: Base64UploadRequest):
     """
     Upload a file using JSON body with base64 data.
     Alternative to the FormData endpoint for cases where JSON is preferred.
     """
     try:
-        supabase = get_supabase_client()
+        cloudinary = CloudinaryService()
         
-        # For production, get user_id from auth token
-        user_id = "public"
-        
-        # Decode base64 data
         file_bytes, content_type = decode_base64_data(request.base64_data)
-        file_path = generate_unique_filename(request.file_name, user_id, request.folder)
+        public_id = generate_public_id(request.file_name, request.folder)
+        resource_type = request.type or get_resource_type(content_type)
         
-        # Upload to Supabase Storage
-        supabase.storage.from_("media").upload(
-            file_path,
-            file_bytes,
-            {"content-type": content_type}
+        # Upload based on type
+        if resource_type in ["video", "audio"]:
+            result = cloudinary.upload_video_bytes(
+                video_bytes=file_bytes,
+                public_id=public_id,
+                folder="",
+                tags=["uploaded", "json", f"folder:{request.folder}"]
+            )
+        else:
+            file_ext = request.file_name.rsplit('.', 1)[-1] if '.' in request.file_name else 'jpg'
+            result = cloudinary.upload_image_bytes(
+                image_bytes=file_bytes,
+                public_id=public_id,
+                folder="",
+                format=file_ext if file_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'] else 'jpg',
+                tags=["uploaded", "json", f"folder:{request.folder}"]
+            )
+        
+        return UploadResponse(
+            url=result["secure_url"],
+            public_id=result["public_id"],
+            format=result.get("format"),
+            width=result.get("width"),
+            height=result.get("height"),
+            duration=result.get("duration"),
+            message="File uploaded successfully to Cloudinary"
         )
         
-        # Get public URL
-        public_url = supabase.storage.from_("media").get_public_url(file_path)
-        
-        return {
-            "url": public_url,
-            "path": file_path,
-            "message": "File uploaded successfully"
-        }
-        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"JSON upload failed: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to upload file: {str(e)}"
         )
 
 
-@router.post("/signed-url", response_model=SignedUrlResponse)
-async def create_signed_upload_url(request: SignedUrlRequest):
-    """
-    Generate a signed URL for direct upload to Supabase Storage.
-    
-    This bypasses API body size limits by allowing direct client-to-storage uploads.
-    The signed URL is valid for 1 hour.
-    """
-    try:
-        supabase = get_supabase_client()
-        
-        # For production, get user_id from auth token
-        user_id = "public"
-        
-        # Generate unique file path
-        file_path = generate_unique_filename(request.file_name, user_id, request.folder)
-        
-        # Create signed upload URL (valid for 1 hour)
-        signed_data = supabase.storage.from_("media").create_signed_upload_url(file_path)
-        
-        if not signed_data or "signedUrl" not in signed_data:
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to create signed URL"
-            )
-        
-        # Get the public URL for after upload completes
-        public_url = supabase.storage.from_("media").get_public_url(file_path)
-        
-        return SignedUrlResponse(
-            signed_url=signed_data["signedUrl"],
-            token=signed_data.get("token", ""),
-            path=file_path,
-            public_url=public_url
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate signed URL: {str(e)}"
-        )
-
-
-@router.get("/signed-url")
-async def get_signed_download_url(
-    path: str,
-    expires_in: int = 3600
-):
-    """
-    Generate a signed URL for accessing a private file.
-    
-    Args:
-        path: File path within the storage bucket
-        expires_in: URL expiration time in seconds (default: 1 hour)
-    """
-    try:
-        result = await storage_service.get_signed_url(path, expires_in)
-        
-        if not result.get("success"):
-            raise HTTPException(
-                status_code=500,
-                detail=result.get("error", "Failed to generate signed URL")
-            )
-        
-        return {
-            "signedUrl": result["signed_url"],
-            "expiresIn": expires_in
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate signed URL: {str(e)}"
-        )
-
-
 @router.delete("/file")
-async def delete_file(path: str):
+async def delete_file(request: DeleteRequest):
     """
-    Delete a file from storage.
+    Delete a file from Cloudinary.
     
     Args:
-        path: File path within the storage bucket
+        request: Delete request with public_id and resource_type
     """
     try:
-        result = await storage_service.delete_file(path)
+        cloudinary = CloudinaryService()
+        success = cloudinary.delete_media(
+            public_id=request.public_id,
+            resource_type=request.resource_type
+        )
         
-        if not result.get("success"):
-            raise HTTPException(
-                status_code=500,
-                detail=result.get("error", "Failed to delete file")
-            )
-        
-        return {"success": True, "message": "File deleted successfully"}
-        
-    except HTTPException:
-        raise
+        if success:
+            return {"success": True, "message": "File deleted successfully"}
+        else:
+            return {"success": False, "message": "File not found or already deleted"}
+            
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Delete failed: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to delete file: {str(e)}"
         )
 
 
-@router.get("/list")
-async def list_files(
-    folder: str = "",
-    limit: int = 100
+@router.get("/url/{public_id:path}")
+async def get_url(
+    public_id: str,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    format: str = "auto",
+    quality: str = "auto",
+    resource_type: str = "image"
 ):
     """
-    List files in a folder.
+    Get optimized URL for a Cloudinary resource.
     
-    Args:
-        folder: Folder path within the storage bucket
-        limit: Maximum number of files to return
+    Supports on-the-fly transformations for images and videos.
     """
     try:
-        result = await storage_service.list_files(folder, limit=limit)
+        cloudinary = CloudinaryService()
         
-        if not result.get("success"):
-            raise HTTPException(
-                status_code=500,
-                detail=result.get("error", "Failed to list files")
+        if resource_type == "video":
+            url = cloudinary.get_video_url(
+                public_id=public_id,
+                width=width,
+                height=height,
+                format=format,
+                quality=quality
+            )
+        else:
+            url = cloudinary.get_image_url(
+                public_id=public_id,
+                width=width,
+                height=height,
+                format=format,
+                quality=quality
             )
         
-        return {
-            "files": result.get("files", []),
-            "folder": folder
-        }
+        return {"url": url, "public_id": public_id}
         
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to list files: {str(e)}"
+            detail=f"Failed to generate URL: {str(e)}"
         )
 
 
@@ -357,28 +341,33 @@ async def list_files(
 @router.get("/")
 async def get_storage_info():
     """Get Storage service information"""
+    cloudinary = CloudinaryService()
+    is_configured = cloudinary.is_configured()
+    
     return {
-        "service": "Storage",
-        "version": "1.0.0",
-        "bucket": "media",
+        "service": "Storage (Cloudinary)",
+        "version": "2.0.0",
+        "provider": "Cloudinary",
+        "configured": is_configured,
         "endpoints": {
             "upload": {
-                "POST": "Upload file (FormData or base64)"
+                "POST": "Upload a file (FormData or base64)",
+                "methods": ["multipart/form-data", "base64"]
             },
             "upload/json": {
-                "POST": "Upload file using JSON body with base64 data"
-            },
-            "signed-url": {
-                "GET": "Get signed URL for private file access",
-                "POST": "Create signed URL for direct upload"
+                "POST": "Upload using JSON body with base64 data"
             },
             "file": {
-                "DELETE": "Delete a file from storage"
+                "DELETE": "Delete a file by public_id"
             },
-            "list": {
-                "GET": "List files in a folder"
+            "url/{public_id}": {
+                "GET": "Get optimized URL with optional transformations"
             }
         },
-        "max_file_size": "50MB",
-        "supported_methods": ["FormData upload", "Base64 upload", "Signed URL upload"]
+        "features": [
+            "CDN delivery",
+            "On-the-fly transformations",
+            "Automatic format optimization",
+            "Image and video support"
+        ]
     }

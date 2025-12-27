@@ -34,7 +34,6 @@ const nextConfig = {
   },
 
   // Proxy API requests to Python backend
-  // Proxy API requests to Python backend
   async rewrites() {
     let pythonBackendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000';
 
@@ -44,9 +43,45 @@ const nextConfig = {
     }
 
     return [
+      // Primary proxy path
       {
         source: '/py-api/:path*',
         destination: `${pythonBackendUrl}/api/v1/:path*`,
+      },
+      // Media Studio API routes
+      {
+        source: '/api/media-studio/:path*',
+        destination: `${pythonBackendUrl}/api/v1/media-studio/:path*`,
+      },
+      // Cloudinary API routes
+      {
+        source: '/api/cloudinary/:path*',
+        destination: `${pythonBackendUrl}/api/v1/cloudinary/:path*`,
+      },
+      // Storage API routes
+      {
+        source: '/api/storage/:path*',
+        destination: `${pythonBackendUrl}/api/v1/storage/:path*`,
+      },
+      // Canva API routes
+      {
+        source: '/api/canva/:path*',
+        destination: `${pythonBackendUrl}/api/v1/canva/:path*`,
+      },
+      // Posts API routes (base path)
+      {
+        source: '/api/posts',
+        destination: `${pythonBackendUrl}/api/v1/posts`,
+      },
+      // Posts API routes (with path segments)
+      {
+        source: '/api/posts/:path*',
+        destination: `${pythonBackendUrl}/api/v1/posts/:path*`,
+      },
+      // Media Generation API routes
+      {
+        source: '/api/media/:path*',
+        destination: `${pythonBackendUrl}/api/v1/media/:path*`,
       },
     ];
   },

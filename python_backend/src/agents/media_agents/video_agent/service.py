@@ -134,14 +134,16 @@ async def generate_video(request: VideoGenerationRequest) -> VideoGenerationResp
         return VideoGenerationResponse(success=False, error=str(e))
 
 
-async def get_video_status(operation_name: str) -> VideoStatusResponse:
+async def get_video_status(operation_name: str, upload_to_cloudinary: bool = True) -> VideoStatusResponse:
     """
     Get status of video generation operation
     
     Poll this endpoint to check if video is ready for download.
+    When completed, optionally uploads to Cloudinary for permanent storage.
     
     Args:
         operation_name: Full operation name from generate_video response
+        upload_to_cloudinary: Whether to upload completed video to Cloudinary
         
     Returns:
         VideoStatusResponse with current status and video URL if completed
@@ -183,11 +185,43 @@ async def get_video_status(operation_name: str) -> VideoStatusResponse:
                     
                     logger.info(f"Video completed: {video_url}")
                     
+                    # Optionally upload to Cloudinary for permanent storage
+                    cloudinary_url = None
+                    if upload_to_cloudinary:
+                        try:
+                            from src.services.cloudinary_service import CloudinaryService
+                            import httpx
+                            
+                            # Download video from Google
+                            async with httpx.AsyncClient(timeout=120.0) as http_client:
+                                video_response = await http_client.get(video_url)
+                                if video_response.status_code == 200:
+                                    video_data = video_response.content
+                                    
+                                    # Upload to Cloudinary
+                                    result = await CloudinaryService.upload_video(
+                                        file_data=video_data,
+                                        filename=f"veo_video_{operation_name.split('/')[-1]}.mp4",
+                                        folder="veo-videos",
+                                        tags=["veo", "generated", "video"],
+                                    )
+                                    
+                                    if result.success:
+                                        cloudinary_url = result.secure_url
+                                        logger.info(f"Video uploaded to Cloudinary: {result.public_id}")
+                                    else:
+                                        logger.warning(f"Cloudinary upload failed: {result.error}")
+                        except Exception as e:
+                            logger.warning(f"Could not upload to Cloudinary: {e}")
+                    
+                    # Use Cloudinary URL if available, otherwise fallback to Google URL
+                    final_url = cloudinary_url or video_url
+                    
                     return VideoStatusResponse(
                         success=True,
                         status="completed",
                         progress=100.0,
-                        videoUrl=video_url
+                        videoUrl=final_url
                     )
         
         return VideoStatusResponse(

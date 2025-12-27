@@ -36,6 +36,7 @@ import SendToAdModal, { type AdConfig, type MediaToSendToAd } from '@/components
 import type { GeneratedImage, GeneratedVideo } from '../types/mediaStudio.types';
 import { useDashboard } from '@/contexts/DashboardContext';
 import { useMedia, MediaItem } from '@/contexts/MediaContext';
+import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { AudioWaveform } from '@/components/ui/audio-waveform';
 
@@ -74,6 +75,9 @@ export function MediaGallery({ images, videos, workspaceId }: MediaGalleryProps)
 
   // Dashboard context for refreshing posts
   const { refreshData } = useDashboard();
+
+  // Auth context to get user ID for API calls
+  const { user } = useAuth();
 
   // Media context for cached media items (like DashboardContext for posts)
   const {
@@ -350,7 +354,7 @@ export function MediaGallery({ images, videos, workspaceId }: MediaGalleryProps)
         }
       };
 
-      const response = await fetch('/api/posts', {
+      const response = await fetch(`/api/posts?user_id=${user?.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -406,7 +410,7 @@ export function MediaGallery({ images, videos, workspaceId }: MediaGalleryProps)
     }
   };
 
-  // Handle file upload
+  // Handle file upload (using Cloudinary)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0 || !workspaceId) return;
@@ -425,44 +429,50 @@ export function MediaGallery({ images, videos, workspaceId }: MediaGalleryProps)
           throw new Error(`Invalid file type: ${file.name}. Only images, videos, and audio are allowed.`);
         }
 
-        // Check file size (max 500MB for videos, 50MB for images, 20MB for audio)
-        const maxSize = isVideo ? 500 * 1024 * 1024 : isAudio ? 20 * 1024 * 1024 : 50 * 1024 * 1024;
+        // Check file size (max 2GB for videos via chunked upload, 100MB direct, 50MB for images, 20MB for audio)
+        const maxSize = isVideo ? 2 * 1024 * 1024 * 1024 : isAudio ? 20 * 1024 * 1024 : 50 * 1024 * 1024;
         if (file.size > maxSize) {
-          throw new Error(`File too large: ${file.name}. Max ${isVideo ? '500MB' : isAudio ? '20MB' : '50MB'}.`);
+          throw new Error(`File too large: ${file.name}. Max ${isVideo ? '2GB' : isAudio ? '20MB' : '50MB'}.`);
         }
 
-        // Use signed URL for direct upload to bypass API body size limits
-        const signedUrlResponse = await fetch('/api/storage/signed-url', {
+        // Upload to Cloudinary via backend API
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', 'media-library');
+        formData.append('tags', `workspace:${workspaceId},uploaded`);
+
+        // Use chunked upload for large videos (>100MB)
+        if (isVideo && file.size > 100 * 1024 * 1024) {
+          formData.append('chunked', 'true');
+        }
+
+        // Determine upload endpoint based on file type
+        const uploadEndpoint = isImage
+          ? '/api/v1/cloudinary/upload/image'
+          : isVideo
+            ? '/api/v1/cloudinary/upload/video'
+            : '/api/v1/cloudinary/upload/audio';
+
+        const pythonBackendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000';
+
+        const uploadResponse = await fetch(`${pythonBackendUrl}${uploadEndpoint}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fileName: file.name,
-            contentType: file.type,
-            folder: 'media-library',
-          }),
-        });
-
-        if (!signedUrlResponse.ok) {
-          const errorData = await signedUrlResponse.json();
-          throw new Error(errorData.error || 'Failed to get upload URL');
-        }
-
-        const { signedUrl, publicUrl } = await signedUrlResponse.json();
-
-        // Upload directly to Supabase Storage using signed URL
-        const uploadResponse = await fetch(signedUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': file.type,
-          },
-          body: file,
+          body: formData,
         });
 
         if (!uploadResponse.ok) {
-          throw new Error('Failed to upload file to storage');
+          const errorData = await uploadResponse.json();
+          throw new Error(errorData.detail || errorData.error || 'Failed to upload to Cloudinary');
         }
 
-        const fileUrl = publicUrl;
+        const uploadResult = await uploadResponse.json();
+
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || 'Upload failed');
+        }
+
+        // Use secure_url from Cloudinary (CDN optimized)
+        const fileUrl = uploadResult.secure_url;
 
         // Save to media library
         const mediaResponse = await fetch('/api/media-studio/library', {
@@ -475,11 +485,16 @@ export function MediaGallery({ images, videos, workspaceId }: MediaGalleryProps)
               source: 'uploaded',
               url: fileUrl,
               prompt: file.name.replace(/\.[^/.]+$/, ''), // Use filename without extension as prompt
-              model: 'uploaded',
+              model: 'cloudinary',
               config: {
                 originalFileName: file.name,
                 fileSize: file.size,
                 mimeType: file.type,
+                cloudinaryPublicId: uploadResult.public_id,
+                cloudinaryFormat: uploadResult.format,
+                width: uploadResult.width,
+                height: uploadResult.height,
+                duration: uploadResult.duration,
               },
             },
           }),
@@ -497,8 +512,12 @@ export function MediaGallery({ images, videos, workspaceId }: MediaGalleryProps)
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+
+      toast.success('Upload complete!');
     } catch (error) {
-      setUploadError(error instanceof Error ? error.message : 'Upload failed');
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+      setUploadError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsUploading(false);
     }
@@ -604,7 +623,7 @@ export function MediaGallery({ images, videos, workspaceId }: MediaGalleryProps)
         }
       };
 
-      const response = await fetch('/api/posts', {
+      const response = await fetch(`/api/posts?user_id=${user?.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
