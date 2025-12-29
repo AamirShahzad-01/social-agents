@@ -80,36 +80,36 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-        <div className="bg-card border rounded-xl p-1.5 shadow-sm">
-          <TabsList className="grid w-full grid-cols-7 bg-transparent gap-1.5 h-auto">
-            <TabsTrigger value="merge" className="gap-2 text-[12px] sm:text-[13px] h-10 rounded-lg data-[state=active]:shadow-sm">
-              <Merge className="w-[16px] h-[16px]" />
+        <div className="bg-card border rounded-lg p-1 shadow-sm">
+          <TabsList className="grid w-full grid-cols-7 bg-transparent gap-1 h-auto">
+            <TabsTrigger value="merge" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
+              <Merge className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Merge</span>
             </TabsTrigger>
-            <TabsTrigger value="trim" className="gap-2 text-[12px] sm:text-[13px] h-10 rounded-lg data-[state=active]:shadow-sm">
-              <Scissors className="w-[16px] h-[16px]" />
+            <TabsTrigger value="trim" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
+              <Scissors className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Trim</span>
             </TabsTrigger>
-            <TabsTrigger value="speed" className="gap-2 text-[12px] sm:text-[13px] h-10 rounded-lg data-[state=active]:shadow-sm">
-              <Gauge className="w-[16px] h-[16px]" />
+            <TabsTrigger value="speed" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
+              <Gauge className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Speed</span>
             </TabsTrigger>
-            <TabsTrigger value="text" className="gap-2 text-[12px] sm:text-[13px] h-10 rounded-lg data-[state=active]:shadow-sm">
-              <Type className="w-[16px] h-[16px]" />
+            <TabsTrigger value="text" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
+              <Type className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Text</span>
             </TabsTrigger>
-            <TabsTrigger value="audio" className="gap-2 text-[12px] sm:text-[13px] h-10 rounded-lg data-[state=active]:shadow-sm">
-              <Music className="w-[16px] h-[16px]" />
+            <TabsTrigger value="audio" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
+              <Music className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Audio</span>
             </TabsTrigger>
-            <TabsTrigger value="resize" className="gap-2 text-[12px] sm:text-[13px] h-10 rounded-lg data-[state=active]:shadow-sm">
-              <Crop className="w-[16px] h-[16px]" />
+            <TabsTrigger value="resize" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
+              <Crop className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Resize</span>
             </TabsTrigger>
-            <TabsTrigger value="image" className="gap-2 text-[12px] sm:text-[13px] h-10 rounded-lg data-[state=active]:shadow-sm">
-              <ImageIcon className="w-[16px] h-[16px]" />
+            <TabsTrigger value="image" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
+              <ImageIcon className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Image</span>
             </TabsTrigger>
           </TabsList>

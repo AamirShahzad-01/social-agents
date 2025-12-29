@@ -53,6 +53,9 @@ interface MediaLibraryItem {
 
 interface CanvaEditorProps {
   onMediaSaved?: (url: string) => void;
+  activeTab?: 'library' | 'designs' | 'video-editor';
+  onTabChange?: (tab: 'library' | 'designs' | 'video-editor') => void;
+  onCountsChange?: (libraryCount: number, designsCount: number) => void;
 }
 
 /**
@@ -66,7 +69,7 @@ function getDesignThumbnailUrl(design: CanvaDesign): string | undefined {
   return design.thumbnail?.url || d.thumbnail_url;
 }
 
-export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
+export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTabChange, onCountsChange }: CanvaEditorProps) {
   const { workspaceId, user } = useAuth();
 
   // Connection state
@@ -87,7 +90,9 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
   const [sendingDesignId, setSendingDesignId] = useState<string | null>(null);
   const [creatingDesignFrom, setCreatingDesignFrom] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'library' | 'designs' | 'video-editor'>('library');
+  const [internalActiveTab, setInternalActiveTab] = useState<'library' | 'designs' | 'video-editor'>('library');
+  const activeTab = controlledActiveTab ?? internalActiveTab;
+  const setActiveTab = onTabChange ?? setInternalActiveTab;
 
   // Send to Post state
   const [sendModalOpen, setSendModalOpen] = useState(false);
@@ -138,6 +143,13 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
       fetchLibraryItems();
     }
   }, [isConnected, workspaceId, user?.id]);
+
+  // Notify parent about counts for header badge display
+  useEffect(() => {
+    if (onCountsChange) {
+      onCountsChange(libraryItems.length, designs.length);
+    }
+  }, [libraryItems.length, designs.length, onCountsChange]);
 
   const checkConnection = async () => {
     if (!user?.id) {
@@ -812,24 +824,26 @@ export function CanvaEditor({ onMediaSaved }: CanvaEditorProps) {
   // Connected state
   return (
     <div className="space-y-6">
-      {/* Tabs */}
+      {/* Tabs - Only show TabsList if not controlled from parent (header) */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'library' | 'designs' | 'video-editor')}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="library" className="gap-2">
-            <FolderOpen className="w-4 h-4" />
-            Media Library
-            <Badge variant="secondary" className="ml-1">{libraryItems.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="designs" className="gap-2">
-            <Sparkles className="w-4 h-4" />
-            Canva Designs
-            <Badge variant="secondary" className="ml-1">{designs.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="video-editor" className="gap-2">
-            <Film className="w-4 h-4" />
-            Video Editor
-          </TabsTrigger>
-        </TabsList>
+        {!controlledActiveTab && (
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="library" className="gap-2">
+              <FolderOpen className="w-4 h-4" />
+              Media Library
+              <Badge variant="secondary" className="ml-1">{libraryItems.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="designs" className="gap-2">
+              <Sparkles className="w-4 h-4" />
+              Canva Designs
+              <Badge variant="secondary" className="ml-1">{designs.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="video-editor" className="gap-2">
+              <Film className="w-4 h-4" />
+              Video Editor
+            </TabsTrigger>
+          </TabsList>
+        )}
 
         {/* Library Tab - Select media to edit */}
         <TabsContent value="library" className="mt-4">
