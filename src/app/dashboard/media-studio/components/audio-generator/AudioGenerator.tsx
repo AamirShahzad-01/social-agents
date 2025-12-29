@@ -243,7 +243,7 @@ export function AudioGenerator() {
 
                     <CardContent className="p-5 pt-0 space-y-5">
                         {/* Tab Navigation - Enterprise Standard */}
-                        <div className="flex flex-wrap gap-1.5 p-1.5 bg-muted/50 rounded-xl">
+                        <div className="flex flex-wrap gap-1 p-1 bg-muted/50 rounded-lg">
                             {AUDIO_TABS.map((tab) => {
                                 const isActive = activeTab === tab.id;
                                 const Icon = tab.icon;
@@ -253,7 +253,7 @@ export function AudioGenerator() {
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id)}
                                         className={`
-                                            flex items-center gap-2.5 h-10 px-4 rounded-lg transition-all duration-200 text-[13px] font-medium
+                                            flex items-center gap-2 h-8 px-3 rounded-md transition-all duration-200 text-xs font-medium
                                             ${isActive
                                                 ? 'bg-gradient-to-r from-teal-500 to-teal-600 shadow-sm text-white'
                                                 : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-800/50'
@@ -261,10 +261,10 @@ export function AudioGenerator() {
                                         `}
                                     >
                                         <div
-                                            className={`w-6 h-6 rounded-md flex items-center justify-center transition-all ${isActive ? 'bg-white/20 text-white' : 'bg-muted'
+                                            className={`w-5 h-5 rounded flex items-center justify-center transition-all ${isActive ? 'bg-white/20 text-white' : 'bg-muted'
                                                 }`}
                                         >
-                                            <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+                                            <Icon className={`w-3 h-3 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
                                         </div>
                                         <span className="hidden sm:inline">{tab.label}</span>
                                     </button>
@@ -339,22 +339,22 @@ export function AudioGenerator() {
                                     <Button
                                         variant="outline"
                                         size="icon"
-                                        className="h-14 w-14 rounded-full"
+                                        className="h-12 w-12 rounded-full"
                                         onClick={togglePlayback}
                                     >
                                         {isPlaying ? (
-                                            <Pause className="w-6 h-6" />
+                                            <Pause className="w-5 h-5" />
                                         ) : (
-                                            <Play className="w-6 h-6 ml-0.5" />
+                                            <Play className="w-5 h-5 ml-0.5" />
                                         )}
                                     </Button>
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-10 px-4 text-[13px]"
+                                        className="h-8 px-3 text-xs"
                                         onClick={() => currentAudio && handleDownload(currentAudio, `audio_${Date.now()}.mp3`)}
                                     >
-                                        <Download className="w-4 h-4 mr-2" />
+                                        <Download className="w-3.5 h-3.5 mr-1.5" />
                                         Download
                                     </Button>
                                 </div>
@@ -397,21 +397,21 @@ export function AudioGenerator() {
                                         <button
                                             key={audio.id}
                                             onClick={() => setCurrentAudio(audio.url)}
-                                            className={`w-full flex items-center gap-3 p-3.5 rounded-xl border transition-all hover:bg-muted/50 ${currentAudio === audio.url ? 'border-teal-500 bg-teal-500/5' : 'border-transparent'
+                                            className={`w-full flex items-center gap-2.5 p-2.5 rounded-lg border transition-all hover:bg-muted/50 ${currentAudio === audio.url ? 'border-teal-500 bg-teal-500/5' : 'border-transparent'
                                                 }`}
                                         >
-                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br ${tabConfig?.gradient || 'from-gray-500 to-gray-600'}`}>
-                                                <Icon className="w-[18px] h-[18px] text-white" />
+                                            <div className={`w-8 h-8 rounded-md flex items-center justify-center bg-gradient-to-br ${tabConfig?.gradient || 'from-gray-500 to-gray-600'}`}>
+                                                <Icon className="w-4 h-4 text-white" />
                                             </div>
                                             <div className="flex-1 text-left min-w-0">
-                                                <p className="text-[13px] font-medium truncate">
+                                                <p className="text-xs font-medium truncate">
                                                     {audio.prompt || tabConfig?.label || 'Audio'}
                                                 </p>
-                                                <p className="text-[11px] text-muted-foreground">
+                                                <p className="text-[10px] text-muted-foreground">
                                                     {new Date(audio.createdAt).toLocaleTimeString()}
                                                 </p>
                                             </div>
-                                            <Play className="w-4 h-4 text-muted-foreground" />
+                                            <Play className="w-3.5 h-3.5 text-muted-foreground" />
                                         </button>
                                     );
                                 })}

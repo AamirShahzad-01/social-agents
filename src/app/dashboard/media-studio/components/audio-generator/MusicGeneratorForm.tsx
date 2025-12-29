@@ -89,18 +89,6 @@ export function MusicGeneratorForm({ onAudioGenerated }: MusicGeneratorFormProps
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                    <Music className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                    <h3 className="font-semibold">Music Generator</h3>
-                    <p className="text-sm text-muted-foreground">
-                        Create original music tracks from text descriptions
-                    </p>
-                </div>
-            </div>
 
             {/* Prompt Input */}
             <div className="space-y-3">
@@ -143,9 +131,9 @@ export function MusicGeneratorForm({ onAudioGenerated }: MusicGeneratorFormProps
             </div>
 
             {/* Quick Presets */}
-            <div className="space-y-3">
-                <label className="text-sm font-medium">Quick Presets</label>
-                <div className="flex flex-wrap gap-2">
+            <div className="space-y-2">
+                <label className="text-xs font-medium">Quick Presets</label>
+                <div className="flex flex-wrap gap-1.5">
                     {[
                         { label: 'Upbeat Pop', prompt: 'Upbeat pop track with catchy melodies, bright synths, and energetic drums. 120 BPM.' },
                         { label: 'Chill Lo-Fi', prompt: 'Relaxing lo-fi hip hop beat with mellow piano, vinyl crackle, and soft drums. 85 BPM.' },
@@ -155,7 +143,7 @@ export function MusicGeneratorForm({ onAudioGenerated }: MusicGeneratorFormProps
                         <button
                             key={preset.label}
                             onClick={() => setPrompt(preset.prompt)}
-                            className="px-3 py-1.5 text-sm rounded-full border border-purple-500/30 text-purple-600 hover:bg-purple-500/10 transition-colors"
+                            className="px-2.5 py-1 text-xs rounded-full border border-purple-500/30 text-purple-600 hover:bg-purple-500/10 transition-colors"
                         >
                             {preset.label}
                         </button>
@@ -175,16 +163,16 @@ export function MusicGeneratorForm({ onAudioGenerated }: MusicGeneratorFormProps
             <Button
                 onClick={handleGenerate}
                 disabled={isGenerating || !prompt.trim()}
-                className="w-full h-12 text-base font-medium bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                className="w-full h-10 text-xs font-medium bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
             >
                 {isGenerating ? (
                     <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Composing Music...
                     </>
                 ) : (
                     <>
-                        <Sparkles className="w-5 h-5 mr-2" />
+                        <Sparkles className="w-4 h-4 mr-2" />
                         Generate Music
                     </>
                 )}

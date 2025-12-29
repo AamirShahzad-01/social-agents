@@ -204,18 +204,6 @@ export function VoiceCloningForm({ onVoiceCreated }: VoiceCloningFormProps) {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-indigo-500/10 to-violet-500/10 rounded-xl">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
-                    <Mic className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                    <h3 className="font-semibold">Instant Voice Cloning</h3>
-                    <p className="text-sm text-muted-foreground">
-                        Clone your voice with just a few minutes of audio
-                    </p>
-                </div>
-            </div>
 
             {/* Instructions */}
             <div className="p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-lg text-sm space-y-2">
@@ -377,16 +365,16 @@ export function VoiceCloningForm({ onVoiceCreated }: VoiceCloningFormProps) {
             <Button
                 onClick={handleClone}
                 disabled={isCloning || !audioBase64 || !voiceName.trim()}
-                className="w-full h-12 text-base font-medium bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600"
+                className="w-full h-10 text-xs font-medium bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600"
             >
                 {isCloning ? (
                     <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Cloning Voice...
                     </>
                 ) : (
                     <>
-                        <Mic className="w-5 h-5 mr-2" />
+                        <Mic className="w-4 h-4 mr-2" />
                         Clone Voice
                     </>
                 )}

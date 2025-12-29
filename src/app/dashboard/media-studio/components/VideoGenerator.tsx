@@ -1036,20 +1036,20 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
 
           {/* Model Selection */}
           {mode !== 'remix' && (
-            <div className="space-y-2">
-              <label className="ms-label">Sora Model</label>
-              <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Sora Model</label>
+              <div className="grid grid-cols-2 gap-1.5">
                 {SORA_MODELS.map((m) => (
                   <button
                     key={m.value}
                     onClick={() => setModel(m.value)}
-                    className={`p-3 rounded-lg border-2 text-left transition-all duration-200 ${model === m.value
+                    className={`py-2 px-2.5 rounded-md border text-left transition-all duration-200 ${model === m.value
                       ? 'border-[var(--ms-primary)] bg-[var(--ms-primary)]/10 dark:bg-[var(--ms-primary)]/20'
                       : 'border-[var(--ms-border)] hover:border-[var(--ms-primary)]/50'
                       }`}
                   >
-                    <div className="font-medium text-sm text-foreground">{m.label}</div>
-                    <div className="text-xs text-muted-foreground">{m.description}</div>
+                    <div className="font-medium text-xs text-foreground">{m.label}</div>
+                    <div className="text-[10px] text-muted-foreground">{m.description}</div>
                   </button>
                 ))}
               </div>
@@ -1058,13 +1058,13 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
 
           {/* Size & Duration - Enterprise Standard */}
           {mode !== 'remix' && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2.5">
-                <label className="text-[13px] font-medium text-foreground">Resolution</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">Resolution</label>
                 <select
                   value={size}
                   onChange={(e) => setSize(e.target.value)}
-                  className="w-full h-10 px-3.5 rounded-lg border border-input bg-background text-[14px] cursor-pointer"
+                  className="w-full h-8 px-2.5 rounded-md border border-input bg-background text-xs cursor-pointer"
                 >
                   {SIZE_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -1073,16 +1073,16 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
                   ))}
                 </select>
                 {selectedSize && (
-                  <p className="text-xs text-muted-foreground">{selectedSize.description}</p>
+                  <p className="text-[10px] text-muted-foreground">{selectedSize.description}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="ms-label">Duration</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">Duration</label>
                 <select
                   value={seconds}
                   onChange={(e) => setSeconds(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                  className="w-full h-8 px-2.5 rounded-md border border-input bg-background text-xs"
                 >
                   {DURATION_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>

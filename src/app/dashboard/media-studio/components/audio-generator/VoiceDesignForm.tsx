@@ -204,18 +204,6 @@ export function VoiceDesignForm({ onVoiceCreated }: VoiceDesignFormProps) {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-pink-500/10 to-rose-500/10 rounded-xl">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
-                    <Wand2 className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                    <h3 className="font-semibold">Voice Design</h3>
-                    <p className="text-sm text-muted-foreground">
-                        Create custom AI voices from text descriptions
-                    </p>
-                </div>
-            </div>
 
             {/* Voice Description */}
             <div className="space-y-3">
@@ -234,14 +222,14 @@ export function VoiceDesignForm({ onVoiceCreated }: VoiceDesignFormProps) {
             </div>
 
             {/* Style Presets */}
-            <div className="space-y-3">
-                <label className="text-sm font-medium">Style Presets</label>
-                <div className="flex flex-wrap gap-2">
+            <div className="space-y-2">
+                <label className="text-xs font-medium">Style Presets</label>
+                <div className="flex flex-wrap gap-1.5">
                     {STYLE_PRESETS.map((preset) => (
                         <button
                             key={preset.id}
                             onClick={() => applyPreset(preset.prompt)}
-                            className="px-3 py-1.5 text-sm rounded-full border border-pink-500/30 text-pink-600 hover:bg-pink-500/10 transition-colors"
+                            className="px-2.5 py-1 text-xs rounded-full border border-pink-500/30 text-pink-600 hover:bg-pink-500/10 transition-colors"
                         >
                             {preset.label}
                         </button>

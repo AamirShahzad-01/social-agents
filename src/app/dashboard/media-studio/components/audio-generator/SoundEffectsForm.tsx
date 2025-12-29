@@ -88,18 +88,6 @@ export function SoundEffectsForm({ onAudioGenerated }: SoundEffectsFormProps) {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-orange-500/10 to-amber-500/10 rounded-xl">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
-                    <AudioLines className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                    <h3 className="font-semibold">Sound Effects Generator</h3>
-                    <p className="text-sm text-muted-foreground">
-                        Create custom sound effects from descriptions
-                    </p>
-                </div>
-            </div>
 
             {/* Prompt Input */}
             <div className="space-y-3">
@@ -114,9 +102,9 @@ export function SoundEffectsForm({ onAudioGenerated }: SoundEffectsFormProps) {
             </div>
 
             {/* Quick Examples */}
-            <div className="space-y-3">
-                <label className="text-sm font-medium">Examples</label>
-                <div className="flex flex-wrap gap-2">
+            <div className="space-y-2">
+                <label className="text-xs font-medium">Examples</label>
+                <div className="flex flex-wrap gap-1.5">
                     {[
                         'Thunderstorm with rain',
                         'Footsteps on gravel',
@@ -128,7 +116,7 @@ export function SoundEffectsForm({ onAudioGenerated }: SoundEffectsFormProps) {
                         <button
                             key={example}
                             onClick={() => setPrompt(example)}
-                            className="px-3 py-1.5 text-sm rounded-full border border-orange-500/30 text-orange-600 hover:bg-orange-500/10 transition-colors"
+                            className="px-2.5 py-1 text-xs rounded-full border border-orange-500/30 text-orange-600 hover:bg-orange-500/10 transition-colors"
                         >
                             {example}
                         </button>
@@ -221,16 +209,16 @@ export function SoundEffectsForm({ onAudioGenerated }: SoundEffectsFormProps) {
             <Button
                 onClick={handleGenerate}
                 disabled={isGenerating || !prompt.trim()}
-                className="w-full h-12 text-base font-medium bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
+                className="w-full h-10 text-xs font-medium bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
             >
                 {isGenerating ? (
                     <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Generating Effect...
                     </>
                 ) : (
                     <>
-                        <Sparkles className="w-5 h-5 mr-2" />
+                        <Sparkles className="w-4 h-4 mr-2" />
                         Generate Sound Effect
                     </>
                 )}

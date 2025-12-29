@@ -543,9 +543,9 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
         </CardHeader>
         <CardContent className="p-5 pt-0 space-y-5">
           {/* Model Selection - Enterprise Tab Style */}
-          <div className="space-y-2.5">
-            <label className="text-[13px] font-medium text-foreground">AI Model</label>
-            <div className="inline-flex h-auto p-1 bg-muted rounded-lg gap-1.5">
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-foreground">AI Model</label>
+            <div className="inline-flex h-auto p-0.5 bg-muted rounded-lg gap-1">
               {Object.values(MODEL_CONFIGS).map((cfg) => {
                 const isSelected = model === cfg.value;
                 const providerConfig = PROVIDERS[cfg.provider];
@@ -555,7 +555,7 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
                     key={cfg.value}
                     onClick={() => handleModelChange(cfg.value)}
                     className={`
-                      flex items-center gap-2.5 h-10 px-4 rounded-lg text-[13px] transition-all duration-200
+                      flex items-center gap-2 h-8 px-3 rounded-md text-xs transition-all duration-200
                       ${isSelected
                         ? 'bg-white dark:bg-white shadow-sm'
                         : 'hover:bg-white/50 dark:hover:bg-white/20'
@@ -563,7 +563,7 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
                     `}
                   >
                     <div
-                      className="w-6 h-6 rounded-md flex items-center justify-center"
+                      className="w-5 h-5 rounded flex items-center justify-center"
                       style={{
                         background: cfg.provider === 'openai'
                           ? 'var(--ms-gradient-primary)'
@@ -572,10 +572,10 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
                     >
                       <ProviderIcon
                         provider={cfg.provider}
-                        className="w-3.5 h-3.5 text-white"
+                        className="w-3 h-3 text-white"
                       />
                     </div>
-                    <span className={`font-medium text-[13px] ${isSelected
+                    <span className={`font-medium text-xs ${isSelected
                       ? 'text-gray-900 dark:text-gray-900'
                       : 'text-foreground'
                       }`}>
@@ -638,9 +638,9 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
           </div>
 
           {/* Platform Presets - Enterprise Standard */}
-          <div className="space-y-2.5">
-            <label className="text-[13px] font-medium text-foreground">Quick Presets</label>
-            <div className="flex flex-wrap gap-2">
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-foreground">Quick Presets</label>
+            <div className="flex flex-wrap gap-1.5">
               {PLATFORM_PRESETS[provider].map((preset) => {
                 const isSelected = size === preset.size && model === preset.model;
                 return (
@@ -648,7 +648,7 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
                     key={preset.id}
                     onClick={() => applyPreset(preset.id)}
                     className={`
-                      h-9 px-4 rounded-lg border text-[13px] font-medium transition-all duration-200
+                      h-7 px-3 rounded-md border text-xs font-medium transition-all duration-200
                       ${isSelected
                         ? 'border-[var(--ms-primary)] bg-[var(--ms-primary)] text-white shadow-sm'
                         : 'border-[var(--ms-border)] hover:border-[var(--ms-primary)]/50 hover:bg-muted/50'
@@ -663,13 +663,13 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
           </div>
 
           {/* Size & Quality - Enterprise Standard */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2.5">
-              <label className="text-[13px] font-medium text-foreground">Size</label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">Size</label>
               <select
                 value={size}
                 onChange={(e) => setSize(e.target.value)}
-                className="w-full h-10 px-3.5 rounded-lg border border-input bg-background text-[14px] cursor-pointer"
+                className="w-full h-8 px-2.5 rounded-md border border-input bg-background text-xs cursor-pointer"
               >
                 {config.sizes.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -677,12 +677,12 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
               </select>
             </div>
 
-            <div className="space-y-2.5">
-              <label className="text-[13px] font-medium text-foreground">Quality</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">Quality</label>
               <select
                 value={quality}
                 onChange={(e) => setQuality(e.target.value)}
-                className="w-full h-10 px-3.5 rounded-lg border border-input bg-background text-[14px] cursor-pointer"
+                className="w-full h-8 px-2.5 rounded-md border border-input bg-background text-xs cursor-pointer"
               >
                 {config.qualities.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -693,8 +693,8 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
 
           {/* Number of Images */}
           {config.supportsN && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">
                 Number of Images (1-{config.maxN})
               </label>
               <input
@@ -703,7 +703,7 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
                 max={config.maxN}
                 value={n}
                 onChange={(e) => setN(Math.min(config.maxN, Math.max(1, parseInt(e.target.value) || 1)))}
-                className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                className="w-full h-8 px-2.5 rounded-md border border-input bg-background text-xs"
               />
             </div>
           )}

@@ -161,31 +161,6 @@ export function DialogGeneratorForm({
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-xl">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-                    <MessageSquare className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                    <h3 className="font-semibold">Dialog Generator</h3>
-                    <p className="text-sm text-muted-foreground">
-                        Create multi-speaker conversations with different voices
-                    </p>
-                </div>
-            </div>
-
-            {/* Audio Tags Hint */}
-            <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
-                <div className="flex items-start gap-2">
-                    <Info className="w-4 h-4 text-blue-500 mt-0.5" />
-                    <div>
-                        <p className="text-sm font-medium text-blue-600">Use Audio Tags for Expression</p>
-                        <p className="text-xs text-muted-foreground">
-                            Add tags like [laughs], [whispers], [angrily] in your text for emotional delivery.
-                        </p>
-                    </div>
-                </div>
-            </div>
 
             {/* Dialog Lines */}
             <div className="space-y-4">
@@ -299,16 +274,16 @@ export function DialogGeneratorForm({
             <Button
                 onClick={handleGenerate}
                 disabled={isGenerating || lines.filter(l => l.text.trim() && l.voiceId).length < 2}
-                className="w-full h-12 text-base font-medium bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
+                className="w-full h-10 text-xs font-medium bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
             >
                 {isGenerating ? (
                     <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Generating Dialog...
                     </>
                 ) : (
                     <>
-                        <Sparkles className="w-5 h-5 mr-2" />
+                        <Sparkles className="w-4 h-4 mr-2" />
                         Generate Dialog
                     </>
                 )}

@@ -211,24 +211,6 @@ export function VeoTextToVideo({
 
   return (
     <div className="space-y-5">
-      {/* Platform Presets - Enterprise Standard */}
-      <div className="space-y-2.5">
-        <Label className="text-[13px] font-medium">Quick Presets</Label>
-        <div className="grid grid-cols-3 gap-2">
-          {VEO_PLATFORM_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              onClick={() => handlePresetSelect(preset.id)}
-              disabled={isGenerating}
-              className="h-10 px-3 rounded-xl border border-border hover:border-purple-500/50 text-center transition-all text-[12px] font-medium"
-            >
-              <span className="mr-1">{preset.icon}</span>
-              {preset.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Prompt - Enterprise Standard */}
       <div className="space-y-2.5">
         <Label htmlFor="prompt" className="text-[13px] font-medium">
@@ -281,23 +263,23 @@ export function VeoTextToVideo({
       </div>
 
       {/* Model Selection - Enterprise Standard */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2.5">
-          <Label className="text-[13px] font-medium">Model</Label>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Model</Label>
           <Select
             value={model}
             onValueChange={(v: string) => setModel(v as VeoModel)}
             disabled={isGenerating}
           >
-            <SelectTrigger className="h-10 rounded-lg text-[13px]">
+            <SelectTrigger className="h-8 rounded-md text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {VEO_MODEL_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   <div className="flex flex-col">
-                    <span className="text-[13px]">{opt.label}</span>
-                    <span className="text-[11px] text-muted-foreground">{opt.description}</span>
+                    <span className="text-xs">{opt.label}</span>
+                    <span className="text-[10px] text-muted-foreground">{opt.description}</span>
                   </div>
                 </SelectItem>
               ))}
@@ -305,14 +287,14 @@ export function VeoTextToVideo({
           </Select>
         </div>
 
-        <div className="space-y-2.5">
-          <Label className="text-[13px] font-medium">Aspect Ratio</Label>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Aspect Ratio</Label>
           <Select
             value={aspectRatio}
             onValueChange={(v: string) => setAspectRatio(v as VeoAspectRatio)}
             disabled={isGenerating}
           >
-            <SelectTrigger className="h-10 rounded-lg text-[13px]">
+            <SelectTrigger className="h-8 rounded-md text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -327,15 +309,15 @@ export function VeoTextToVideo({
       </div>
 
       {/* Duration and Resolution */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Duration</Label>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Duration</Label>
           <Select
             value={String(duration)}
             onValueChange={(v: string) => setDuration(Number(v) as VeoDuration)}
             disabled={isGenerating}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-8 rounded-md text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -348,14 +330,14 @@ export function VeoTextToVideo({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Resolution</Label>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Resolution</Label>
           <Select
             value={resolution}
             onValueChange={(v: string) => setResolution(v as VeoResolution)}
             disabled={isGenerating}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-8 rounded-md text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -368,7 +350,7 @@ export function VeoTextToVideo({
                   <div className="flex items-center gap-2">
                     <span>{opt.label}</span>
                     {opt.value === '1080p' && is1080pDisabled && (
-                      <span className="text-xs text-muted-foreground">(8s only)</span>
+                      <span className="text-[10px] text-muted-foreground">(8s only)</span>
                     )}
                   </div>
                 </SelectItem>
