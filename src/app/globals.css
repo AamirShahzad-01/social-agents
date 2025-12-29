@@ -924,4 +924,169 @@
     color: var(--ms-text-secondary);
     border-radius: 4px;
   }
+
+  /* ============================================================================
+     ENTERPRISE SAAS COMPONENT TOKENS
+     Standard sizing based on industry best practices
+     ============================================================================ */
+
+  :root {
+    /* Button Heights - SaaS Standard */
+    --ms-btn-height-sm: 32px;
+    /* Small actions, secondary */
+    --ms-btn-height-md: 36px;
+    /* Default buttons */
+    --ms-btn-height-lg: 44px;
+    /* Primary CTAs */
+
+    /* Input Heights */
+    --ms-input-height: 36px;
+    /* Standard input fields */
+    --ms-input-height-lg: 44px;
+    /* Prominent inputs */
+    --ms-textarea-min: 140px;
+    /* Minimum textarea height */
+
+    /* Text Sizes - SaaS Standard */
+    --ms-text-xs: 0.75rem;
+    /* 12px - captions, badges */
+    --ms-text-sm: 0.8125rem;
+    /* 13px - secondary text */
+    --ms-text-base: 0.875rem;
+    /* 14px - body text */
+    --ms-text-md: 1rem;
+    /* 16px - emphasis, subheadings */
+    --ms-text-lg: 1.125rem;
+    /* 18px - section titles */
+    --ms-text-xl: 1.25rem;
+    /* 20px - page titles */
+    --ms-text-2xl: 1.5rem;
+    /* 24px - major headings */
+
+    /* Icon Sizes */
+    --ms-icon-xs: 14px;
+    /* Inline icons */
+    --ms-icon-sm: 16px;
+    /* Button icons */
+    --ms-icon-md: 20px;
+    /* Standard icons */
+    --ms-icon-lg: 24px;
+    /* Header icons */
+
+    /* Spacing - 4px Grid */
+    --ms-space-1: 4px;
+    --ms-space-2: 8px;
+    --ms-space-3: 12px;
+    --ms-space-4: 16px;
+    --ms-space-5: 20px;
+    --ms-space-6: 24px;
+    --ms-space-8: 32px;
+    --ms-space-10: 40px;
+    --ms-space-12: 48px;
+
+    /* Border Radius */
+    --ms-radius-sm: 4px;
+    --ms-radius-md: 6px;
+    --ms-radius-lg: 8px;
+    --ms-radius-xl: 12px;
+  }
+
+  /* Enterprise Button Styles */
+  .ms-btn-sm {
+    height: var(--ms-btn-height-sm);
+    padding: 0 12px;
+    font-size: var(--ms-text-sm);
+    border-radius: var(--ms-radius-md);
+  }
+
+  .ms-btn-md {
+    height: var(--ms-btn-height-md);
+    padding: 0 16px;
+    font-size: var(--ms-text-base);
+    border-radius: var(--ms-radius-md);
+  }
+
+  .ms-btn-lg {
+    height: var(--ms-btn-height-lg);
+    padding: 0 20px;
+    font-size: var(--ms-text-base);
+    font-weight: 500;
+    border-radius: var(--ms-radius-lg);
+  }
+
+  /* Enterprise Input Styles */
+  .ms-input {
+    height: var(--ms-input-height);
+    padding: 0 12px;
+    font-size: var(--ms-text-base);
+    border-radius: var(--ms-radius-md);
+  }
+
+  .ms-textarea {
+    min-height: var(--ms-textarea-min);
+    padding: 12px;
+    font-size: var(--ms-text-base);
+    line-height: 1.5;
+    border-radius: var(--ms-radius-md);
+    resize: vertical;
+  }
+
+  /* Enterprise Label */
+  .ms-form-label {
+    font-size: var(--ms-text-sm);
+    font-weight: 500;
+    color: var(--ms-text-primary);
+    margin-bottom: var(--ms-space-2);
+  }
+
+  /* Card Spacing */
+  .ms-card-content {
+    padding: var(--ms-space-6);
+  }
+
+  .ms-card-header {
+    padding: var(--ms-space-6);
+    padding-bottom: var(--ms-space-4);
+  }
+
+  /* Section Spacing */
+  .ms-section-gap {
+    gap: var(--ms-space-6);
+  }
+
+  .ms-item-gap {
+    gap: var(--ms-space-4);
+  }
+
+  /* Enterprise Tab Styles */
+  .ms-tab-trigger {
+    height: var(--ms-btn-height-md);
+    padding: 0 16px;
+    font-size: var(--ms-text-sm);
+    font-weight: 500;
+    border-radius: var(--ms-radius-md);
+    transition: all 0.2s ease;
+  }
+
+  .ms-tab-trigger[data-state="active"] {
+    background: var(--ms-gradient-primary);
+    color: white;
+    box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
+  }
+
+  /* Enterprise Header - Compact */
+  .ms-page-header {
+    padding: var(--ms-space-4) var(--ms-space-6);
+  }
+
+  .ms-page-title {
+    font-size: var(--ms-text-lg);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .ms-page-description {
+    font-size: var(--ms-text-sm);
+    color: var(--ms-text-secondary);
+  }
 }

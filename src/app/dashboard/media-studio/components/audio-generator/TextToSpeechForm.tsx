@@ -151,7 +151,7 @@ export function TextToSpeechForm({
     return (
         <div className="space-y-6">
             {/* Voice Selection */}
-            <div className="space-y-3">
+            <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <label className="text-sm font-medium">Voice</label>
                     <Button
@@ -159,7 +159,7 @@ export function TextToSpeechForm({
                         size="sm"
                         onClick={onRefreshVoices}
                         disabled={isLoadingVoices}
-                        className="h-7 text-xs"
+                        className="h-8 text-sm"
                     >
                         <RefreshCw className={`w-3 h-3 mr-1.5 ${isLoadingVoices ? 'animate-spin' : ''}`} />
                         Refresh
@@ -170,10 +170,10 @@ export function TextToSpeechForm({
                     <button
                         type="button"
                         onClick={() => setShowVoiceDropdown(!showVoiceDropdown)}
-                        className="w-full flex items-center justify-between px-4 py-3 border rounded-lg bg-background hover:bg-muted/50 transition-colors"
+                        className="w-full flex items-center justify-between h-12 px-4 border rounded-md bg-background hover:bg-muted/50 transition-colors"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-purple-500 flex items-center justify-center">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-purple-500 flex items-center justify-center">
                                 <Volume2 className="w-5 h-5 text-white" />
                             </div>
                             <div className="text-left">
@@ -190,7 +190,7 @@ export function TextToSpeechForm({
 
                     {/* Voice Dropdown */}
                     {showVoiceDropdown && (
-                        <div className="absolute z-50 w-full mt-2 bg-popover border rounded-lg shadow-lg max-h-[300px] overflow-hidden">
+                        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-[300px] overflow-hidden">
                             {/* Search */}
                             <div className="p-2 border-b">
                                 <div className="relative">
@@ -254,14 +254,14 @@ export function TextToSpeechForm({
             </div>
 
             {/* Model Selection */}
-            <div className="space-y-3">
+            <div className="space-y-2">
                 <label className="text-sm font-medium">Model</label>
                 <div className="grid grid-cols-2 gap-2">
                     {TTS_MODELS.map((model) => (
                         <button
                             key={model.id}
                             onClick={() => setModelId(model.id)}
-                            className={`p-3 rounded-lg border text-left transition-all ${modelId === model.id
+                            className={`h-auto p-3 rounded-md border text-left transition-all ${modelId === model.id
                                 ? 'border-teal-500 bg-teal-500/5'
                                 : 'border-border hover:border-teal-500/50'
                                 }`}
@@ -283,7 +283,7 @@ export function TextToSpeechForm({
                     placeholder="Enter the text you want to convert to speech..."
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    className="min-h-[120px] resize-none"
+                    className="min-h-[140px] resize-none text-sm"
                     maxLength={5000}
                 />
             </div>
@@ -394,7 +394,7 @@ export function TextToSpeechForm({
             <Button
                 onClick={handleGenerate}
                 disabled={isGenerating || !text.trim() || !selectedVoiceId}
-                className="w-full h-12 text-base font-medium bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
+                className="w-full h-11 text-sm font-medium bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
             >
                 {isGenerating ? (
                     <>

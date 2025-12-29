@@ -530,22 +530,22 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Configuration Panel */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div className="p-2 rounded-lg" style={{ background: 'var(--ms-gradient-primary)' }}>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <div className="p-2 rounded-md" style={{ background: 'var(--ms-gradient-primary)' }}>
               <Wand2 className="w-4 h-4 text-white" />
             </div>
-            <span className="ms-heading-md">Generate Image</span>
+            <span>Generate Image</span>
           </CardTitle>
-          <CardDescription className="ms-body-sm">
+          <CardDescription className="text-sm">
             {config.label} - {config.description}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-6">
           {/* Model Selection - Clean Tab Style */}
-          <div className="space-y-3">
-            <label className="ms-label">AI Model</label>
-            <div className="inline-flex h-auto p-1 bg-muted rounded-xl gap-1">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">AI Model</label>
+            <div className="inline-flex h-auto p-1 bg-muted rounded-lg gap-1">
               {Object.values(MODEL_CONFIGS).map((cfg) => {
                 const isSelected = model === cfg.value;
                 const providerConfig = PROVIDERS[cfg.provider];
@@ -555,7 +555,7 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
                     key={cfg.value}
                     onClick={() => handleModelChange(cfg.value)}
                     className={`
-                      flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200
+                      flex items-center gap-2 h-9 px-4 rounded-md text-sm transition-all duration-200
                       ${isSelected
                         ? 'bg-white dark:bg-white shadow-sm'
                         : 'hover:bg-white/50 dark:hover:bg-white/20'
@@ -576,8 +576,8 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
                       />
                     </div>
                     <span className={`font-medium text-sm ${isSelected
-                        ? 'text-gray-900 dark:text-gray-900'
-                        : 'text-foreground'
+                      ? 'text-gray-900 dark:text-gray-900'
+                      : 'text-foreground'
                       }`}>
                       {cfg.value === 'gpt-image-1.5' ? 'GPT Image 1' : 'Gemini 3 Pro'}
                     </span>
@@ -590,8 +590,8 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
           {/* Prompt Input */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="ms-label">Prompt</label>
-              <span className="ms-caption">
+              <label className="text-sm font-medium">Prompt</label>
+              <span className="text-xs text-muted-foreground">
                 {prompt.length} / {config.maxPromptLength.toLocaleString()}
               </span>
             </div>
@@ -599,7 +599,7 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
               placeholder={`Describe the image you want to create... (max ${config.maxPromptLength.toLocaleString()} chars)`}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              className="min-h-[100px] resize-none"
+              className="min-h-[140px] resize-none text-sm"
             />
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -609,7 +609,7 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
                   size="sm"
                   onClick={handleImprovePrompt}
                   disabled={isImprovingPrompt || !prompt.trim()}
-                  className="h-7 text-xs font-medium bg-gradient-to-r from-purple-600 to-pink-500 text-white hover:from-purple-700 hover:to-pink-600 border-0"
+                  className="h-8 text-sm font-medium bg-gradient-to-r from-purple-600 to-pink-500 text-white hover:from-purple-700 hover:to-pink-600 border-0"
                 >
                   {isImprovingPrompt ? (
                     <>
@@ -630,7 +630,7 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
                   </span>
                 )}
               </div>
-              <Button variant="ghost" size="sm" className="h-6 px-2" onClick={handleCopyPrompt}>
+              <Button variant="ghost" size="sm" className="h-8 px-3 text-sm" onClick={handleCopyPrompt}>
                 {copied ? <Check className="w-3 h-3 mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
                 {copied ? 'Copied!' : 'Copy'}
               </Button>
@@ -639,8 +639,8 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
 
           {/* Platform Presets - Standard Platforms Only */}
           <div className="space-y-2">
-            <label className="ms-label">Quick Presets</label>
-            <div className="flex flex-wrap gap-2">
+            <label className="text-sm font-medium">Quick Presets</label>
+            <div className="flex flex-wrap gap-1.5">
               {PLATFORM_PRESETS[provider].map((preset) => {
                 const isSelected = size === preset.size && model === preset.model;
                 return (
@@ -648,7 +648,7 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
                     key={preset.id}
                     onClick={() => applyPreset(preset.id)}
                     className={`
-                      px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200
+                      h-8 px-3 rounded-md border text-sm font-medium transition-all duration-200
                       ${isSelected
                         ? 'border-[var(--ms-primary)] bg-[var(--ms-primary)] text-white'
                         : 'border-[var(--ms-border)] hover:border-[var(--ms-primary)]/50 hover:bg-muted/50'
@@ -665,11 +665,11 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
           {/* Size & Quality */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="ms-label">Size</label>
+              <label className="text-sm font-medium">Size</label>
               <select
                 value={size}
                 onChange={(e) => setSize(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
               >
                 {config.sizes.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -678,11 +678,11 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
             </div>
 
             <div className="space-y-2">
-              <label className="ms-label">Quality</label>
+              <label className="text-sm font-medium">Quality</label>
               <select
                 value={quality}
                 onChange={(e) => setQuality(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
               >
                 {config.qualities.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>

@@ -655,72 +655,72 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Configuration Panel */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div className="p-2 rounded-lg" style={{ background: 'var(--ms-gradient-primary)' }}>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <div className="p-2 rounded-md" style={{ background: 'var(--ms-gradient-primary)' }}>
               <Video className="w-4 h-4 text-white" />
             </div>
-            <span className="ms-heading-md">Generate Video</span>
+            <span>Generate Video</span>
           </CardTitle>
-          <CardDescription className="ms-body-sm">
+          <CardDescription className="text-sm">
             OpenAI Sora - Text-to-Video, Image-to-Video, Video Remix
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-6">
           {/* Generation Mode - Compact */}
           <div className="space-y-2">
-            <label className="ms-label">Generation Mode</label>
-            <div className="grid grid-cols-3 gap-2">
+            <label className="text-sm font-medium">Generation Mode</label>
+            <div className="grid grid-cols-3 gap-1.5">
               <button
                 onClick={() => setMode('text')}
                 className={`
-                  p-3 rounded-lg border-2 text-center transition-all duration-200 group
+                  h-16 rounded-md border text-center transition-all duration-200 group
                   ${mode === 'text'
-                    ? 'border-transparent shadow-md'
+                    ? 'border-transparent shadow-sm'
                     : 'border-[var(--ms-border)] hover:border-[var(--ms-primary)] bg-card'
                   }
                 `}
                 style={mode === 'text' ? {
                   background: 'var(--ms-gradient-primary)',
-                  boxShadow: '0 2px 8px rgba(13, 148, 136, 0.25)'
+                  boxShadow: '0 2px 6px rgba(13, 148, 136, 0.2)'
                 } : undefined}
               >
                 <Clapperboard className={`w-4 h-4 mx-auto mb-1 ${mode === 'text' ? 'text-white' : 'text-[var(--ms-primary)]'}`} />
-                <div className={`text-xs font-medium ${mode === 'text' ? 'text-white' : 'text-foreground'}`}>Text</div>
+                <div className={`text-sm font-medium ${mode === 'text' ? 'text-white' : 'text-foreground'}`}>Text</div>
               </button>
               <button
                 onClick={() => setMode('image')}
                 className={`
-                  p-3 rounded-lg border-2 text-center transition-all duration-200 group
+                  h-16 rounded-md border text-center transition-all duration-200 group
                   ${mode === 'image'
-                    ? 'border-transparent shadow-md'
+                    ? 'border-transparent shadow-sm'
                     : 'border-[var(--ms-border)] hover:border-[var(--ms-accent)] bg-card'
                   }
                 `}
                 style={mode === 'image' ? {
                   background: 'var(--ms-gradient-accent)',
-                  boxShadow: '0 2px 8px rgba(245, 158, 11, 0.25)'
+                  boxShadow: '0 2px 6px rgba(245, 158, 11, 0.2)'
                 } : undefined}
               >
                 <Film className={`w-4 h-4 mx-auto mb-1 ${mode === 'image' ? 'text-white' : 'text-[var(--ms-accent)]'}`} />
-                <div className={`text-xs font-medium ${mode === 'image' ? 'text-[var(--ms-accent-foreground)]' : 'text-foreground'}`}>Image</div>
+                <div className={`text-sm font-medium ${mode === 'image' ? 'text-[var(--ms-accent-foreground)]' : 'text-foreground'}`}>Image</div>
               </button>
               <button
                 onClick={() => setMode('remix')}
                 className={`
-                  p-3 rounded-lg border-2 text-center transition-all duration-200 group
+                  h-16 rounded-md border text-center transition-all duration-200 group
                   ${mode === 'remix'
-                    ? 'border-transparent shadow-md'
+                    ? 'border-transparent shadow-sm'
                     : 'border-[var(--ms-border)] hover:border-[var(--ms-secondary)] bg-card'
                   }
                 `}
                 style={mode === 'remix' ? {
                   background: 'linear-gradient(135deg, var(--ms-secondary) 0%, var(--ms-secondary-dark) 100%)',
-                  boxShadow: '0 2px 8px rgba(100, 116, 139, 0.25)'
+                  boxShadow: '0 2px 6px rgba(100, 116, 139, 0.2)'
                 } : undefined}
               >
                 <Wand2 className={`w-4 h-4 mx-auto mb-1 ${mode === 'remix' ? 'text-white' : 'text-[var(--ms-secondary)]'}`} />
-                <div className={`text-xs font-medium ${mode === 'remix' ? 'text-white' : 'text-foreground'}`}>Remix</div>
+                <div className={`text-sm font-medium ${mode === 'remix' ? 'text-white' : 'text-foreground'}`}>Remix</div>
               </button>
             </div>
           </div>

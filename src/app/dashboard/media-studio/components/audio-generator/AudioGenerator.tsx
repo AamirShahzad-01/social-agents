@@ -218,32 +218,32 @@ export function AudioGenerator() {
             {/* Main Panel - Forms */}
             <div className="lg:col-span-2">
                 <Card className="h-full">
-                    <CardHeader className="pb-4">
+                    <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2.5">
                                 <div
-                                    className="p-2.5 rounded-xl bg-gradient-to-br shadow-lg"
+                                    className="p-2 rounded-md"
                                     style={{ background: `linear-gradient(135deg, var(--ms-primary) 0%, var(--ms-primary-dark) 100%)` }}
                                 >
-                                    <Sparkles className="w-5 h-5 text-white" />
+                                    <Sparkles className="w-4 h-4 text-white" />
                                 </div>
                                 <div>
-                                    <CardTitle className="text-lg font-semibold">Audio Generator</CardTitle>
+                                    <CardTitle className="text-base font-semibold">Audio Generator</CardTitle>
                                     <CardDescription className="text-sm">
                                         ElevenLabs V3 • Professional Audio Studio
                                     </CardDescription>
                                 </div>
                             </div>
-                            <Badge variant="secondary" className="text-xs bg-gradient-to-r from-teal-500/10 to-purple-500/10 text-teal-600">
+                            <Badge variant="secondary" className="text-xs bg-gradient-to-r from-teal-500/10 to-purple-500/10 text-teal-600 h-6">
                                 <AudioLines className="w-3 h-3 mr-1" />
-                                Powered by ElevenLabs
+                                ElevenLabs
                             </Badge>
                         </div>
                     </CardHeader>
 
                     <CardContent className="space-y-6">
-                        {/* Tab Navigation - Professional Pills */}
-                        <div className="flex flex-wrap gap-2 p-1.5 bg-muted/50 rounded-xl">
+                        {/* Tab Navigation - Enterprise Standard */}
+                        <div className="flex flex-wrap gap-1.5 p-1 bg-muted/50 rounded-lg">
                             {AUDIO_TABS.map((tab) => {
                                 const isActive = activeTab === tab.id;
                                 const Icon = tab.icon;
@@ -253,18 +253,18 @@ export function AudioGenerator() {
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id)}
                                         className={`
-                      flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium
-                      ${isActive
-                                                ? 'bg-gradient-to-r from-teal-500 to-teal-600 shadow-md text-white'
+                                            flex items-center gap-2 h-9 px-3 rounded-md transition-all duration-200 text-sm font-medium
+                                            ${isActive
+                                                ? 'bg-gradient-to-r from-teal-500 to-teal-600 shadow-sm text-white'
                                                 : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-gray-800/50'
                                             }
-                    `}
+                                        `}
                                     >
                                         <div
-                                            className={`w-6 h-6 rounded-md flex items-center justify-center transition-all ${isActive ? 'bg-white/20 text-white' : 'bg-muted'
+                                            className={`w-5 h-5 rounded flex items-center justify-center transition-all ${isActive ? 'bg-white/20 text-white' : 'bg-muted'
                                                 }`}
                                         >
-                                            <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
+                                            <Icon className={`w-3 h-3 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
                                         </div>
                                         <span className="hidden sm:inline">{tab.label}</span>
                                     </button>
