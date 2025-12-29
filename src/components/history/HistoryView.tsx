@@ -16,12 +16,10 @@ interface PublishedViewProps {
 
 const PublishedView: React.FC<PublishedViewProps> = ({ posts = [], onUpdatePost, onDeletePost, onPublishPost, connectedAccounts }) => {
     const postsForPublishing = useMemo(() => {
-        // Include failed posts so users can see and retry them
         const relevantPosts = (posts || []).filter(post => ['ready_to_publish', 'scheduled', 'published', 'failed'].includes(post.status));
 
         return relevantPosts
             .sort((a, b) => {
-                // Failed posts show first so users notice them
                 const statusOrder: Partial<Record<PostStatus, number>> = {
                     'failed': 0,
                     'ready_to_publish': 1,
@@ -39,63 +37,32 @@ const PublishedView: React.FC<PublishedViewProps> = ({ posts = [], onUpdatePost,
             });
     }, [posts]);
 
+    // Compact Header Component
+    const CompactHeader = () => (
+        <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-2">
+            <div className="flex items-center gap-2">
+                <div className="bg-white/20 p-1.5 rounded-lg">
+                    <BookCheck className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex items-center gap-2">
+                    <h1 className="text-sm font-semibold text-white">Publishing Studio</h1>
+                    <Badge className="bg-white/20 text-white border-0 text-[9px] px-1.5 py-0 h-4">
+                        <Zap className="w-2 h-2 mr-0.5" />
+                        {postsForPublishing.length}
+                    </Badge>
+                </div>
+            </div>
+        </div>
+    );
+
     if (postsForPublishing.length === 0) {
         return (
             <div className="flex flex-col h-full">
-                {/* Header */}
-                <div className="relative overflow-hidden bg-gradient-to-br from-violet-900 via-purple-900 to-fuchsia-900 dark:from-violet-950 dark:via-purple-950 dark:to-fuchsia-950">
-                    {/* Animated background elements - Enhanced */}
-                    <div className="absolute inset-0 overflow-hidden">
-                        {/* Large animated orbs */}
-                        <div className="absolute -top-24 -right-24 w-96 h-96 bg-purple-500/30 rounded-full blur-3xl animate-pulse" />
-                        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-violet-500/30 rounded-full blur-3xl animate-pulse"
-                            style={{ animationDelay: '1s', animationDuration: '3s' }} />
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-fuchsia-500/20 rounded-full blur-3xl animate-pulse"
-                            style={{ animationDelay: '1.5s', animationDuration: '4s' }} />
-
-                        {/* Additional floating orbs */}
-                        <div className="absolute top-10 right-1/4 w-32 h-32 bg-purple-400/25 rounded-full blur-2xl animate-pulse"
-                            style={{ animationDelay: '0.5s', animationDuration: '2.5s' }} />
-                        <div className="absolute bottom-10 left-1/3 w-40 h-40 bg-violet-400/25 rounded-full blur-2xl animate-pulse"
-                            style={{ animationDelay: '2s', animationDuration: '3.5s' }} />
-                    </div>
-
-                    {/* Grid pattern overlay for depth */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/10" />
-
-                    <div className="relative px-4 py-3">
-                        <div className="flex items-center gap-3">
-                            {/* Logo with enhanced glow */}
-                            <div className="relative group">
-                                <div className="absolute inset-0 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 rounded-xl blur-lg opacity-75 animate-pulse group-hover:opacity-100 transition-opacity" />
-                                <div className="absolute inset-0 bg-gradient-to-r from-violet-400 via-purple-400 to-fuchsia-400 rounded-xl blur-xl opacity-50 animate-pulse"
-                                    style={{ animationDelay: '0.5s' }} />
-                                <div className="relative bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 p-2 rounded-xl shadow-xl transform transition-transform group-hover:scale-105">
-                                    <BookCheck className="w-5 h-5 text-white" />
-                                </div>
-                            </div>
-
-                            <div>
-                                <h1 className="text-base font-bold text-white flex items-center gap-2">
-                                    Publishing Studio
-                                    <Badge className="bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 text-white border-0 text-[10px] px-1.5 py-0.5 shadow-lg hover:shadow-purple-500/50 transition-shadow">
-                                        <Zap className="w-2.5 h-2.5 mr-0.5 animate-pulse" />
-                                        Ready
-                                    </Badge>
-                                </h1>
-                                <p className="text-white/80 text-[11px]">
-                                    Publish and schedule your finalized content
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Empty State */}
-                <div className="flex-1 flex items-center justify-center p-6 bg-gradient-to-b from-muted/30 to-background">
-                    <div className="text-center py-20 bg-card border-2 border-dashed border-border rounded-xl px-8">
-                        <h2 className="text-2xl font-semibold text-foreground">Nothing to Publish</h2>
-                        <p className="text-muted-foreground mt-2">Create content or send media from Library and it will appear here, ready for publishing.</p>
+                <CompactHeader />
+                <div className="flex-1 flex items-center justify-center p-4 bg-background">
+                    <div className="text-center py-12 bg-card border border-dashed border-border rounded-lg px-6">
+                        <h2 className="text-lg font-semibold text-foreground">Nothing to Publish</h2>
+                        <p className="text-muted-foreground text-sm mt-1">Create content or send media from Library.</p>
                     </div>
                 </div>
             </div>
@@ -104,58 +71,11 @@ const PublishedView: React.FC<PublishedViewProps> = ({ posts = [], onUpdatePost,
 
     return (
         <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="relative overflow-hidden bg-gradient-to-br from-violet-900 via-purple-900 to-fuchsia-900 dark:from-violet-950 dark:via-purple-950 dark:to-fuchsia-950">
-                {/* Animated background elements - Enhanced */}
-                <div className="absolute inset-0 overflow-hidden">
-                    {/* Large animated orbs */}
-                    <div className="absolute -top-24 -right-24 w-96 h-96 bg-purple-500/30 rounded-full blur-3xl animate-pulse" />
-                    <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-violet-500/30 rounded-full blur-3xl animate-pulse"
-                        style={{ animationDelay: '1s', animationDuration: '3s' }} />
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-fuchsia-500/20 rounded-full blur-3xl animate-pulse"
-                        style={{ animationDelay: '1.5s', animationDuration: '4s' }} />
+            <CompactHeader />
 
-                    {/* Additional floating orbs */}
-                    <div className="absolute top-10 right-1/4 w-32 h-32 bg-purple-400/25 rounded-full blur-2xl animate-pulse"
-                        style={{ animationDelay: '0.5s', animationDuration: '2.5s' }} />
-                    <div className="absolute bottom-10 left-1/3 w-40 h-40 bg-violet-400/25 rounded-full blur-2xl animate-pulse"
-                        style={{ animationDelay: '2s', animationDuration: '3.5s' }} />
-                </div>
-
-                {/* Grid pattern overlay for depth */}
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/10" />
-
-                <div className="relative px-4 py-3">
-                    <div className="flex items-center gap-3">
-                        {/* Logo with enhanced glow */}
-                        <div className="relative group">
-                            <div className="absolute inset-0 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 rounded-xl blur-lg opacity-75 animate-pulse group-hover:opacity-100 transition-opacity" />
-                            <div className="absolute inset-0 bg-gradient-to-r from-violet-400 via-purple-400 to-fuchsia-400 rounded-xl blur-xl opacity-50 animate-pulse"
-                                style={{ animationDelay: '0.5s' }} />
-                            <div className="relative bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 p-2 rounded-xl shadow-xl transform transition-transform group-hover:scale-105">
-                                <BookCheck className="w-5 h-5 text-white" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <h1 className="text-base font-bold text-white flex items-center gap-2">
-                                Publishing Studio
-                                <Badge className="bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 text-white border-0 text-[10px] px-1.5 py-0.5 shadow-lg hover:shadow-purple-500/50 transition-shadow">
-                                    <Zap className="w-2.5 h-2.5 mr-0.5 animate-pulse" />
-                                    Ready
-                                </Badge>
-                            </h1>
-                            <p className="text-white/80 text-[11px]">
-                                Publish and schedule your finalized content
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="flex-1 p-6 bg-gradient-to-b from-muted/30 to-background overflow-auto">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Main Content - 3 Column Grid */}
+            <div className="flex-1 p-2 bg-background overflow-auto">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                     {postsForPublishing.map(post => (
                         <PublishedCard
                             key={post.id}
