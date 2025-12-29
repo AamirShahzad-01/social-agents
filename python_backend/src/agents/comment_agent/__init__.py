@@ -10,6 +10,15 @@ from .schemas import (
     KnowledgeEntry,
 )
 from .prompts import get_comment_agent_system_prompt
+from .tools import (
+    create_fetch_tools,
+    create_reply_tools,
+    create_knowledge_tools,
+    create_escalate_tools,
+    create_youtube_fetch_tools,
+    create_youtube_reply_tools,
+    generate_appsecret_proof,
+)
 
 __all__ = [
     "process_comments",
@@ -21,4 +30,12 @@ __all__ = [
     "PendingComment",
     "KnowledgeEntry",
     "get_comment_agent_system_prompt",
+    # Tools
+    "create_fetch_tools",
+    "create_reply_tools",
+    "create_knowledge_tools",
+    "create_escalate_tools",
+    "create_youtube_fetch_tools",
+    "create_youtube_reply_tools",
+    "generate_appsecret_proof",
 ]

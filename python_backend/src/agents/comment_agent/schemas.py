@@ -76,7 +76,7 @@ class ProcessCommentsRequest(BaseModel):
     )
     postIds: Optional[List[str]] = Field(None, description="Specific posts, or all recent if empty")
     runType: Optional[Literal["cron", "manual"]] = "cron"
-    credentials: CommentAgentCredentials
+    credentials: Optional[CommentAgentCredentials] = None
 
 
 class ProcessCommentsResponse(BaseModel):
