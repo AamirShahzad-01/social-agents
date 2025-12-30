@@ -18,12 +18,12 @@ interface PublishedCardProps {
 
 // Platform-specific max widths for realistic preview sizing
 const PLATFORM_MAX_WIDTHS: Record<Platform, string> = {
-    instagram: 'max-w-[300px]',
-    facebook: 'max-w-[300px]',
-    twitter: 'max-w-[300px]',
-    linkedin: 'max-w-[300px]',
-    tiktok: 'max-w-[300px]',
-    youtube: 'max-w-[300px]',
+    instagram: 'max-w-[280px]',
+    facebook: 'max-w-[280px]',
+    twitter: 'max-w-[280px]',
+    linkedin: 'max-w-[280px]',
+    tiktok: 'max-w-[280px]',
+    youtube: 'max-w-[280px]',
 };
 
 const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDeletePost, onPublishPost, connectedAccounts }) => {
@@ -260,7 +260,7 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                                 <button
                                     onClick={() => !isViewOnly && setIsEditModalOpen(true)}
                                     disabled={isViewOnly}
-                                    className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+                                    className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-indigo-500 hover:bg-indigo-600 text-white shadow-sm disabled:opacity-50"
                                 >
                                     <Edit3 className="w-2.5 h-2.5" />
                                     Edit
@@ -268,7 +268,7 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                                 <button
                                     onClick={() => !isViewOnly && setIsScheduleModalOpen(true)}
                                     disabled={isViewOnly}
-                                    className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
+                                    className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-sky-400 hover:bg-sky-500 text-white shadow-sm disabled:opacity-50"
                                 >
                                     <Clock className="w-2.5 h-2.5" />
                                     Schedule
@@ -276,7 +276,7 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                                 <button
                                     onClick={() => !isViewOnly && handlePublish()}
                                     disabled={!canPublish || isPublishing || isViewOnly}
-                                    className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50"
+                                    className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-teal-500 hover:bg-teal-600 text-white shadow-sm disabled:opacity-50"
                                 >
                                     {isPublishing ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Send className="w-2.5 h-2.5" />}
                                     {isPublishing ? '...' : 'Publish'}
@@ -284,7 +284,7 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                                 <button
                                     onClick={() => !isViewOnly && onDeletePost(post.id, post.topic)}
                                     disabled={isViewOnly}
-                                    className="p-1 rounded bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+                                    className="p-1 rounded bg-rose-500 hover:bg-rose-600 text-white shadow-sm disabled:opacity-50"
                                 >
                                     <Trash2 className="w-2.5 h-2.5" />
                                 </button>
@@ -317,7 +317,7 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                                 <button
                                     onClick={() => !isViewOnly && setIsEditModalOpen(true)}
                                     disabled={isViewOnly}
-                                    className="py-0.5 px-1.5 text-[9px] font-medium rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+                                    className="py-0.5 px-1.5 text-[9px] font-medium rounded bg-indigo-500 hover:bg-indigo-600 text-white shadow-sm disabled:opacity-50"
                                 >
                                     Edit
                                 </button>
@@ -351,7 +351,7 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                                 <button
                                     onClick={() => !isViewOnly && setIsEditModalOpen(true)}
                                     disabled={isViewOnly}
-                                    className="flex-1 py-0.5 px-1.5 text-[9px] font-medium rounded bg-emerald-600 text-white disabled:opacity-50"
+                                    className="flex-1 py-0.5 px-1.5 text-[9px] font-medium rounded bg-indigo-500 hover:bg-indigo-600 text-white shadow-sm disabled:opacity-50"
                                 >
                                     Edit
                                 </button>
