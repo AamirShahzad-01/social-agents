@@ -36,6 +36,17 @@ CREATE TABLE public.business_settings (
   CONSTRAINT business_settings_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id),
   CONSTRAINT business_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.users(id)
 );
+CREATE TABLE public.canva_oauth_states (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  state_token character varying NOT NULL UNIQUE,
+  code_verifier text NOT NULL,
+  expires_at timestamp with time zone NOT NULL,
+  used boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT canva_oauth_states_pkey PRIMARY KEY (id),
+  CONSTRAINT canva_oauth_states_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.checkpoint_blobs (
   thread_id text NOT NULL,
   checkpoint_ns text NOT NULL DEFAULT ''::text,
@@ -58,6 +69,7 @@ CREATE TABLE public.checkpoint_writes (
   channel text NOT NULL,
   type text,
   blob bytea NOT NULL,
+  task_path text NOT NULL DEFAULT ''::text,
   CONSTRAINT checkpoint_writes_pkey PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx)
 );
 CREATE TABLE public.checkpoints (
@@ -241,6 +253,7 @@ CREATE TABLE public.meta_ads (
   targeting jsonb DEFAULT '{}'::jsonb,
   daily_budget bigint,
   lifetime_budget bigint,
+  preview_url text,
   CONSTRAINT meta_ads_pkey PRIMARY KEY (id),
   CONSTRAINT meta_ads_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id),
   CONSTRAINT meta_ads_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
@@ -270,6 +283,8 @@ CREATE TABLE public.meta_adsets (
   last_synced_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  is_adset_budget_sharing_enabled boolean DEFAULT false,
+  placement_soft_opt_out ARRAY,
   CONSTRAINT meta_adsets_pkey PRIMARY KEY (id),
   CONSTRAINT meta_adsets_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id),
   CONSTRAINT meta_adsets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
@@ -294,6 +309,7 @@ CREATE TABLE public.meta_campaigns (
   last_synced_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  budget bigint,
   CONSTRAINT meta_campaigns_pkey PRIMARY KEY (id),
   CONSTRAINT meta_campaigns_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id),
   CONSTRAINT meta_campaigns_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
@@ -428,6 +444,17 @@ CREATE TABLE public.posts (
   CONSTRAINT posts_pkey PRIMARY KEY (id),
   CONSTRAINT posts_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id),
   CONSTRAINT posts_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.rate_limit_usage (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  workspace_id uuid,
+  platform character varying,
+  date date,
+  posts_count integer DEFAULT 0,
+  daily_limit integer,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT rate_limit_usage_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.social_accounts (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
