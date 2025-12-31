@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from ....services.platforms.linkedin_service import linkedin_service
 from ....services.supabase_service import verify_jwt, db_select, db_update
 from ....services.storage_service import storage_service
+from ....services.rate_limit_service import get_rate_limit_service
 from ....config import settings
 
 logger = logging.getLogger(__name__)
@@ -246,6 +247,13 @@ async def post_to_linkedin(
         post_id = result["post_id"]
         post_url = f"https://www.linkedin.com/feed/update/{post_id}"
         
+        # Track rate limit usage
+        try:
+            rate_limit_service = get_rate_limit_service()
+            await rate_limit_service.increment_usage(workspace_id, "linkedin", 1)
+        except Exception as rl_err:
+            logger.warning(f"Rate limit tracking failed (non-critical): {rl_err}")
+        
         logger.info(f"Posted to LinkedIn - workspace: {workspace_id}, org: {is_organization}")
         
         return LinkedInPostResponse(
@@ -343,6 +351,13 @@ async def post_carousel_to_linkedin(
         
         post_id = result["post_id"]
         post_url = f"https://www.linkedin.com/feed/update/{post_id}"
+        
+        # Track rate limit usage
+        try:
+            rate_limit_service = get_rate_limit_service()
+            await rate_limit_service.increment_usage(workspace_id, "linkedin", 1)
+        except Exception as rl_err:
+            logger.warning(f"Rate limit tracking failed (non-critical): {rl_err}")
         
         logger.info(f"Posted carousel to LinkedIn - workspace: {workspace_id}, images: {len(image_buffers)}")
         

@@ -16,6 +16,7 @@ from .cloudinary import router as cloudinary_router
 from .token_refresh import router as token_refresh_router
 from .cron import router as cron_router
 from .meta_ads import router as meta_ads_router
+from .rate_limits import router as rate_limits_router
 from .social import facebook_router, instagram_router, linkedin_router, twitter_router, tiktok_router, youtube_router
 
 __all__ = [
@@ -41,7 +42,8 @@ __all__ = [
     "linkedin_router",
     "twitter_router",
     "tiktok_router",
-    "youtube_router"
+    "youtube_router",
+    "rate_limits_router"
 ]
 
 

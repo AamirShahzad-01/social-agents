@@ -1,21 +1,32 @@
 """
 Social Media Service
 Production-ready service for interacting with social media platform APIs
-Handles Facebook, Instagram, LinkedIn, Twitter, TikTok, YouTube
+Uses Meta Business SDK for Facebook/Instagram operations
+
+This service provides a unified interface for:
+- Facebook (via Meta Business SDK)
+- Instagram (via Meta Business SDK)
+- Twitter, LinkedIn, TikTok, YouTube (keep existing implementations for non-Meta platforms)
 """
 import httpx
 import hmac
 import hashlib
+import asyncio
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from ..config import settings
+from .meta_sdk_client import create_meta_sdk_client, MetaSDKError
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SocialMediaService:
     """Service for social media platform API interactions"""
     
     def __init__(self):
+        # HTTP client for non-Meta platforms
         self.http_client = httpx.AsyncClient(timeout=30.0)
     
     async def close(self):
@@ -23,7 +34,7 @@ class SocialMediaService:
         await self.http_client.aclose()
     
     # ============================================================================
-    # FACEBOOK API
+    # HELPER METHODS
     # ============================================================================
     
     def generate_app_secret_proof(self, access_token: str, app_secret: str) -> str:
@@ -44,6 +55,14 @@ class SocialMediaService:
             hashlib.sha256
         ).hexdigest()
     
+    def _get_sdk_client(self, access_token: str):
+        """Get SDK client initialized with access token"""
+        return create_meta_sdk_client(access_token)
+    
+    # ============================================================================
+    # FACEBOOK API - Using Meta Business SDK
+    # ============================================================================
+    
     async def facebook_exchange_code_for_token(
         self,
         code: str,
@@ -51,13 +70,7 @@ class SocialMediaService:
     ) -> Dict[str, Any]:
         """
         Exchange Facebook authorization code for access token
-        
-        Args:
-            code: Authorization code from OAuth callback
-            redirect_uri: Redirect URI used in OAuth flow
-            
-        Returns:
-            Dict with access_token, token_type, expires_in
+        Note: OAuth token exchange still uses direct API call as SDK requires existing token
         """
         try:
             app_id = settings.FACEBOOK_CLIENT_ID
@@ -95,12 +108,7 @@ class SocialMediaService:
     ) -> Dict[str, Any]:
         """
         Exchange short-lived token for long-lived token (60 days)
-        
-        Args:
-            short_lived_token: Short-lived access token
-            
-        Returns:
-            Dict with access_token, expires_in
+        Note: Token exchange still uses direct API call
         """
         try:
             app_id = settings.FACEBOOK_CLIENT_ID
@@ -122,7 +130,7 @@ class SocialMediaService:
             return {
                 'success': True,
                 'access_token': data['access_token'],
-                'expires_in': data.get('expires_in', 5184000)  # 60 days default
+                'expires_in': data.get('expires_in', 5184000)
             }
             
         except Exception as e:
@@ -133,38 +141,19 @@ class SocialMediaService:
         access_token: str
     ) -> Dict[str, Any]:
         """
-        Get Facebook Pages managed by the user
-        
-        Args:
-            access_token: User access token
-            
-        Returns:
-            Dict with pages list
+        Get Facebook Pages managed by the user using Meta Business SDK
         """
         try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(access_token, app_secret)
-            
-            response = await self.http_client.get(
-                'https://graph.facebook.com/v24.0/me/accounts',
-                params={
-                    'fields': 'id,name,access_token,category,type',
-                    'access_token': access_token,
-                    'appsecret_proof': app_secret_proof
-                }
-            )
-            
-            response.raise_for_status()
-            data = response.json()
-            
-            # Filter to only include Pages, exclude Groups
-            pages = [p for p in data.get('data', []) if p.get('type') == 'PAGE' or not p.get('type')]
+            client = self._get_sdk_client(access_token)
+            pages = await client.get_user_pages()
             
             return {
                 'success': True,
                 'pages': pages
             }
             
+        except MetaSDKError as e:
+            return {'success': False, 'error': e.message}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -176,43 +165,23 @@ class SocialMediaService:
         link: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Post to Facebook Page
-        
-        Args:
-            page_id: Facebook Page ID
-            page_access_token: Page access token
-            message: Post message
-            link: Optional link to share
-            
-        Returns:
-            Dict with post_id
+        Post to Facebook Page using Meta Business SDK
         """
         try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(page_access_token, app_secret)
-            
-            data = {
-                'message': message,
-                'access_token': page_access_token,
-                'appsecret_proof': app_secret_proof
-            }
-            
-            if link:
-                data['link'] = link
-            
-            response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{page_id}/feed',
-                data=data
+            client = self._get_sdk_client(page_access_token)
+            result = await client.post_to_page(
+                page_id=page_id,
+                message=message,
+                link=link
             )
-            
-            response.raise_for_status()
-            result = response.json()
             
             return {
                 'success': True,
-                'post_id': result['id']
+                'post_id': result.get('post_id') or result.get('id')
             }
             
+        except MetaSDKError as e:
+            return {'success': False, 'error': e.message}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -224,40 +193,24 @@ class SocialMediaService:
         caption: str
     ) -> Dict[str, Any]:
         """
-        Post photo to Facebook Page
-        
-        Args:
-            page_id: Facebook Page ID
-            page_access_token: Page access token
-            image_url: URL of image to post
-            caption: Photo caption
-            
-        Returns:
-            Dict with post_id
+        Post photo to Facebook Page using Meta Business SDK
         """
         try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(page_access_token, app_secret)
-            
-            response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{page_id}/photos',
-                data={
-                    'url': image_url,
-                    'caption': caption,
-                    'access_token': page_access_token,
-                    'appsecret_proof': app_secret_proof
-                }
+            client = self._get_sdk_client(page_access_token)
+            result = await client.post_photo_to_page(
+                page_id=page_id,
+                photo_url=image_url,
+                caption=caption
             )
-            
-            response.raise_for_status()
-            result = response.json()
             
             return {
                 'success': True,
-                'photo_id': result['id'],
+                'photo_id': result.get('photo_id') or result.get('id'),
                 'post_id': result.get('post_id')
             }
             
+        except MetaSDKError as e:
+            return {'success': False, 'error': e.message}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -269,48 +222,23 @@ class SocialMediaService:
         description: str
     ) -> Dict[str, Any]:
         """
-        Upload video to Facebook Page
-        
-        Args:
-            page_id: Facebook Page ID
-            page_access_token: Page access token
-            video_url: URL of video to upload
-            description: Video description
-            
-        Returns:
-            Dict with video_id
+        Upload video to Facebook Page using Meta Business SDK
         """
         try:
-            # Fetch video from URL
-            video_response = await self.http_client.get(video_url)
-            video_response.raise_for_status()
-            video_data = video_response.content
-            
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(page_access_token, app_secret)
-            
-            # Upload to graph-video.facebook.com
-            files = {'source': ('video.mp4', video_data, 'video/mp4')}
-            data = {
-                'description': description,
-                'access_token': page_access_token,
-                'appsecret_proof': app_secret_proof
-            }
-            
-            response = await self.http_client.post(
-                f'https://graph-video.facebook.com/v24.0/{page_id}/videos',
-                files=files,
-                data=data
+            client = self._get_sdk_client(page_access_token)
+            result = await client.post_video_to_page(
+                page_id=page_id,
+                video_url=video_url,
+                description=description
             )
-            
-            response.raise_for_status()
-            result = response.json()
             
             return {
                 'success': True,
-                'video_id': result['id']
+                'video_id': result.get('video_id') or result.get('id')
             }
             
+        except MetaSDKError as e:
+            return {'success': False, 'error': e.message}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -323,15 +251,7 @@ class SocialMediaService:
     ) -> Dict[str, Any]:
         """
         Upload Facebook Reel (short-form vertical video)
-        
-        Args:
-            page_id: Facebook Page ID
-            page_access_token: Page access token
-            video_url: URL of video to upload
-            description: Reel description
-            
-        Returns:
-            Dict with video_id
+        Note: Uses direct API as SDK doesn't have specific Reels support
         """
         try:
             # Fetch video from URL
@@ -399,27 +319,17 @@ class SocialMediaService:
     ) -> Dict[str, Any]:
         """
         Upload Facebook Story (24-hour temporary post)
-        
-        Args:
-            page_id: Facebook Page ID
-            page_access_token: Page access token
-            media_url: URL of image or video
-            is_video: Whether media is video
-            
-        Returns:
-            Dict with story_id
+        Note: Uses direct API as SDK doesn't have specific Stories support
         """
         try:
             app_secret = settings.FACEBOOK_CLIENT_SECRET
             app_secret_proof = self.generate_app_secret_proof(page_access_token, app_secret)
             
             if is_video:
-                # Fetch video from URL
                 video_response = await self.http_client.get(media_url)
                 video_response.raise_for_status()
                 video_data = video_response.content
                 
-                # Upload video story
                 files = {'source': ('story.mp4', video_data, 'video/mp4')}
                 data = {
                     'access_token': page_access_token,
@@ -432,7 +342,6 @@ class SocialMediaService:
                     data=data
                 )
             else:
-                # Upload photo story
                 response = await self.http_client.post(
                     f'https://graph.facebook.com/v24.0/{page_id}/photo_stories',
                     data={
@@ -461,37 +370,22 @@ class SocialMediaService:
     ) -> Dict[str, Any]:
         """
         Upload photo as unpublished (for carousel)
-        
-        Args:
-            page_id: Facebook Page ID
-            page_access_token: Page access token
-            image_url: URL of image to upload
-            
-        Returns:
-            Dict with photo_id
         """
         try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(page_access_token, app_secret)
-            
-            response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{page_id}/photos',
-                data={
-                    'url': image_url,
-                    'published': 'false',
-                    'access_token': page_access_token,
-                    'appsecret_proof': app_secret_proof
-                }
+            client = self._get_sdk_client(page_access_token)
+            result = await client.post_photo_to_page(
+                page_id=page_id,
+                photo_url=image_url,
+                published=False
             )
-            
-            response.raise_for_status()
-            result = response.json()
             
             return {
                 'success': True,
-                'photo_id': result['id']
+                'photo_id': result.get('photo_id') or result.get('id')
             }
             
+        except MetaSDKError as e:
+            return {'success': False, 'error': e.message}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -504,21 +398,12 @@ class SocialMediaService:
     ) -> Dict[str, Any]:
         """
         Create carousel post with multiple photos
-        
-        Args:
-            page_id: Facebook Page ID
-            page_access_token: Page access token
-            photo_ids: List of photo IDs (from upload_photo_unpublished)
-            message: Post message
-            
-        Returns:
-            Dict with post_id
+        Note: Uses direct API for carousel attachment
         """
         try:
             app_secret = settings.FACEBOOK_CLIENT_SECRET
             app_secret_proof = self.generate_app_secret_proof(page_access_token, app_secret)
             
-            # Create attached_media array
             attached_media = [{'media_fbid': photo_id} for photo_id in photo_ids]
             
             response = await self.http_client.post(
@@ -543,7 +428,7 @@ class SocialMediaService:
             return {'success': False, 'error': str(e)}
     
     # ============================================================================
-    # INSTAGRAM API
+    # INSTAGRAM API - Using Meta Business SDK
     # ============================================================================
     
     async def instagram_get_business_account(
@@ -552,84 +437,50 @@ class SocialMediaService:
         page_access_token: str
     ) -> Dict[str, Any]:
         """
-        Get Instagram Business Account connected to Facebook Page
-        
-        Args:
-            page_id: Facebook Page ID
-            page_access_token: Page access token
-            
-        Returns:
-            Dict with instagram_business_account id
+        Get Instagram Business Account connected to Facebook Page using SDK
         """
         try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(page_access_token, app_secret)
+            client = self._get_sdk_client(page_access_token)
+            result = await client.get_instagram_account(page_id)
             
-            response = await self.http_client.get(
-                f'https://graph.facebook.com/v24.0/{page_id}',
-                params={
-                    'fields': 'instagram_business_account',
-                    'access_token': page_access_token,
-                    'appsecret_proof': app_secret_proof
-                }
-            )
-            
-            response.raise_for_status()
-            data = response.json()
-            
-            ig_account = data.get('instagram_business_account')
-            if not ig_account:
+            if not result:
                 return {'success': False, 'error': 'No Instagram Business Account connected'}
             
             return {
                 'success': True,
-                'instagram_account_id': ig_account['id']
+                'instagram_account_id': result.get('id')
             }
             
+        except MetaSDKError as e:
+            return {'success': False, 'error': e.message}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
     async def instagram_create_media_container(
         self,
-        ig_account_id: str,
+        ig_user_id: str,
         access_token: str,
         image_url: str,
         caption: str
     ) -> Dict[str, Any]:
         """
-        Create Instagram media container (step 1 of posting)
-        
-        Args:
-            ig_account_id: Instagram Business Account ID
-            access_token: Access token
-            image_url: URL of image to post
-            caption: Post caption
-            
-        Returns:
-            Dict with container_id
+        Create Instagram media container for image using SDK
         """
         try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(access_token, app_secret)
-            
-            response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{ig_account_id}/media',
-                data={
-                    'image_url': image_url,
-                    'caption': caption,
-                    'access_token': access_token,
-                    'appsecret_proof': app_secret_proof
-                }
+            client = self._get_sdk_client(access_token)
+            result = await client.create_instagram_media_container(
+                ig_user_id=ig_user_id,
+                image_url=image_url,
+                caption=caption
             )
-            
-            response.raise_for_status()
-            result = response.json()
             
             return {
                 'success': True,
-                'container_id': result['id']
+                'container_id': result.get('container_id') or result.get('id')
             }
             
+        except MetaSDKError as e:
+            return {'success': False, 'error': e.message}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -640,84 +491,22 @@ class SocialMediaService:
         container_id: str
     ) -> Dict[str, Any]:
         """
-        Publish Instagram media container (step 2 of posting)
-        
-        Args:
-            ig_account_id: Instagram Business Account ID
-            access_token: Access token
-            container_id: Media container ID from create_media_container
-            
-        Returns:
-            Dict with post_id
+        Publish Instagram media container using SDK
         """
         try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(access_token, app_secret)
-            
-            response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{ig_account_id}/media_publish',
-                data={
-                    'creation_id': container_id,
-                    'access_token': access_token,
-                    'appsecret_proof': app_secret_proof
-                }
+            client = self._get_sdk_client(access_token)
+            result = await client.publish_instagram_media(
+                ig_user_id=ig_account_id,
+                creation_id=container_id
             )
-            
-            response.raise_for_status()
-            result = response.json()
             
             return {
                 'success': True,
-                'post_id': result['id']
+                'post_id': result.get('media_id') or result.get('id')
             }
             
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
-    
-    async def instagram_create_media_container(
-        self,
-        ig_user_id: str,
-        access_token: str,
-        image_url: str,
-        caption: str
-    ) -> Dict[str, Any]:
-        """
-        Create Instagram media container for image (step 1 of posting)
-        
-        Args:
-            ig_user_id: Instagram Business Account ID
-            access_token: Access token
-            image_url: URL of image to post
-            caption: Post caption
-            
-        Returns:
-            Dict with container_id
-        """
-        try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(access_token, app_secret)
-            
-            response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{ig_user_id}/media',
-                data={
-                    'image_url': image_url,
-                    'caption': caption,
-                    'access_token': access_token,
-                    'appsecret_proof': app_secret_proof
-                }
-            )
-            
-            response.raise_for_status()
-            result = response.json()
-            
-            if not result.get('id'):
-                return {'success': False, 'error': 'Media ID is not available - container creation failed'}
-            
-            return {
-                'success': True,
-                'container_id': result['id']
-            }
-            
+        except MetaSDKError as e:
+            return {'success': False, 'error': e.message}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -726,51 +515,27 @@ class SocialMediaService:
         ig_user_id: str,
         access_token: str,
         video_url: str,
-        caption: str,
-        share_to_feed: bool = True
+        caption: str
     ) -> Dict[str, Any]:
         """
-        Create Instagram Reels container (short-form vertical video)
-        
-        Args:
-            ig_user_id: Instagram Business Account ID
-            access_token: Access token
-            video_url: URL of video to post
-            caption: Post caption
-            share_to_feed: Whether to share to feed
-            
-        Returns:
-            Dict with container_id
+        Create Instagram Reels container using SDK
         """
         try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(access_token, app_secret)
-            
-            data = {
-                'media_type': 'REELS',
-                'video_url': video_url,
-                'share_to_feed': str(share_to_feed).lower(),
-                'access_token': access_token,
-                'appsecret_proof': app_secret_proof
-            }
-            
-            # Only add caption if not empty
-            if caption and caption.strip():
-                data['caption'] = caption
-            
-            response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{ig_user_id}/media',
-                data=data
+            client = self._get_sdk_client(access_token)
+            result = await client.create_instagram_media_container(
+                ig_user_id=ig_user_id,
+                video_url=video_url,
+                caption=caption,
+                media_type='REELS'
             )
-            
-            response.raise_for_status()
-            result = response.json()
             
             return {
                 'success': True,
-                'container_id': result['id']
+                'container_id': result.get('container_id') or result.get('id')
             }
             
+        except MetaSDKError as e:
+            return {'success': False, 'error': e.message}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -782,49 +547,30 @@ class SocialMediaService:
         is_video: bool = False
     ) -> Dict[str, Any]:
         """
-        Create Instagram Story container (24-hour temporary post)
-        
-        Args:
-            ig_user_id: Instagram Business Account ID
-            access_token: Access token
-            media_url: URL of image or video
-            is_video: Whether media is video
-            
-        Returns:
-            Dict with container_id
+        Create Instagram Story container using SDK
         """
         try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(access_token, app_secret)
+            client = self._get_sdk_client(access_token)
             
-            data = {
-                'media_type': 'STORIES',
-                'access_token': access_token,
-                'appsecret_proof': app_secret_proof
+            params = {
+                'ig_user_id': ig_user_id,
+                'media_type': 'STORIES'
             }
             
-            # Add appropriate URL parameter
             if is_video:
-                data['video_url'] = media_url
+                params['video_url'] = media_url
             else:
-                data['image_url'] = media_url
+                params['image_url'] = media_url
             
-            response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{ig_user_id}/media',
-                data=data
-            )
-            
-            response.raise_for_status()
-            result = response.json()
-            
-            if not result.get('id'):
-                return {'success': False, 'error': 'No container ID returned for Story'}
+            result = await client.create_instagram_media_container(**params)
             
             return {
                 'success': True,
-                'container_id': result['id']
+                'container_id': result.get('container_id') or result.get('id')
             }
             
+        except MetaSDKError as e:
+            return {'success': False, 'error': e.message}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -836,125 +582,66 @@ class SocialMediaService:
         caption: str
     ) -> Dict[str, Any]:
         """
-        Create Instagram carousel container (2-10 mixed images/videos)
-        
-        Process:
-        1. Create individual item containers
-        2. Wait for video items to finish processing
-        3. Create parent carousel container
-        
-        Args:
-            ig_user_id: Instagram Business Account ID
-            access_token: Access token
-            media_urls: List of 2-10 media URLs
-            caption: Post caption
-            
-        Returns:
-            Dict with container_id
+        Create Instagram carousel container (2-10 mixed images/videos) using SDK
         """
         try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(access_token, app_secret)
-            
-            child_container_ids = []
+            client = self._get_sdk_client(access_token)
             
             # Step 1: Create individual item containers
-            for i, media_url in enumerate(media_urls):
-                # Detect if video
+            child_container_ids = []
+            
+            for media_url in media_urls:
                 is_video = any(ext in media_url.lower() for ext in ['.mp4', '.mov', '.m4v', '/video/', '/videos/'])
                 
-                # Create carousel item
-                data = {
-                    'is_carousel_item': 'true',
-                    'access_token': access_token,
-                    'appsecret_proof': app_secret_proof
-                }
-                
                 if is_video:
-                    data['media_type'] = 'VIDEO'
-                    data['video_url'] = media_url
-                else:
-                    data['image_url'] = media_url
-                
-                response = await self.http_client.post(
-                    f'https://graph.facebook.com/v24.0/{ig_user_id}/media',
-                    data=data
-                )
-                
-                response.raise_for_status()
-                result = response.json()
-                
-                if not result.get('id'):
-                    return {'success': False, 'error': f'Failed to create carousel item {i + 1}'}
-                
-                container_id = result['id']
-                
-                # Step 2: Wait for video items to finish processing
-                if is_video:
-                    ready = await self._wait_for_container_finished(
-                        container_id,
-                        access_token,
-                        app_secret_proof,
-                        max_wait_seconds=180
+                    result = await client.create_instagram_media_container(
+                        ig_user_id=ig_user_id,
+                        video_url=media_url,
+                        media_type='VIDEO',
+                        is_carousel_item=True
                     )
-                    if not ready:
-                        return {'success': False, 'error': f'Timeout waiting for carousel item {i + 1}'}
+                else:
+                    result = await client.create_instagram_media_container(
+                        ig_user_id=ig_user_id,
+                        image_url=media_url,
+                        is_carousel_item=True
+                    )
+                
+                container_id = result.get('container_id') or result.get('id')
+                
+                # Wait for video containers to finish processing
+                if is_video:
+                    await self._wait_for_container_ready(container_id, access_token, max_wait_seconds=180)
                 
                 child_container_ids.append(container_id)
             
-            # Step 3: Create parent carousel container
-            data = {
-                'media_type': 'CAROUSEL',
-                'children': ','.join(child_container_ids),
-                'access_token': access_token,
-                'appsecret_proof': app_secret_proof
-            }
-            
-            # Only add caption if not empty
-            if caption and caption.strip():
-                data['caption'] = caption
-            
-            response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{ig_user_id}/media',
-                data=data
+            # Step 2: Create parent carousel container
+            result = await client.create_instagram_carousel_container(
+                ig_user_id=ig_user_id,
+                children=child_container_ids,
+                caption=caption
             )
-            
-            response.raise_for_status()
-            result = response.json()
-            
-            if not result.get('id'):
-                return {'success': False, 'error': 'No container ID returned for carousel'}
             
             return {
                 'success': True,
-                'container_id': result['id']
+                'container_id': result.get('container_id') or result.get('id')
             }
             
+        except MetaSDKError as e:
+            return {'success': False, 'error': e.message}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
-    async def _wait_for_container_finished(
+    async def _wait_for_container_ready(
         self,
         container_id: str,
         access_token: str,
-        app_secret_proof: str,
         max_wait_seconds: int = 120
     ) -> bool:
-        """
-        Wait for container to reach FINISHED status
-        
-        Args:
-            container_id: Container ID
-            access_token: Access token
-            app_secret_proof: App secret proof
-            max_wait_seconds: Maximum wait time in seconds
-            
-        Returns:
-            True if finished, False if timeout
-        """
-        import asyncio
+        """Wait for container to reach FINISHED status"""
+        client = self._get_sdk_client(access_token)
+        poll_interval = 3
         start_time = datetime.utcnow()
-        poll_interval = 3  # seconds
         
         while True:
             elapsed = (datetime.utcnow() - start_time).total_seconds()
@@ -963,19 +650,7 @@ class SocialMediaService:
                 return False
             
             try:
-                # Check status
-                response = await self.http_client.get(
-                    f'https://graph.facebook.com/v24.0/{container_id}',
-                    params={
-                        'fields': 'id,status,status_code',
-                        'access_token': access_token,
-                        'appsecret_proof': app_secret_proof
-                    }
-                )
-                
-                response.raise_for_status()
-                status = response.json()
-                
+                status = await client.get_instagram_container_status(container_id)
                 status_code = status.get('status_code') or status.get('status', '')
                 
                 if status_code == 'FINISHED':
@@ -984,12 +659,12 @@ class SocialMediaService:
                 if status_code in ['ERROR', 'EXPIRED']:
                     return False
                 
-                # Still processing, wait and retry
                 await asyncio.sleep(poll_interval)
                 
             except Exception:
-                # Transient error, wait and retry
                 await asyncio.sleep(poll_interval)
+        
+        return False
     
     async def instagram_wait_for_container_ready(
         self,
@@ -1000,50 +675,12 @@ class SocialMediaService:
     ) -> bool:
         """
         Wait for media container to finish processing
-        
-        Args:
-            container_id: Container ID
-            access_token: Access token
-            max_attempts: Maximum number of attempts
-            delay_ms: Delay between attempts in milliseconds
-            
-        Returns:
-            True if ready, False if timeout
         """
-        import asyncio
-        app_secret = settings.FACEBOOK_CLIENT_SECRET
-        app_secret_proof = self.generate_app_secret_proof(access_token, app_secret)
-        
-        for attempt in range(max_attempts):
-            try:
-                response = await self.http_client.get(
-                    f'https://graph.facebook.com/v24.0/{container_id}',
-                    params={
-                        'fields': 'id,status,status_code',
-                        'access_token': access_token,
-                        'appsecret_proof': app_secret_proof
-                    }
-                )
-                
-                response.raise_for_status()
-                status = response.json()
-                
-                status_code = status.get('status_code') or status.get('status', '')
-                
-                if status_code == 'FINISHED':
-                    return True
-                
-                if status_code in ['ERROR', 'EXPIRED']:
-                    return False
-                
-                # Wait before next check
-                await asyncio.sleep(delay_ms / 1000)
-                
-            except Exception:
-                # Wait and retry
-                await asyncio.sleep(delay_ms / 1000)
-        
-        return False
+        return await self._wait_for_container_ready(
+            container_id,
+            access_token,
+            max_wait_seconds=max_attempts * (delay_ms / 1000)
+        )
     
     async def instagram_publish_media_container(
         self,
@@ -1053,41 +690,8 @@ class SocialMediaService:
     ) -> Dict[str, Any]:
         """
         Publish Instagram media container (final step)
-        
-        Args:
-            ig_user_id: Instagram Business Account ID
-            access_token: Access token
-            creation_id: Container ID from create step
-            
-        Returns:
-            Dict with post_id
         """
-        try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(access_token, app_secret)
-            
-            response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{ig_user_id}/media_publish',
-                data={
-                    'creation_id': creation_id,
-                    'access_token': access_token,
-                    'appsecret_proof': app_secret_proof
-                }
-            )
-            
-            response.raise_for_status()
-            result = response.json()
-            
-            if not result.get('id'):
-                return {'success': False, 'error': 'Post ID is not available after publishing'}
-            
-            return {
-                'success': True,
-                'post_id': result['id']
-            }
-            
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return await self.instagram_publish_media(ig_user_id, access_token, creation_id)
 
 
 # Singleton instance
@@ -1095,29 +699,18 @@ social_service = SocialMediaService()
 
 
 # ============================================================================
-# ADDITIONAL OAUTH METHODS (Added to fix missing functions)
-# These are monkey-patched onto the class instance for backwards compatibility
+# ADDITIONAL OAUTH METHODS (for Twitter, LinkedIn, TikTok, YouTube)
+# These remain as direct API calls since they're not Meta platforms
 # ============================================================================
 
 async def _instagram_get_accounts(self, access_token: str):
     """Get Instagram Business Accounts connected to user's Facebook Pages"""
     try:
-        app_secret = settings.FACEBOOK_CLIENT_SECRET
-        app_secret_proof = self.generate_app_secret_proof(access_token, app_secret)
-        
-        pages_response = await self.http_client.get(
-            'https://graph.facebook.com/v24.0/me/accounts',
-            params={
-                'fields': 'id,name,access_token,instagram_business_account{id,username,name,profile_picture_url}',
-                'access_token': access_token,
-                'appsecret_proof': app_secret_proof
-            }
-        )
-        pages_response.raise_for_status()
-        pages_data = pages_response.json()
+        client = self._get_sdk_client(access_token)
+        pages = await client.get_user_pages()
         
         accounts = []
-        for page in pages_data.get('data', []):
+        for page in pages:
             ig_account = page.get('instagram_business_account')
             if ig_account:
                 accounts.append({

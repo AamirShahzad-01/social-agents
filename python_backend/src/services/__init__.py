@@ -51,6 +51,25 @@ from .canva_service import (
     export_design as canva_export_design,
     CanvaServiceError,
 )
+from .meta_sdk_client import (
+    MetaSDKClient,
+    MetaSDKError,
+    get_meta_sdk_client,
+    create_meta_sdk_client,
+)
+from .rate_limit_service import (
+    RateLimitService,
+    get_rate_limit_service,
+    QuotaStatus,
+    QuotaCheckResult,
+)
+from .rate_limit_constants import (
+    Platform,
+    PlatformLimit,
+    PLATFORM_LIMITS,
+    get_platform_limit,
+    get_daily_post_limit,
+)
 
 __all__ = [
     # Supabase
@@ -99,6 +118,22 @@ __all__ = [
     "canva_get_export_formats",
     "canva_export_design",
     "CanvaServiceError",
+    # Meta Business SDK
+    "MetaSDKClient",
+    "MetaSDKError",
+    "get_meta_sdk_client",
+    "create_meta_sdk_client",
+    # Rate Limiting
+    "RateLimitService",
+    "get_rate_limit_service",
+    "QuotaStatus",
+    "QuotaCheckResult",
+    "Platform",
+    "PlatformLimit",
+    "PLATFORM_LIMITS",
+    "get_platform_limit",
+    "get_daily_post_limit",
 ]
+
 
 

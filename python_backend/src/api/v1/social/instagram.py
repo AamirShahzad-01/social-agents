@@ -12,7 +12,9 @@ from pydantic import BaseModel, Field
 
 from ....services.social_service import social_service
 from ....services.supabase_service import verify_jwt, db_select, db_update
+from ....services.meta_credentials_service import MetaCredentialsService
 from ....services.storage_service import storage_service
+from ....services.rate_limit_service import get_rate_limit_service
 from ....config import settings
 
 logger = logging.getLogger(__name__)
@@ -68,7 +70,7 @@ async def get_instagram_credentials(
     is_cron: bool = False
 ):
     """
-    Get Instagram credentials from database
+    Get Instagram credentials using SDK-based MetaCredentialsService
     
     Args:
         user_id: User ID
@@ -81,47 +83,31 @@ async def get_instagram_credentials(
     Raises:
         HTTPException: If credentials not found or expired
     """
-    # Get credentials from social_accounts table
-    result = await db_select(
-        table="social_accounts",
-        columns="credentials,is_active",
-        filters={
-            "workspace_id": workspace_id,
-            "platform": "instagram"
-        },
-        limit=1
-    )
+    # Use SDK-based credentials service
+    credentials = await MetaCredentialsService.get_instagram_credentials(workspace_id, user_id)
     
-    if not result.get("success") or not result.get("data"):
+    if not credentials:
         raise HTTPException(status_code=400, detail="Instagram not connected")
     
-    account = result["data"][0]
+    if credentials.get("is_expired"):
+        raise HTTPException(
+            status_code=401,
+            detail="Access token expired. Please reconnect your Instagram account."
+        )
     
-    if not account.get("is_active"):
-        raise HTTPException(status_code=400, detail="Instagram account is inactive")
-    
-    credentials = account.get("credentials_encrypted", {})
-    
-    # Check for Instagram account ID - auth saves as instagramAccountId, with fallback to userId
-    instagram_account_id = credentials.get("instagramAccountId") or credentials.get("userId")
-    if not credentials.get("accessToken") or not instagram_account_id:
+    ig_user_id = credentials.get("ig_user_id")
+    if not credentials.get("access_token") or not ig_user_id:
         raise HTTPException(status_code=400, detail="Invalid Instagram configuration")
     
-    # Normalize field name for consistency
-    if not credentials.get("userId") and instagram_account_id:
-        credentials["userId"] = instagram_account_id
-    
-    # Check token expiration
-    expires_at = credentials.get("expiresAt")
-    if expires_at:
-        expiry_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-        if datetime.utcnow() > expiry_date:
-            raise HTTPException(
-                status_code=401,
-                detail="Access token expired. Please reconnect your Instagram account."
-            )
-    
-    return credentials
+    # Return in expected format for social_service
+    return {
+        "accessToken": credentials.get("access_token"),
+        "userId": ig_user_id,
+        "instagramAccountId": ig_user_id,
+        "username": credentials.get("username"),
+        "pageId": credentials.get("page_id"),
+        "expiresAt": credentials.get("expires_at"),
+    }
 
 
 def validate_media_url(url: str) -> None:
@@ -373,6 +359,13 @@ async def post_to_instagram(
             f"https://www.instagram.com/stories/{post_id}" if is_story
             else f"https://www.instagram.com/p/{post_id}"
         )
+        
+        # Track rate limit usage
+        try:
+            rate_limit_service = get_rate_limit_service()
+            await rate_limit_service.increment_usage(workspace_id, "instagram", 1)
+        except Exception as rl_err:
+            logger.warning(f"Rate limit tracking failed (non-critical): {rl_err}")
         
         logger.info(f"Posted to Instagram - workspace: {workspace_id}, type: {post_type_label}")
         

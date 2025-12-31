@@ -1,19 +1,21 @@
 """
 Comment Reply Tools
-Tools for posting replies to comments via Meta Graph API
+Tools for posting replies to comments via Meta Business SDK
 """
 import json
 import logging
-import httpx
 from langchain_core.tools import tool
 
-from .fetch_tools import generate_appsecret_proof, GRAPH_API_BASE
+from ....services.meta_sdk_client import create_meta_sdk_client, MetaSDKError
 
 logger = logging.getLogger(__name__)
 
 
 def create_reply_tools(access_token: str):
-    """Create tools for replying to comments on Meta platforms"""
+    """Create tools for replying to comments on Meta platforms using SDK"""
+    
+    # Initialize SDK client
+    sdk_client = create_meta_sdk_client(access_token)
     
     @tool
     async def reply_to_comment(comment_id: str, message: str, platform: str) -> str:
@@ -29,39 +31,26 @@ def create_reply_tools(access_token: str):
         try:
             logger.info(f"Replying to {platform} comment {comment_id}")
             
-            url = f"{GRAPH_API_BASE}/{comment_id}/replies"
-            proof = generate_appsecret_proof(access_token)
-            
-            data = {
-                "message": message,
-                "access_token": access_token,
-            }
-            if proof:
-                data["appsecret_proof"] = proof
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    url,
-                    data=data,
-                    timeout=30.0
-                )
-            
-            if response.status_code != 200:
-                error_data = response.json()
-                error_message = error_data.get("error", {}).get("message", "Failed to post reply")
+            # Use SDK to post reply
+            try:
+                result = await sdk_client.reply_to_comment(comment_id, message)
+                
+                reply_id = result.get("id")
+                logger.info(f"Reply posted successfully: {reply_id}")
+                
+                return json.dumps({
+                    "success": True,
+                    "replyId": reply_id,
+                    "message": "Reply posted successfully",
+                })
+                
+            except MetaSDKError as e:
+                logger.error(f"SDK error replying to comment: {e}")
                 return json.dumps({
                     "success": False,
-                    "error": error_message,
+                    "error": _format_reply_error(e, platform),
+                    "errorCode": e.code,
                 })
-            
-            result = response.json()
-            logger.info(f"Reply posted successfully: {result.get('id')}")
-            
-            return json.dumps({
-                "success": True,
-                "replyId": result.get("id"),
-                "message": "Reply posted successfully",
-            })
             
         except Exception as e:
             logger.error(f"Reply error: {e}", exc_info=True)
@@ -80,24 +69,21 @@ def create_reply_tools(access_token: str):
             comment_id: The ID of the comment to like
         """
         try:
-            url = f"{GRAPH_API_BASE}/{comment_id}/likes"
-            proof = generate_appsecret_proof(access_token)
-            
-            data = {"access_token": access_token}
-            if proof:
-                data["appsecret_proof"] = proof
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    url,
-                    data=data,
-                    timeout=30.0
-                )
-            
-            if response.status_code != 200:
-                return json.dumps({"success": False, "error": "Failed to like comment"})
-            
-            return json.dumps({"success": True, "message": "Comment liked"})
+            # Use SDK to like comment
+            try:
+                await sdk_client.like_object(comment_id)
+                
+                return json.dumps({
+                    "success": True,
+                    "message": "Comment liked",
+                })
+                
+            except MetaSDKError as e:
+                logger.error(f"SDK error liking comment: {e}")
+                return json.dumps({
+                    "success": False,
+                    "error": e.message or "Failed to like comment",
+                })
             
         except Exception as e:
             logger.error(f"Like comment error: {e}", exc_info=True)
@@ -107,3 +93,17 @@ def create_reply_tools(access_token: str):
             })
     
     return [reply_to_comment, like_comment]
+
+
+def _format_reply_error(error: MetaSDKError, platform: str) -> str:
+    """Format SDK error into user-friendly message for reply operations"""
+    if error.code == 190:
+        return f"Access token expired. Please reconnect your {platform} account in Settings."
+    elif error.code == 10:
+        return "Permission denied. Please ensure your app has the required permissions."
+    elif error.code == 200:
+        return "Cannot reply to this comment. It may have been deleted or restricted."
+    elif error.code == 100:
+        return "Invalid comment ID. The comment may no longer exist."
+    else:
+        return error.message or "Failed to post reply"

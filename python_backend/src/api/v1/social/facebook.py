@@ -11,7 +11,9 @@ from pydantic import BaseModel, Field
 
 from ....services.social_service import social_service
 from ....services.supabase_service import verify_jwt, db_select, db_update
+from ....services.meta_credentials_service import MetaCredentialsService
 from ....services.storage_service import storage_service
+from ....services.rate_limit_service import get_rate_limit_service
 from ....config import settings
 
 logger = logging.getLogger(__name__)
@@ -80,7 +82,7 @@ async def get_facebook_credentials(
     is_cron: bool = False
 ):
     """
-    Get Facebook credentials from database
+    Get Facebook credentials using SDK-based MetaCredentialsService
     
     Args:
         user_id: User ID
@@ -93,41 +95,29 @@ async def get_facebook_credentials(
     Raises:
         HTTPException: If credentials not found or expired
     """
-    # Get credentials from social_accounts table
-    result = await db_select(
-        table="social_accounts",
-        columns="credentials,is_active",
-        filters={
-            "workspace_id": workspace_id,
-            "platform": "facebook"
-        },
-        limit=1
-    )
+    # Use SDK-based credentials service
+    credentials = await MetaCredentialsService.get_meta_credentials(workspace_id, user_id)
     
-    if not result.get("success") or not result.get("data"):
+    if not credentials:
         raise HTTPException(status_code=400, detail="Facebook not connected")
     
-    account = result["data"][0]
+    if credentials.get("is_expired"):
+        raise HTTPException(
+            status_code=401,
+            detail="Access token expired. Please reconnect your Facebook account."
+        )
     
-    if not account.get("is_active"):
-        raise HTTPException(status_code=400, detail="Facebook account is inactive")
-    
-    credentials = account.get("credentials_encrypted", {})
-    
-    if not credentials.get("accessToken") or not credentials.get("pageId"):
+    if not credentials.get("access_token") or not credentials.get("page_id"):
         raise HTTPException(status_code=400, detail="Invalid Facebook configuration")
     
-    # Check token expiration
-    expires_at = credentials.get("expiresAt")
-    if expires_at:
-        expiry_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-        if datetime.utcnow() > expiry_date:
-            raise HTTPException(
-                status_code=401,
-                detail="Access token expired. Please reconnect your Facebook account."
-            )
-    
-    return credentials
+    # Return in expected format for social_service
+    return {
+        "accessToken": credentials.get("access_token"),
+        "pageId": credentials.get("page_id"),
+        "pageName": credentials.get("page_name"),
+        "pageAccessToken": credentials.get("page_access_token") or credentials.get("access_token"),
+        "expiresAt": credentials.get("expires_at"),
+    }
 
 
 # ============================================================================
@@ -283,6 +273,13 @@ async def post_to_facebook(
         post_id = result.get("post_id") or result.get("id")
         post_url = f"https://www.facebook.com/{post_id}"
         
+        # Track rate limit usage
+        try:
+            rate_limit_service = get_rate_limit_service()
+            await rate_limit_service.increment_usage(workspace_id, "facebook", 1)
+        except Exception as rl_err:
+            logger.warning(f"Rate limit tracking failed (non-critical): {rl_err}")
+        
         logger.info(f"Posted to Facebook - workspace: {workspace_id}, type: {post_type_label}")
         
         return FacebookPostResponse(
@@ -380,6 +377,13 @@ async def post_carousel_to_facebook(
         
         post_id = carousel_result["post_id"]
         post_url = f"https://www.facebook.com/{post_id.replace('_', '/posts/')}"
+        
+        # Track rate limit usage
+        try:
+            rate_limit_service = get_rate_limit_service()
+            await rate_limit_service.increment_usage(workspace_id, "facebook", 1)
+        except Exception as rl_err:
+            logger.warning(f"Rate limit tracking failed (non-critical): {rl_err}")
         
         logger.info(f"Posted carousel to Facebook - workspace: {workspace_id}, images: {len(photo_ids)}")
         

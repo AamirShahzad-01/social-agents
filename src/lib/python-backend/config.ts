@@ -267,6 +267,25 @@ export const ENDPOINTS = {
         status: '/credentials/status',
         platform: (platform: string) => `/credentials/${platform}`,
         disconnect: (platform: string) => `/credentials/${platform}/disconnect`,
+        // Meta-specific endpoints (SDK-based)
+        meta: {
+            status: '/credentials/meta/status',
+            capabilities: '/credentials/meta/capabilities',
+            businesses: '/credentials/meta/businesses',
+            switchBusiness: '/credentials/meta/switch-business',
+            validateToken: '/credentials/meta/validate-token',
+            refreshToken: '/credentials/meta/refresh-token',
+        },
+    },
+
+    // Token Refresh
+    tokens: {
+        base: '/tokens',
+        get: (platform: string) => `/tokens/get/${platform}`,
+        refresh: (platform: string) => `/tokens/refresh/${platform}`,
+        status: '/tokens/status',
+        health: '/tokens/health',
+        metaValidate: '/tokens/meta/validate',
     },
 
     // Webhooks
@@ -333,7 +352,35 @@ export const ENDPOINTS = {
         presets: '/cloudinary/presets',
         presetsByType: (type: string) => `/cloudinary/presets/${type}`,
     },
+
+    // Meta Ads
+    metaAds: {
+        base: '/meta-ads',
+        status: '/meta-ads/status',
+        authUrl: '/meta-ads/auth/url',
+        campaigns: '/meta-ads/campaigns',
+        campaign: (id: string) => `/meta-ads/campaigns/${id}`,
+        adsets: '/meta-ads/adsets',
+        adset: (id: string) => `/meta-ads/adsets/${id}`,
+        ads: '/meta-ads/ads',
+        ad: (id: string) => `/meta-ads/ads/${id}`,
+        audiences: '/meta-ads/audiences',
+        switchBusiness: '/meta-ads/switch-business',
+    },
+
+    // Rate Limits (Quota Management)
+    rateLimits: {
+        base: '/rate-limits',
+        status: '/rate-limits/status',
+        platform: (platform: string) => `/rate-limits/${platform}`,
+        check: '/rate-limits/check',
+        increment: '/rate-limits/increment',
+        history: (workspaceId: string) => `/rate-limits/history/${workspaceId}`,
+        limits: '/rate-limits/limits',
+        cleanup: '/rate-limits/cleanup',
+    },
 } as const;
+
 
 /**
  * Check if Python backend should be used for a specific feature

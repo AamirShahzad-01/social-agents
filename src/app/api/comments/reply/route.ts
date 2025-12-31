@@ -111,7 +111,7 @@ async function replyToMetaComment(
 }
 
 /**
- * Get platform credentials from social_connections table
+ * Get platform credentials from social_accounts table
  */
 async function getPlatformCredentials(
     supabase: any,
@@ -120,7 +120,7 @@ async function getPlatformCredentials(
 ): Promise<{ accessToken?: string } | null> {
     try {
         const { data } = await supabase
-            .from('social_connections')
+            .from('social_accounts')
             .select('credentials_encrypted')
             .eq('workspace_id', workspaceId)
             .eq('platform', platform)
@@ -143,6 +143,7 @@ async function getPlatformCredentials(
         console.error('Error fetching credentials:', error);
         return null;
     }
+
 }
 
 export async function POST(req: NextRequest) {

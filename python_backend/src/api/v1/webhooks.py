@@ -1,6 +1,8 @@
 """
 Webhooks API Router
 Handle real-time updates from Meta Marketing API and other platforms
+
+Uses Meta Business SDK helpers for signature verification and payload parsing.
 """
 
 import hmac
@@ -15,6 +17,8 @@ from pydantic import BaseModel, Field
 
 from src.config import settings
 from src.services import db_insert
+from src.services.meta_sdk_client import MetaSDKClient
+
 
 router = APIRouter(prefix="/api/v1/webhooks", tags=["Webhooks"])
 logger = logging.getLogger(__name__)
@@ -46,10 +50,11 @@ class WebhookEvent(BaseModel):
 def verify_webhook_signature(payload: str, signature: str) -> bool:
     """
     Verify webhook signature from Meta using HMAC-SHA256.
+    Uses MetaSDKClient helper for consistency with SDK integration.
     
     Args:
         payload: Raw request body as string
-        signature: Signature from X-Hub-Signature-256 header (without 'sha256=' prefix)
+        signature: Signature from X-Hub-Signature-256 header (with 'sha256=' prefix)
     
     Returns:
         True if signature is valid, False otherwise
@@ -59,16 +64,16 @@ def verify_webhook_signature(payload: str, signature: str) -> bool:
         return True
     
     try:
-        expected_signature = hmac.new(
-            META_APP_SECRET.encode('utf-8'),
-            payload.encode('utf-8'),
-            hashlib.sha256
-        ).hexdigest()
-        
-        return hmac.compare_digest(signature, expected_signature)
+        # Use SDK helper method
+        return MetaSDKClient.verify_webhook_signature(
+            payload=payload.encode('utf-8'),
+            signature=f"sha256={signature}" if not signature.startswith('sha256=') else signature,
+            app_secret=META_APP_SECRET
+        )
     except Exception as e:
         logger.error(f"Signature verification error: {e}")
         return False
+
 
 
 async def log_webhook_event(event: WebhookEvent) -> None:

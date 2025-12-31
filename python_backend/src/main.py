@@ -135,7 +135,8 @@ from .api import (
     linkedin_router,
     twitter_router,
     tiktok_router,
-    youtube_router
+    youtube_router,
+    rate_limits_router
 )
 app.include_router(content_router)
 app.include_router(content_improvement_router)
@@ -160,6 +161,7 @@ app.include_router(linkedin_router)
 app.include_router(twitter_router)
 app.include_router(tiktok_router)
 app.include_router(youtube_router)
+app.include_router(rate_limits_router)
 
 
 @app.exception_handler(Exception)

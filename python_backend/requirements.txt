@@ -49,3 +49,6 @@ structlog==24.4.0
 
 # Cloudinary (Media Storage & CDN)
 cloudinary==1.40.0
+
+# Meta Business SDK (Facebook, Instagram, Marketing API)
+facebook_business>=24.0.1

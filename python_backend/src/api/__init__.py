@@ -22,7 +22,8 @@ from .v1 import (
     linkedin_router,
     twitter_router,
     tiktok_router,
-    youtube_router
+    youtube_router,
+    rate_limits_router
 )
 
 __all__ = [
@@ -48,7 +49,8 @@ __all__ = [
     "linkedin_router",
     "twitter_router",
     "tiktok_router",
-    "youtube_router"
+    "youtube_router",
+    "rate_limits_router"
 ]
 
 

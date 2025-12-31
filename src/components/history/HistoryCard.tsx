@@ -6,7 +6,9 @@ import { PLATFORMS, STATUS_CONFIG } from '@/constants';
 import { Send, Clock, X, Trash2, Loader2, AlertCircle, CheckCircle2, Edit3, Play, Image as ImageIcon, Layers, Film } from 'lucide-react';
 import { PlatformTemplateRenderer } from '@/components/templates/PlatformTemplateRenderer';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useAuth } from '@/contexts/AuthContext';
 import { EditPostModal } from './EditPostModal';
+import { QuotaTooltip } from './QuotaTooltip';
 
 interface PublishedCardProps {
     post: Post;
@@ -28,6 +30,7 @@ const PLATFORM_MAX_WIDTHS: Record<Platform, string> = {
 
 const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDeletePost, onPublishPost, connectedAccounts }) => {
     const { isViewOnly } = usePermissions();
+    const { workspaceId } = useAuth();
     const [activePlatform] = useState<Platform>(post.platforms[0]);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -265,22 +268,26 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                                     <Edit3 className="w-2.5 h-2.5" />
                                     Edit
                                 </button>
-                                <button
-                                    onClick={() => !isViewOnly && setIsScheduleModalOpen(true)}
-                                    disabled={isViewOnly}
-                                    className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-sky-400 hover:bg-sky-500 text-white shadow-sm disabled:opacity-50"
-                                >
-                                    <Clock className="w-2.5 h-2.5" />
-                                    Schedule
-                                </button>
-                                <button
-                                    onClick={() => !isViewOnly && handlePublish()}
-                                    disabled={!canPublish || isPublishing || isViewOnly}
-                                    className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-teal-500 hover:bg-teal-600 text-white shadow-sm disabled:opacity-50"
-                                >
-                                    {isPublishing ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Send className="w-2.5 h-2.5" />}
-                                    {isPublishing ? '...' : 'Publish'}
-                                </button>
+                                <QuotaTooltip platform={activePlatform} workspaceId={workspaceId || ''}>
+                                    <button
+                                        onClick={() => !isViewOnly && setIsScheduleModalOpen(true)}
+                                        disabled={isViewOnly}
+                                        className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-sky-400 hover:bg-sky-500 text-white shadow-sm disabled:opacity-50"
+                                    >
+                                        <Clock className="w-2.5 h-2.5" />
+                                        Schedule
+                                    </button>
+                                </QuotaTooltip>
+                                <QuotaTooltip platform={activePlatform} workspaceId={workspaceId || ''}>
+                                    <button
+                                        onClick={() => !isViewOnly && handlePublish()}
+                                        disabled={!canPublish || isPublishing || isViewOnly}
+                                        className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-teal-500 hover:bg-teal-600 text-white shadow-sm disabled:opacity-50"
+                                    >
+                                        {isPublishing ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Send className="w-2.5 h-2.5" />}
+                                        {isPublishing ? '...' : 'Publish'}
+                                    </button>
+                                </QuotaTooltip>
                                 <button
                                     onClick={() => !isViewOnly && onDeletePost(post.id, post.topic)}
                                     disabled={isViewOnly}
@@ -355,13 +362,15 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                                 >
                                     Edit
                                 </button>
-                                <button
-                                    onClick={() => !isViewOnly && handlePublish()}
-                                    disabled={isPublishing || isViewOnly}
-                                    className="flex-1 py-0.5 px-1.5 text-[9px] font-medium rounded bg-orange-600 text-white disabled:opacity-50"
-                                >
-                                    Retry
-                                </button>
+                                <QuotaTooltip platform={activePlatform} workspaceId={workspaceId || ''}>
+                                    <button
+                                        onClick={() => !isViewOnly && handlePublish()}
+                                        disabled={isPublishing || isViewOnly}
+                                        className="flex-1 py-0.5 px-1.5 text-[9px] font-medium rounded bg-orange-600 text-white disabled:opacity-50"
+                                    >
+                                        Retry
+                                    </button>
+                                </QuotaTooltip>
                                 <button
                                     onClick={() => !isViewOnly && onDeletePost(post.id)}
                                     disabled={isViewOnly}

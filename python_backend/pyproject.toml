@@ -36,6 +36,7 @@ dependencies = [
     "tweepy>=4.14.0",
     "uvicorn[standard]>=0.30.0",
     "imageio-ffmpeg>=0.6.0",
+    "facebook-business>=24.0.1",
 ]
 
 [project.optional-dependencies]

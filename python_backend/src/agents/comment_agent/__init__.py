@@ -17,7 +17,6 @@ from .tools import (
     create_escalate_tools,
     create_youtube_fetch_tools,
     create_youtube_reply_tools,
-    generate_appsecret_proof,
 )
 
 __all__ = [
@@ -37,5 +36,4 @@ __all__ = [
     "create_escalate_tools",
     "create_youtube_fetch_tools",
     "create_youtube_reply_tools",
-    "generate_appsecret_proof",
 ]
