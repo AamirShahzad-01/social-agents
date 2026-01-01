@@ -5,7 +5,7 @@ import { Post, Platform } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { publishingService } from '@/services/publishingService';
-import { postsApi, credentialsApi } from '@/lib/python-backend';
+import { postsApi } from '@/lib/python-backend';
 
 interface DashboardContextType {
     posts: Post[];
@@ -68,10 +68,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             }
 
             // Load posts and credentials status in parallel using Python backend
-            const [postsData, accountsStatus] = await Promise.all([
+            const [postsData, credentialsResponse] = await Promise.all([
                 postsApi.getPosts(user.id, workspaceId),
-                credentialsApi.getConnectionStatus()
+                fetch('/api/credentials/status').then(res => res.json())
             ]);
+            const accountsStatus = credentialsResponse;
 
             // Map connection status to account summary
             const accountsSummary: Record<Platform, boolean> = {

@@ -13,7 +13,6 @@ import {
 import { PLATFORMS } from '@/constants'
 import type { Platform } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
-import { credentialsApi } from '@/lib/python-backend'
 import { getSupabaseClient } from '@/lib/supabase/client'
 
 interface ConnectedAccountsViewProps {
@@ -93,8 +92,10 @@ const ConnectedAccountsView: React.FC<ConnectedAccountsViewProps> = ({
 
           try {
             setIsLoading(true)
-            // Use Python backend API
-            const data = await credentialsApi.getConnectionStatus()
+            // Use Next.js proxy to call Python backend
+            const response = await fetch('/api/credentials/status')
+            if (!response.ok) throw new Error('Failed to load status')
+            const data = await response.json()
             const mappedStatus = mapCredentialsStatus(data)
 
             // Check if the platform we're looking for is now connected
@@ -164,8 +165,10 @@ const ConnectedAccountsView: React.FC<ConnectedAccountsViewProps> = ({
 
     try {
       setIsLoading(true)
-      // Use Python backend API
-      const data = await credentialsApi.getConnectionStatus()
+      // Use Next.js proxy to call Python backend
+      const response = await fetch('/api/credentials/status')
+      if (!response.ok) throw new Error('Failed to load status')
+      const data = await response.json()
       const mappedStatus = mapCredentialsStatus(data)
 
       setStatusInfo(mappedStatus)

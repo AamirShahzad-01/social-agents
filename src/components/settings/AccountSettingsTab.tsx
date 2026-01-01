@@ -16,7 +16,6 @@ import {
 import { PLATFORMS } from '@/constants'
 import type { Platform } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
-import { credentialsApi } from '@/lib/python-backend'
 import { getSupabaseClient } from '@/lib/supabase/client'
 
 // Format date to readable format
@@ -97,8 +96,10 @@ const AccountSettingsTab: React.FC = () => {
 
     try {
       setIsLoading(true)
-      // Use Python backend API
-      const data = await credentialsApi.getConnectionStatus()
+      // Use Next.js proxy to call Python backend
+      const response = await fetch('/api/credentials/status')
+      if (!response.ok) throw new Error('Failed to load status')
+      const data = await response.json()
 
       // Map the connection status response
       const mappedStatus: Record<Platform, any> = {
@@ -325,9 +326,11 @@ const AccountSettingsTab: React.FC = () => {
             }
 
             try {
-              // Use Python backend API
+              // Use Next.js proxy to call Python backend
               if (!user) return
-              const status = await credentialsApi.getConnectionStatus()
+              const response = await fetch('/api/credentials/status')
+              if (!response.ok) throw new Error('Failed to load status')
+              const status = await response.json()
               const mappedStatus: Record<Platform, any> = {
                 twitter: { isConnected: status.twitter?.connected ?? false, ...status.twitter },
                 linkedin: { isConnected: status.linkedin?.connected ?? false, ...status.linkedin },
@@ -397,8 +400,10 @@ const AccountSettingsTab: React.FC = () => {
       const loadStatusSilently = async () => {
         try {
           if (!user) return
-          // Use Python backend API
-          const data = await credentialsApi.getConnectionStatus()
+          // Use Next.js proxy to call Python backend
+          const response = await fetch('/api/credentials/status')
+          if (!response.ok) throw new Error('Failed to load status')
+          const data = await response.json()
           const mappedStatus: Record<Platform, any> = {
             twitter: { isConnected: data.twitter?.connected ?? false, ...data.twitter },
             linkedin: { isConnected: data.linkedin?.connected ?? false, ...data.linkedin },
@@ -442,8 +447,10 @@ const AccountSettingsTab: React.FC = () => {
 
           try {
             setIsLoading(true)
-            // Use Python backend API
-            const data = await credentialsApi.getConnectionStatus()
+            // Use Next.js proxy to call Python backend
+            const response = await fetch('/api/credentials/status')
+            if (!response.ok) throw new Error('Failed to load status')
+            const data = await response.json()
             const mappedStatus: Record<Platform, any> = {
               twitter: { isConnected: data.twitter?.connected ?? false, ...data.twitter },
               linkedin: { isConnected: data.linkedin?.connected ?? false, ...data.linkedin },
