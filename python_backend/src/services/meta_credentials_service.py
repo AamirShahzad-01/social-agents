@@ -873,10 +873,18 @@ class MetaCredentialsService:
             logger.warning(f"No credentials found for workspace {workspace_id}")
             return []
         
-        access_token = credentials.get("user_access_token") or credentials.get("access_token")
+        # Debug logging to trace token source
+        user_token = credentials.get("user_access_token")
+        page_token = credentials.get("access_token")
+        logger.info(f"Credentials for workspace {workspace_id}: user_token exists={bool(user_token)}, page_token exists={bool(page_token)}")
+        
+        # IMPORTANT: Use user access token for /me/businesses - page tokens don't have business access
+        access_token = user_token or page_token
         if not access_token:
             logger.warning(f"No access token found in credentials for workspace {workspace_id}")
             return []
+        
+        logger.info(f"Using {'user' if user_token else 'page'} token for business API call")
         
         try:
             import httpx
