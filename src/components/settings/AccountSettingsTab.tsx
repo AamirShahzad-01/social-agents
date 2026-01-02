@@ -17,6 +17,8 @@ import { PLATFORMS } from '@/constants'
 import type { Platform } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { getSupabaseClient } from '@/lib/supabase/client'
+import { credentialsService } from '@/services/credentialsService'
+import { extractConnectedSummary } from '@/types/credentials'
 
 // Format date to readable format
 const formatDate = (dateString: string | number) => {
@@ -90,27 +92,15 @@ const AccountSettingsTab: React.FC = () => {
     youtube: 60000, // 60 seconds
   }
 
-  // Load connection status using Python backend API
+  // Load connection status using centralized credentials service
   const loadConnectionStatus = async () => {
     if (!user) return
 
     try {
       setIsLoading(true)
-      // Use Next.js proxy to call Python backend
-      const response = await fetch('/api/credentials/status')
-      if (!response.ok) throw new Error('Failed to load status')
-      const data = await response.json()
-
-      // Set status info directly from API response (backend returns isConnected)
+      const data = await credentialsService.getStatus()
       setStatusInfo(data)
-      setConnectedAccounts(
-        Object.fromEntries(
-          Object.entries(data).map(([platform, info]: [string, any]) => [
-            platform,
-            info.isConnected,
-          ])
-        ) as Record<Platform, boolean>
-      )
+      setConnectedAccounts(extractConnectedSummary(data))
     } catch (error: any) {
       console.error('Failed to load connection status:', error)
     } finally {
@@ -311,24 +301,14 @@ const AccountSettingsTab: React.FC = () => {
             }
 
             try {
-              // Use Next.js proxy to call Python backend
               if (!user) return
-              const response = await fetch('/api/credentials/status')
-              if (!response.ok) throw new Error('Failed to load status')
-              const status = await response.json()
+              const status = await credentialsService.getStatus()
               const platformConnected = status[platform]?.isConnected
 
               if (platformConnected) {
                 // Platform is connected! Clear any errors and update state
                 setStatusInfo(status)
-                setConnectedAccounts(
-                  Object.fromEntries(
-                    Object.entries(status).map(([p, info]: [string, any]) => [
-                      p,
-                      info.isConnected,
-                    ])
-                  ) as Record<Platform, boolean>
-                )
+                setConnectedAccounts(extractConnectedSummary(status))
                 setErrors(prev => ({
                   ...prev,
                   [platform]: undefined,
@@ -373,23 +353,12 @@ const AccountSettingsTab: React.FC = () => {
       // Clear loading immediately so page can render
       setIsLoading(false)
       // Load status in background without showing loading state
-      // Use a separate function that doesn't set loading
       const loadStatusSilently = async () => {
         try {
           if (!user) return
-          // Use Next.js proxy to call Python backend
-          const response = await fetch('/api/credentials/status')
-          if (!response.ok) throw new Error('Failed to load status')
-          const data = await response.json()
+          const data = await credentialsService.getStatus()
           setStatusInfo(data)
-          setConnectedAccounts(
-            Object.fromEntries(
-              Object.entries(data).map(([p, info]: [string, any]) => [
-                p,
-                info.isConnected,
-              ])
-            ) as Record<Platform, boolean>
-          )
+          setConnectedAccounts(extractConnectedSummary(data))
         } catch (err) {
           console.error('Failed to load status silently:', err)
         }
@@ -416,10 +385,7 @@ const AccountSettingsTab: React.FC = () => {
 
           try {
             setIsLoading(true)
-            // Use Next.js proxy to call Python backend
-            const response = await fetch('/api/credentials/status')
-            if (!response.ok) throw new Error('Failed to load status')
-            const data = await response.json()
+            const data = await credentialsService.getStatus()
 
             // Check if the platform we're looking for is now connected
             const platformConnected = data[successPlatform]?.isConnected
@@ -427,27 +393,13 @@ const AccountSettingsTab: React.FC = () => {
             if (platformConnected) {
               // Found credentials! Update state and we're done
               setStatusInfo(data)
-              setConnectedAccounts(
-                Object.fromEntries(
-                  Object.entries(data).map(([p, info]: [string, any]) => [
-                    p,
-                    info.isConnected,
-                  ])
-                ) as Record<Platform, boolean>
-              )
+              setConnectedAccounts(extractConnectedSummary(data))
               setConnectingPlatform(null)
               break // Exit retry loop
             } else if (attempt === maxRetries - 1) {
               // Last attempt failed - show what we got
               setStatusInfo(data)
-              setConnectedAccounts(
-                Object.fromEntries(
-                  Object.entries(data).map(([p, info]: [string, any]) => [
-                    p,
-                    info.isConnected,
-                  ])
-                ) as Record<Platform, boolean>
-              )
+              setConnectedAccounts(extractConnectedSummary(data))
               setConnectingPlatform(null)
             }
           } catch (err) {

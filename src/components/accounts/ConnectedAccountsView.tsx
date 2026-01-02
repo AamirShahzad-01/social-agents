@@ -14,6 +14,8 @@ import { PLATFORMS } from '@/constants'
 import type { Platform } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { getSupabaseClient } from '@/lib/supabase/client'
+import { credentialsService } from '@/services/credentialsService'
+import { extractConnectedSummary } from '@/types/credentials'
 
 interface ConnectedAccountsViewProps {
   connectedAccounts: Record<Platform, boolean>
@@ -55,11 +57,6 @@ const ConnectedAccountsView: React.FC<ConnectedAccountsViewProps> = ({
     youtube: 60000, // 60 seconds
   }
 
-  // Helper function to map Python backend response to expected format
-  // Backend now returns isConnected directly, so we just pass through
-  const mapCredentialsStatus = (data: any): Record<Platform, any> => {
-    return data
-  }
 
   useEffect(() => {
     loadConnectionStatus()
@@ -86,10 +83,7 @@ const ConnectedAccountsView: React.FC<ConnectedAccountsViewProps> = ({
 
           try {
             setIsLoading(true)
-            // Use Next.js proxy to call Python backend
-            const response = await fetch('/api/credentials/status')
-            if (!response.ok) throw new Error('Failed to load status')
-            const data = await response.json()
+            const data = await credentialsService.getStatus()
 
             // Check if the platform we're looking for is now connected
             const platformConnected = data[successPlatform as Platform]?.isConnected
@@ -97,27 +91,13 @@ const ConnectedAccountsView: React.FC<ConnectedAccountsViewProps> = ({
             if (platformConnected) {
               // Found credentials! Update state and we're done
               setStatusInfo(data)
-              onUpdateAccounts(
-                Object.fromEntries(
-                  Object.entries(data).map(([p, info]: [string, any]) => [
-                    p,
-                    info.isConnected,
-                  ])
-                ) as Record<Platform, boolean>
-              )
+              onUpdateAccounts(extractConnectedSummary(data))
               setConnectingPlatform(null)
               break // Exit retry loop
             } else if (attempt === maxRetries - 1) {
               // Last attempt failed - show what we got
               setStatusInfo(data)
-              onUpdateAccounts(
-                Object.fromEntries(
-                  Object.entries(data).map(([p, info]: [string, any]) => [
-                    p,
-                    info.isConnected,
-                  ])
-                ) as Record<Platform, boolean>
-              )
+              onUpdateAccounts(extractConnectedSummary(data))
               setConnectingPlatform(null)
             }
           } catch (err) {
@@ -158,20 +138,9 @@ const ConnectedAccountsView: React.FC<ConnectedAccountsViewProps> = ({
 
     try {
       setIsLoading(true)
-      // Use Next.js proxy to call Python backend
-      const response = await fetch('/api/credentials/status')
-      if (!response.ok) throw new Error('Failed to load status')
-      const data = await response.json()
-
+      const data = await credentialsService.getStatus()
       setStatusInfo(data)
-      onUpdateAccounts(
-        Object.fromEntries(
-          Object.entries(data).map(([p, info]: [string, any]) => [
-            p,
-            info.isConnected,
-          ])
-        ) as Record<Platform, boolean>
-      )
+      onUpdateAccounts(extractConnectedSummary(data))
     } catch (error: any) {
       console.error('Failed to load connection status:', error)
       // Clear any previous errors when loading fails

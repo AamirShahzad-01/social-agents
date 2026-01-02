@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { publishingService } from '@/services/publishingService';
 import { postsApi } from '@/lib/python-backend';
+import { credentialsService } from '@/services/credentialsService';
+import { extractConnectedSummary } from '@/types/credentials';
 
 interface DashboardContextType {
     posts: Post[];
@@ -68,21 +70,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             }
 
             // Load posts and credentials status in parallel using Python backend
-            const [postsData, credentialsResponse] = await Promise.all([
+            const [postsData, accountsStatus] = await Promise.all([
                 postsApi.getPosts(user.id, workspaceId),
-                fetch('/api/credentials/status').then(res => res.json())
+                credentialsService.getStatusSafe()
             ]);
-            const accountsStatus = credentialsResponse;
 
-            // Map connection status to account summary
-            const accountsSummary: Record<Platform, boolean> = {
-                twitter: accountsStatus.twitter?.isConnected ?? false,
-                linkedin: accountsStatus.linkedin?.isConnected ?? false,
-                facebook: accountsStatus.facebook?.isConnected ?? false,
-                instagram: accountsStatus.instagram?.isConnected ?? false,
-                tiktok: accountsStatus.tiktok?.isConnected ?? false,
-                youtube: accountsStatus.youtube?.isConnected ?? false,
-            };
+            // Map connection status to account summary using centralized helper
+            const accountsSummary = extractConnectedSummary(accountsStatus);
 
             setPosts(Array.isArray(postsData) ? (postsData as unknown as Post[]) : []);
             setConnectedAccounts(accountsSummary);
