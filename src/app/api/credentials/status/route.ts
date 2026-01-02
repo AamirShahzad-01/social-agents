@@ -41,6 +41,8 @@ export async function GET(req: NextRequest) {
         }
 
         const data = await response.json()
+        // Debug: log the response from Python backend
+        console.log('[Credentials Status] Backend response:', JSON.stringify(data, null, 2))
         return NextResponse.json(data)
     } catch (error) {
         console.error('Credentials status error:', error)
