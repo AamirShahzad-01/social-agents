@@ -189,34 +189,48 @@ class MetaSDKClient:
     
     @async_sdk_call
     def _get_user_pages_sync(self) -> List[Dict[str, Any]]:
-        """Sync method to get user's pages - wrapped by async decorator"""
+        """
+        Get user's pages using direct HTTP call with v24 API.
+        Uses v24 for credential operations (v25 for ads only).
+        """
         self._ensure_initialized()
         
-        user = User(fbid='me')
-        pages = user.get_accounts(fields=[
-            'id',
-            'name', 
-            'access_token',
-            'category',
-            'instagram_business_account',
-            'picture'
-        ])
+        import httpx
         
-        return [
-            {
-                'id': page['id'],
-                'name': page.get('name'),
-                'access_token': page.get('access_token'),
-                'category': page.get('category'),
-                'instagram_business_account': page.get('instagram_business_account'),
-                'picture': page.get('picture', {}).get('data', {}).get('url')
-            }
-            for page in pages
-        ]
+        # Use v24 for credential/pages operations
+        url = f"https://graph.facebook.com/v24.0/me/accounts"
+        params = {
+            'access_token': self._access_token,
+            'fields': 'id,name,access_token,category,instagram_business_account,picture'
+        }
+        
+        with httpx.Client(timeout=30.0) as client:
+            response = client.get(url, params=params)
+            
+            if not response.is_success:
+                error_data = response.json() if response.content else {}
+                error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
+                raise MetaSDKError(f"Failed to get pages: {error_msg}")
+            
+            data = response.json()
+            pages = data.get('data', [])
+            
+            return [
+                {
+                    'id': page['id'],
+                    'name': page.get('name'),
+                    'access_token': page.get('access_token'),
+                    'category': page.get('category'),
+                    'instagram_business_account': page.get('instagram_business_account'),
+                    'picture': page.get('picture', {}).get('data', {}).get('url')
+                }
+                for page in pages
+            ]
     
     async def get_user_pages(self) -> List[Dict[str, Any]]:
         """
         Get Facebook Pages managed by the user.
+        Uses v24 API for credential operations.
         
         Returns:
             List of Page objects with id, name, access_token, category
