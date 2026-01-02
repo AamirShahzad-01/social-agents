@@ -389,13 +389,28 @@ async def _handle_facebook_callback(code: str, workspace_id: str, callback_url: 
         business_name = None
         
         try:
+            import hmac
+            import hashlib
+            
             GRAPH_API_VERSION = "v24.0"
             GRAPH_BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
+            
+            # Generate appsecret_proof - required for server-side API calls
+            app_secret = settings.FACEBOOK_APP_SECRET
+            appsecret_proof = hmac.new(
+                app_secret.encode('utf-8'),
+                access_token.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest() if app_secret else ""
             
             async with httpx.AsyncClient(timeout=30.0) as client:
                 # Fetch businesses using USER token (NOT page token)
                 businesses_url = f"{GRAPH_BASE_URL}/me/businesses"
-                params = {"access_token": access_token, "fields": "id,name"}
+                params = {
+                    "access_token": access_token,
+                    "fields": "id,name",
+                    "appsecret_proof": appsecret_proof
+                }
                 
                 resp = await client.get(businesses_url, params=params)
                 
@@ -410,7 +425,8 @@ async def _handle_facebook_callback(code: str, workspace_id: str, callback_url: 
                         ad_accounts_url = f"{GRAPH_BASE_URL}/{business['id']}/owned_ad_accounts"
                         ad_params = {
                             "access_token": access_token,
-                            "fields": "id,account_id,name,account_status,currency,timezone_name"
+                            "fields": "id,account_id,name,account_status,currency,timezone_name",
+                            "appsecret_proof": appsecret_proof
                         }
                         
                         ad_resp = await client.get(ad_accounts_url, params=ad_params)
@@ -438,7 +454,8 @@ async def _handle_facebook_callback(code: str, workspace_id: str, callback_url: 
                     ad_accounts_url = f"{GRAPH_BASE_URL}/me/adaccounts"
                     ad_params = {
                         "access_token": access_token,
-                        "fields": "id,account_id,name,account_status,currency,timezone_name"
+                        "fields": "id,account_id,name,account_status,currency,timezone_name",
+                        "appsecret_proof": appsecret_proof
                     }
                     
                     ad_resp = await client.get(ad_accounts_url, params=ad_params)

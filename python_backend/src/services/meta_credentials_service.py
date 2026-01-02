@@ -78,7 +78,7 @@ class MetaCredentialsService:
                     result = client.table("social_accounts").select(
                         "id, platform, credentials_encrypted, page_id, page_name, "
                         "account_id, account_name, username, expires_at, access_token_expires_at, "
-                        "ig_user_id, business_id, is_connected"
+                        "business_id, is_connected"
                     ).eq("workspace_id", workspace_id).eq("platform", platform).eq("is_connected", True).limit(1).execute()
                     
                     # Check if we got any results
@@ -129,7 +129,7 @@ class MetaCredentialsService:
                         "page_access_token": credentials.get("pageAccessToken"),
                         "account_id": row.get("account_id") or credentials.get("adAccountId"),
                         "account_name": row.get("account_name") or credentials.get("adAccountName"),
-                        "ig_user_id": row.get("ig_user_id") or credentials.get("igUserId"),
+                        "ig_user_id": credentials.get("igUserId"),
                         "username": row.get("username") or credentials.get("username"),
                         "expires_at": str(expires_at) if expires_at else None,
                         "is_expired": is_expired,
