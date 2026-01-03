@@ -397,6 +397,12 @@ function CreateAudienceModal({
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [nameManuallyEdited, setNameManuallyEdited] = useState(false);
+  const [pixels, setPixels] = useState<{ id: string, name: string }[]>([]);
+  const [selectedPixel, setSelectedPixel] = useState('');
+  const [pages, setPages] = useState<{ id: string, name: string }[]>([]);
+  const [selectedPage, setSelectedPage] = useState('');
+  const [apps, setApps] = useState<{ id: string, name: string }[]>([]);
+  const [selectedApp, setSelectedApp] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -408,12 +414,64 @@ function CreateAudienceModal({
     engagement_event: 'page_engaged', // Engagement/Page
     lead_event: 'lead_generation_submitted', // Lead Form
     customer_file_source: 'USER_PROVIDED_ONLY', // Customer File
-    // Lookalike specific
+    // Lookal like specific
     source_audience_id: '',
     country: 'US',
     ratio: 0.01,
     type: 'similarity' as 'similarity' | 'reach' | 'custom_ratio',
   });
+
+  // Fetch pixels and pages on mount
+  React.useEffect(() => {
+    const fetchPixels = async () => {
+      try {
+        const response = await fetch('/api/v1/meta-ads/pixels');
+        if (response.ok) {
+          const data = await response.json();
+          setPixels(data.pixels || []);
+          if (data.pixels && data.pixels.length > 0) {
+            setSelectedPixel(data.pixels[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch pixels:', err);
+      }
+    };
+
+    const fetchPages = async () => {
+      try {
+        const response = await fetch('/api/v1/meta-ads/pages');
+        if (response.ok) {
+          const data = await response.json();
+          setPages(data.pages || []);
+          if (data.pages && data.pages.length > 0) {
+            setSelectedPage(data.pages[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch pages:', err);
+      }
+    };
+
+    const fetchApps = async () => {
+      try {
+        const response = await fetch('/api/v1/meta-ads/apps');
+        if (response.ok) {
+          const data = await response.json();
+          setApps(data.apps || []);
+          if (data.apps && data.apps.length > 0) {
+            setSelectedApp(data.apps[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch apps:', err);
+      }
+    };
+
+    fetchPixels();
+    fetchPages();
+    fetchApps();
+  }, []);
 
   // Smart Auto-Naming Hook - per Meta naming best practices
   React.useEffect(() => {
@@ -480,20 +538,111 @@ function CreateAudienceModal({
   ]);
 
   const handleSubmit = async () => {
+    // Validate WEBSITE audiences have a pixel
+    if (type === 'custom' && formData.subtype === 'WEBSITE' && !selectedPixel) {
+      alert('Please select a pixel for Website audiences');
+      return;
+    }
+
+    // Validate page-based audiences have a page
+    if (type === 'custom' && ['ENGAGEMENT', 'VIDEO', 'LEAD_AD'].includes(formData.subtype) && !selectedPage) {
+      alert('Please select a Facebook page for this audience type');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const endpoint = type === 'custom' ? '/api/v1/meta-ads/audiences/custom' : '/api/v1/meta-ads/audiences/lookalike';
+
+      let payload: any = { ...formData };
+
+      // Construct rule for WEBSITE audiences
+      if (type === 'custom' && formData.subtype === 'WEBSITE' && selectedPixel) {
+        payload.rule = {
+          inclusions: {
+            operator: "or",
+            rules: [{
+              event_sources: [{ type: "pixel", id: selectedPixel }],
+              retention_seconds: formData.retention_days * 86400,
+              filter: {
+                operator: "and",
+                filters: [{ field: "url", operator: "i_contains", value: "" }]
+              }
+            }]
+          }
+        };
+      }
+
+      // Construct rule for ENGAGEMENT audiences
+      if (type === 'custom' && formData.subtype === 'ENGAGEMENT' && selectedPage) {
+        payload.rule = {
+          inclusions: {
+            operator: "or",
+            rules: [{
+              event_sources: [{ type: "page", id: selectedPage }],
+              retention_seconds: formData.retention_days * 86400,
+              filter: {
+                operator: "eq",
+                field: "event",
+                value: formData.engagement_event
+              }
+            }]
+          }
+        };
+      }
+
+      // Construct rule for LEAD_AD audiences
+      if (type === 'custom' && formData.subtype === 'LEAD_AD' && selectedPage) {
+        payload.rule = {
+          inclusions: {
+            operator: "or",
+            rules: [{
+              event_sources: [{ type: "page", id: selectedPage }],
+              retention_seconds: formData.retention_days * 86400,
+              filter: {
+                operator: "eq",
+                field: "event",
+                value: formData.lead_event
+              }
+            }]
+          }
+        };
+      }
+
+      // Construct rule for VIDEO audiences (simplified - using page as source)
+      if (type === 'custom' && formData.subtype === 'VIDEO' && selectedPage) {
+        payload.rule = {
+          inclusions: {
+            operator: "or",
+            rules: [{
+              event_sources: [{ type: "page", id: selectedPage }],
+              retention_seconds: formData.retention_days * 86400,
+              filter: {
+                operator: "eq",
+                field: "event",
+                value: "video_view"  // Simplified - could add video engagement levels selector
+              }
+            }]
+          }
+        };
+      }
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
         onClose();
         onRefresh();
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.detail || 'Failed to create audience'}`);
       }
     } catch (error) {
+      console.error('Error creating audience:', error);
+      alert('Failed to create audience. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -567,60 +716,126 @@ function CreateAudienceModal({
                 <div className="space-y-6">
                   {/* Dynamic Source Configuration - per Meta docs */}
                   {formData.subtype === 'WEBSITE' && (
-                    <div>
-                      <Label>Website Event</Label>
-                      <Select
-                        value={formData.event_type}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, event_type: value }))}
-                      >
-                        <SelectTrigger className="mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {WEBSITE_EVENTS.map(e => (
-                            <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <>
+                      <div>
+                        <Label>Meta Pixel</Label>
+                        <Select value={selectedPixel} onValueChange={setSelectedPixel}>
+                          <SelectTrigger className="mt-2">
+                            <SelectValue placeholder="Select a pixel" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {pixels.map(pixel => (
+                              <SelectItem key={pixel.id} value={pixel.id}>
+                                {pixel.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {pixels.length === 0 && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            No pixels found. Please create a pixel in Meta Business Manager first.
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>Website Event</Label>
+                        <Select
+                          value={formData.event_type}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, event_type: value }))}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {WEBSITE_EVENTS.map(e => (
+                              <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
                   )}
 
                   {formData.subtype === 'ENGAGEMENT' && (
-                    <div>
-                      <Label>Engagement Type</Label>
-                      <Select
-                        value={formData.engagement_event}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, engagement_event: value }))}
-                      >
-                        <SelectTrigger className="mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ENGAGEMENT_EVENTS.map(e => (
-                            <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <>
+                      <div>
+                        <Label>Facebook Page</Label>
+                        <Select value={selectedPage} onValueChange={setSelectedPage}>
+                          <SelectTrigger className="mt-2">
+                            <SelectValue placeholder="Select a page" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {pages.map(page => (
+                              <SelectItem key={page.id} value={page.id}>
+                                {page.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {pages.length === 0 && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            No pages found. Please manage pages in Meta Business Manager.
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>Engagement Type</Label>
+                        <Select
+                          value={formData.engagement_event}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, engagement_event: value }))}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ENGAGEMENT_EVENTS.map(e => (
+                              <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
                   )}
 
                   {formData.subtype === 'LEAD_AD' && (
-                    <div>
-                      <Label>Lead Form Event</Label>
-                      <Select
-                        value={formData.lead_event}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, lead_event: value }))}
-                      >
-                        <SelectTrigger className="mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {LEAD_FORM_EVENTS.map(e => (
-                            <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <>
+                      <div>
+                        <Label>Facebook Page</Label>
+                        <Select value={selectedPage} onValueChange={setSelectedPage}>
+                          <SelectTrigger className="mt-2">
+                            <SelectValue placeholder="Select a page" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {pages.map(page => (
+                              <SelectItem key={page.id} value={page.id}>
+                                {page.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {pages.length === 0 && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            No pages found. Please manage pages in Meta Business Manager.
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>Lead Form Event</Label>
+                        <Select
+                          value={formData.lead_event}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, lead_event: value }))}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {LEAD_FORM_EVENTS.map(e => (
+                              <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
                   )}
 
                   {formData.subtype === 'CUSTOM' && (

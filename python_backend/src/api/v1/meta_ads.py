@@ -1057,13 +1057,24 @@ async def create_custom_audience(request: Request):
         
         body = await request.json()
         
+        subtype = body.get("subtype", "CUSTOM")
+        rule = body.get("rule")
+        
+        # Validate that WEBSITE audiences have a rule
+        if subtype == "WEBSITE" and not rule:
+            raise HTTPException(
+                status_code=400,
+                detail="rule parameter is required for WEBSITE custom audiences"
+            )
+        
         client = create_meta_sdk_client(credentials["access_token"])
         result = await client.create_custom_audience(
             account_id=credentials["account_id"],
             name=body.get("name"),
-            subtype=body.get("subtype", "CUSTOM"),
-            rule=body.get("rule"),
-            retention_days=body.get("retention_days", 30)
+            subtype=subtype,
+            rule=rule,
+            retention_days=body.get("retention_days", 30),
+            prefill=body.get("prefill", True)
         )
         
         # Check if SDK returned an error
@@ -1079,6 +1090,124 @@ async def create_custom_audience(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error creating custom audience: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/pixels")
+async def list_pixels(request: Request):
+    """
+    GET /api/v1/meta-ads/pixels
+    
+    List Meta Pixels for the ad account
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        # Fetch pixels using Meta SDK
+        import httpx
+        account_id = credentials["account_id"]
+        if not account_id.startswith('act_'):
+            account_id = f'act_{account_id}'
+        
+        url = f"https://graph.facebook.com/v24.0/{account_id}/adspixels"
+        params = {
+            "access_token": credentials["access_token"],
+            "fields": "id,name,code"
+        }
+        
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+        
+        return JSONResponse(content={"pixels": data.get("data", [])})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching pixels: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/pages")
+async def list_pages(request: Request):
+    """
+    GET /api/v1/meta-ads/pages
+    
+    List Facebook Pages for the user
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        # Fetch pages using Meta SDK
+        import httpx
+        url = "https://graph.facebook.com/v24.0/me/accounts"
+        params = {
+            "access_token": credentials["access_token"],
+            "fields": "id,name,category,access_token"
+        }
+        
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+        
+        return JSONResponse(content={"pages": data.get("data", [])})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching pages: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/apps")
+async def list_apps(request: Request):
+    """
+    GET /api/v1/meta-ads/apps
+    
+    List mobile apps owned by the business
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        # First get businesses
+        import httpx
+        businesses_url = "https://graph.facebook.com/v24.0/me/businesses"
+        businesses_params = {
+            "access_token": credentials["access_token"],
+            "fields": "id,name"
+        }
+        
+        async with httpx.AsyncClient() as http_client:
+            businesses_response = await http_client.get(businesses_url, params=businesses_params)
+            businesses_response.raise_for_status()
+            businesses_data = businesses_response.json()
+            
+            apps = []
+            # Fetch apps for each business
+            for business in businesses_data.get("data", []):
+                apps_url = f"https://graph.facebook.com/v24.0/{business['id']}/owned_apps"
+                apps_params = {
+                    "access_token": credentials["access_token"],
+                    "fields": "id,name,namespace"
+                }
+                apps_response = await http_client.get(apps_url, params=apps_params)
+                if apps_response.is_success:
+                    apps_data = apps_response.json()
+                    apps.extend(apps_data.get("data", []))
+        
+        return JSONResponse(content={"apps": apps})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching apps: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

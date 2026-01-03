@@ -50,6 +50,7 @@ interface AudienceBuilderProps {
 export default function AudienceBuilder({ onRefresh }: AudienceBuilderProps) {
     const [audiences, setAudiences] = useState<Audience[]>([]);
     const [ratios, setRatios] = useState<LookalikeRatio[]>([]);
+    const [pixels, setPixels] = useState<{ id: string, name: string }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showLookalikeModal, setShowLookalikeModal] = useState(false);
@@ -59,6 +60,7 @@ export default function AudienceBuilder({ onRefresh }: AudienceBuilderProps) {
     const [audienceName, setAudienceName] = useState('');
     const [audienceSubtype, setAudienceSubtype] = useState('WEBSITE');
     const [retentionDays, setRetentionDays] = useState(30);
+    const [selectedPixel, setSelectedPixel] = useState('');
 
     // Lookalike form
     const [lookalikeName, setLookalikeName] = useState('');
@@ -69,6 +71,7 @@ export default function AudienceBuilder({ onRefresh }: AudienceBuilderProps) {
     useEffect(() => {
         fetchAudiences();
         fetchRatios();
+        fetchPixels();
     }, []);
 
     const fetchAudiences = async () => {
@@ -98,19 +101,64 @@ export default function AudienceBuilder({ onRefresh }: AudienceBuilderProps) {
         }
     };
 
+    const fetchPixels = async () => {
+        try {
+            const response = await fetch('/api/v1/meta-ads/pixels');
+            if (response.ok) {
+                const data = await response.json();
+                setPixels(data.pixels || []);
+                if (data.pixels && data.pixels.length > 0) {
+                    setSelectedPixel(data.pixels[0].id);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch pixels:', err);
+        }
+    };
+
     const handleCreateAudience = async () => {
         if (!audienceName) return;
+        if (audienceSubtype === 'WEBSITE' && !selectedPixel) {
+            alert('Please select a pixel for Website audiences');
+            return;
+        }
 
         setIsCreating(true);
         try {
+            const payload: any = {
+                name: audienceName,
+                subtype: audienceSubtype,
+                retention_days: retentionDays
+            };
+
+            // Construct rule for WEBSITE audiences
+            if (audienceSubtype === 'WEBSITE' && selectedPixel) {
+                payload.rule = {
+                    inclusions: {
+                        operator: "or",
+                        rules: [{
+                            event_sources: [{
+                                type: "pixel",
+                                id: selectedPixel
+                            }],
+                            retention_seconds: retentionDays * 86400,
+                            filter: {
+                                operator: "and",
+                                filters: [{
+                                    field: "url",
+                                    operator: "i_contains",
+                                    value: ""
+                                }]
+                            }
+                        }]
+                    }
+                };
+            }
+
             const response = await fetch('/api/v1/meta-ads/audiences/custom', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: audienceName,
-                    subtype: audienceSubtype,
-                    retention_days: retentionDays
-                })
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
@@ -118,9 +166,13 @@ export default function AudienceBuilder({ onRefresh }: AudienceBuilderProps) {
                 setAudienceName('');
                 fetchAudiences();
                 onRefresh?.();
+            } else {
+                const error = await response.json();
+                alert(`Error: ${error.detail || 'Failed to create audience'}`);
             }
         } catch (err) {
             console.error('Failed to create audience:', err);
+            alert('Failed to create audience. Please try again.');
         } finally {
             setIsCreating(false);
         }
@@ -289,6 +341,28 @@ export default function AudienceBuilder({ onRefresh }: AudienceBuilderProps) {
                                     </SelectContent>
                                 </Select>
                             </div>
+                            {audienceSubtype === 'WEBSITE' && (
+                                <div>
+                                    <Label>Meta Pixel</Label>
+                                    <Select value={selectedPixel} onValueChange={setSelectedPixel}>
+                                        <SelectTrigger className="mt-1">
+                                            <SelectValue placeholder="Select a pixel" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {pixels.map(pixel => (
+                                                <SelectItem key={pixel.id} value={pixel.id}>
+                                                    {pixel.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {pixels.length === 0 && (
+                                        <p className="text-xs text-amber-600 mt-1">
+                                            No pixels found. Please create a pixel in Meta Business Manager first.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                             <div>
                                 <Label>Retention Period: {retentionDays} days</Label>
                                 <Slider

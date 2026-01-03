@@ -3426,10 +3426,12 @@ class MetaSDKClient:
         name: str,
         subtype: str,
         rule: Dict = None,
-        retention_days: int = 30
+        retention_days: int = 30,
+        prefill: bool = True
     ) -> Dict[str, Any]:
         """Create a custom audience."""
         import httpx
+        import json
         
         # Ensure account_id has act_ prefix (but don't duplicate it)
         if not account_id.startswith('act_'):
@@ -3441,11 +3443,13 @@ class MetaSDKClient:
             "access_token": self._access_token,
             "name": name,
             "subtype": subtype,
-            "retention_days": retention_days
+            "retention_days": retention_days,
+            "prefill": 1 if prefill else 0
         }
         
+        # Rule must be JSON-encoded string for the API
         if rule:
-            payload["rule"] = rule
+            payload["rule"] = json.dumps(rule) if isinstance(rule, dict) else rule
         
         with httpx.Client(timeout=30.0) as client:
             response = client.post(url, data=payload)
@@ -3469,7 +3473,8 @@ class MetaSDKClient:
         name: str,
         subtype: str,
         rule: Dict = None,
-        retention_days: int = 30
+        retention_days: int = 30,
+        prefill: bool = True
     ) -> Dict[str, Any]:
         """Create a custom audience."""
         return await asyncio.to_thread(
@@ -3478,7 +3483,8 @@ class MetaSDKClient:
             name,
             subtype,
             rule,
-            retention_days
+            retention_days,
+            prefill
         )
     
     def _create_lookalike_audience_sync(
