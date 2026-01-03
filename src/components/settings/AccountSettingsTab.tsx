@@ -836,7 +836,7 @@ function FacebookMetaAdsSection({ info, onBusinessChange }: { info: any; onBusin
 
   const fetchBusinesses = async () => {
     try {
-      const response = await fetch('/api/meta-ads/switch-business')
+      const response = await fetch('/api/v1/meta-ads/switch-business')
       if (response.ok) {
         const data = await response.json()
         setAvailableBusinesses(data.availableBusinesses || [])
@@ -851,7 +851,7 @@ function FacebookMetaAdsSection({ info, onBusinessChange }: { info: any; onBusin
   const handleSwitchBusiness = async (businessId: string, adAccountId?: string) => {
     setIsSwitching(true)
     try {
-      const response = await fetch('/api/meta-ads/switch-business', {
+      const response = await fetch('/api/v1/meta-ads/switch-business', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ businessId, adAccountId }),
