@@ -3,12 +3,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 
-const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:8000';
+import { getPythonBackendUrl } from '@/lib/backend-url';
 
-/**
- * GET /api/v1/meta-ads/campaigns
- * List all campaigns
- */
+const PYTHON_BACKEND_URL = getPythonBackendUrl();
+
 export async function GET(request: NextRequest) {
     try {
         const supabase = await createServerClient();
@@ -67,3 +65,4 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to create campaign' }, { status: 500 });
     }
 }
+

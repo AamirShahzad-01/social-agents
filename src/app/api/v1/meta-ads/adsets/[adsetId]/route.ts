@@ -2,8 +2,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { getPythonBackendUrl } from '@/lib/backend-url';
 
-const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:8000';
+const PYTHON_BACKEND_URL = getPythonBackendUrl();
 
 /**
  * PATCH /api/v1/meta-ads/adsets/[adsetId]

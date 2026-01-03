@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getPythonBackendUrl } from '@/lib/backend-url'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+const BACKEND_URL = getPythonBackendUrl()
 
 /**
  * GET /api/v1/meta-ads/switch-business
@@ -70,3 +71,4 @@ export async function POST(request: NextRequest) {
         )
     }
 }
+
