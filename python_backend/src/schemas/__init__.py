@@ -17,6 +17,17 @@ from ..agents.media_prompt_agent import (
     MediaProvider,
     MEDIA_TYPE_GUIDELINES,
 )
+from .audiences import (
+    AudienceSubtype,
+    CustomerFileSource,
+    CustomerDataField,
+    CreateCustomAudienceRequest,
+    CreateLookalikeRequest,
+    AudienceResponse,
+    AudienceListItem,
+    UploadUsersRequest,
+    UploadUsersResponse,
+)
 
 __all__ = [
     # Content Strategist Agent
@@ -33,4 +44,14 @@ __all__ = [
     "MediaType",
     "MediaProvider",
     "MEDIA_TYPE_GUIDELINES",
+    # Audiences
+    "AudienceSubtype",
+    "CustomerFileSource",
+    "CustomerDataField",
+    "CreateCustomAudienceRequest",
+    "CreateLookalikeRequest",
+    "AudienceResponse",
+    "AudienceListItem",
+    "UploadUsersRequest",
+    "UploadUsersResponse",
 ]

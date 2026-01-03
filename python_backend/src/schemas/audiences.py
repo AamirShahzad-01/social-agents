@@ -251,3 +251,97 @@ LOOKALIKE_RATIOS = [
 # Minimum source audience sizes
 MIN_SOURCE_AUDIENCE_SIZE = 100
 RECOMMENDED_SOURCE_SIZE = 1000
+
+
+# =============================================================================
+# CUSTOMER DATA UPLOAD - per Meta v25.0+ docs
+# =============================================================================
+
+class CustomerDataField(str, Enum):
+    """
+    Customer data field types for upload - per Meta v25.0+ docs
+    All fields (except EXTERN_ID) are normalized and SHA256 hashed before sending
+    """
+    EMAIL = "EMAIL"  # Lowercase, trimmed
+    PHONE = "PHONE"  # Digits only, with country code
+    FN = "FN"  # First name - lowercase, no punctuation
+    LN = "LN"  # Last name - lowercase, no punctuation
+    CT = "CT"  # City - lowercase
+    ST = "ST"  # State - 2-char code, lowercase
+    ZIP = "ZIP"  # Zip/postal code - lowercase
+    COUNTRY = "COUNTRY"  # 2-char ISO code, lowercase
+    DOBY = "DOBY"  # Year of birth - YYYY format
+    DOBM = "DOBM"  # Month of birth - MM format
+    DOBD = "DOBD"  # Day of birth - DD format
+    GEN = "GEN"  # Gender - m/f
+    EXTERN_ID = "EXTERN_ID"  # External ID - NOT hashed
+    MADID = "MADID"  # Mobile Advertiser ID
+    FI = "FI"  # First initial
+
+
+class UploadUsersRequest(BaseModel):
+    """
+    Request to upload customer data to a Custom Audience - per Meta v25.0+ docs
+    
+    Data is automatically normalized and SHA256 hashed by the backend
+    before being sent to Meta's API.
+    """
+    schema: List[CustomerDataField] = Field(
+        ...,
+        min_length=1,
+        description="List of field types in order (e.g., ['EMAIL', 'PHONE', 'FN', 'LN'])"
+    )
+    data: List[List[str]] = Field(
+        ...,
+        min_length=1,
+        description="2D array of customer data rows matching the schema order"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "schema": ["EMAIL", "PHONE", "FN", "LN"],
+                "data": [
+                    ["john@example.com", "+12025551234", "John", "Doe"],
+                    ["jane@example.com", "+12025555678", "Jane", "Smith"]
+                ]
+            }
+        }
+
+
+class UploadUsersResponse(BaseModel):
+    """Response from customer data upload - per Meta v25.0+ docs"""
+    success: bool
+    audience_id: str
+    num_received: int = Field(
+        default=0,
+        description="Number of records successfully received by Meta"
+    )
+    num_invalid_entries: int = Field(
+        default=0,
+        description="Number of records that failed validation"
+    )
+    invalid_entry_samples: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Samples of invalid entries for debugging"
+    )
+    error: Optional[str] = None
+
+
+class CustomerDataNormalization:
+    """
+    Normalization rules per Meta documentation:
+    
+    - EMAIL: lowercase, trim whitespace
+    - PHONE: remove all non-digits, include country code (e.g., 12025551234)
+    - FN/LN: lowercase, remove punctuation and spaces
+    - CT/ST/ZIP/COUNTRY: lowercase
+    - DOBY: 4-digit year (YYYY)
+    - DOBM: 2-digit month (01-12)
+    - DOBD: 2-digit day (01-31)
+    - GEN: 'm' or 'f'
+    - EXTERN_ID: No normalization, no hashing
+    
+    All fields except EXTERN_ID are SHA256 hashed after normalization.
+    """
+    pass

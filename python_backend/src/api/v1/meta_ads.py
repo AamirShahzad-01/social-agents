@@ -1060,11 +1060,12 @@ async def create_custom_audience(request: Request):
         subtype = body.get("subtype", "CUSTOM")
         rule = body.get("rule")
         
-        # Validate that WEBSITE audiences have a rule
-        if subtype == "WEBSITE" and not rule:
+        # Validate that rule-based audiences have a rule
+        rule_required_subtypes = ["WEBSITE", "ENGAGEMENT", "VIDEO", "LEAD_AD", "APP"]
+        if subtype in rule_required_subtypes and not rule:
             raise HTTPException(
                 status_code=400,
-                detail="rule parameter is required for WEBSITE custom audiences"
+                detail=f"rule parameter is required for {subtype} custom audiences"
             )
         
         client = create_meta_sdk_client(credentials["access_token"])
@@ -1074,7 +1075,8 @@ async def create_custom_audience(request: Request):
             subtype=subtype,
             rule=rule,
             retention_days=body.get("retention_days", 30),
-            prefill=body.get("prefill", True)
+            prefill=body.get("prefill", True),
+            customer_file_source=body.get("customer_file_source")
         )
         
         # Check if SDK returned an error
@@ -1090,6 +1092,78 @@ async def create_custom_audience(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error creating custom audience: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/audiences/{audience_id}/users")
+async def upload_audience_users(audience_id: str, request: Request):
+    """
+    POST /api/v1/meta-ads/audiences/{audience_id}/users
+    
+    Upload customer data to a custom audience.
+    Data will be normalized and SHA256 hashed before sending to Meta.
+    
+    Request body:
+    {
+        "schema": ["EMAIL", "PHONE", "FN", "LN"],
+        "data": [
+            ["email@example.com", "+1234567890", "John", "Doe"],
+            ...
+        ]
+    }
+    
+    Supported schema fields:
+    - EMAIL, PHONE, FN, LN, CT, ST, ZIP, COUNTRY
+    - DOBY, DOBM, DOBD, GEN, EXTERN_ID
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        body = await request.json()
+        
+        schema = body.get("schema", [])
+        data = body.get("data", [])
+        
+        if not schema:
+            raise HTTPException(status_code=400, detail="schema is required")
+        
+        if not data:
+            raise HTTPException(status_code=400, detail="data is required")
+        
+        # Validate schema fields
+        valid_fields = ["EMAIL", "PHONE", "FN", "LN", "CT", "ST", "ZIP", 
+                       "COUNTRY", "DOBY", "DOBM", "DOBD", "GEN", "EXTERN_ID"]
+        for field in schema:
+            if field not in valid_fields:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Invalid schema field: {field}. Valid fields: {valid_fields}"
+                )
+        
+        client = create_meta_sdk_client(credentials["access_token"])
+        result = await client.upload_audience_users(
+            audience_id=audience_id,
+            schema=schema,
+            data=data
+        )
+        
+        if isinstance(result, dict) and result.get("success") is False:
+            error_msg = result.get("error", "Failed to upload users")
+            logger.error(f"Meta API error uploading users: {error_msg}")
+            raise HTTPException(status_code=400, detail=error_msg)
+        
+        return JSONResponse(content={
+            "success": True,
+            "audience_id": audience_id,
+            "num_received": result.get("num_received", 0),
+            "num_invalid_entries": result.get("num_invalid_entries", 0)
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading audience users: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1138,25 +1212,49 @@ async def list_pages(request: Request):
     GET /api/v1/meta-ads/pages
     
     List Facebook Pages for the user
+    Returns the connected page stored in credentials
     """
     try:
         user_id, workspace_id = await get_user_context(request)
         credentials = await get_verified_credentials(workspace_id, user_id)
         
-        # Fetch pages using Meta SDK
-        import httpx
-        url = "https://graph.facebook.com/v24.0/me/accounts"
-        params = {
-            "access_token": credentials["access_token"],
-            "fields": "id,name,category,access_token"
-        }
+        pages = []
         
-        async with httpx.AsyncClient() as http_client:
-            response = await http_client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
+        # First, return the page stored in credentials (the connected page)
+        if credentials.get("page_id"):
+            pages.append({
+                "id": credentials.get("page_id"),
+                "name": credentials.get("page_name", "Connected Page"),
+                "category": "Connected",
+                "access_token": credentials.get("page_access_token")
+            })
         
-        return JSONResponse(content={"pages": data.get("data", [])})
+        # Also try to fetch additional pages using the user token
+        # This may fail for system/business tokens but shouldn't break
+        try:
+            import httpx
+            url = "https://graph.facebook.com/v24.0/me/accounts"
+            params = {
+                "access_token": credentials["access_token"],
+                "fields": "id,name,category,access_token"
+            }
+            
+            async with httpx.AsyncClient() as http_client:
+                response = await http_client.get(url, params=params)
+                if response.is_success:
+                    data = response.json()
+                    api_pages = data.get("data", [])
+                    
+                    # Add pages that aren't already in the list
+                    existing_ids = {p["id"] for p in pages}
+                    for page in api_pages:
+                        if page.get("id") not in existing_ids:
+                            pages.append(page)
+        except Exception as e:
+            logger.debug(f"Could not fetch additional pages: {e}")
+            # Continue with just the connected page
+        
+        return JSONResponse(content={"pages": pages})
         
     except HTTPException:
         raise

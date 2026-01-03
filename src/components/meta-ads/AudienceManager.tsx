@@ -126,6 +126,15 @@ const LEAD_FORM_EVENTS = [
   { value: 'lead_generation_dropoff', label: 'People who opened and left' },
 ];
 
+const APP_EVENTS = [
+  { value: 'fb_mobile_app_install', label: 'People who installed the app' },
+  { value: 'fb_mobile_purchase', label: 'People who made a purchase' },
+  { value: 'fb_mobile_add_to_cart', label: 'People who added to cart' },
+  { value: 'fb_mobile_initiated_checkout', label: 'People who initiated checkout' },
+  { value: 'fb_mobile_add_payment_info', label: 'People who added payment info' },
+  { value: 'CUSTOM', label: 'App opens (all users)' },
+];
+
 export default function AudienceManager({ audiences, onRefresh }: AudienceManagerProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createType, setCreateType] = useState<'custom' | 'lookalike' | null>(null);
@@ -294,6 +303,8 @@ function AudienceCard({
   onRefresh: () => void;
   isLookalike?: boolean;
 }) {
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
   const subtypeLabels: Record<string, string> = {
     CUSTOM: 'Customer List',
     WEBSITE: 'Website Visitors',
@@ -304,82 +315,106 @@ function AudienceCard({
   };
 
   return (
-    <Card className="border hover:shadow-md transition-all group">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className={cn(
-              "w-8 h-8 rounded-lg flex items-center justify-center text-white",
-              isLookalike
-                ? "bg-gradient-to-br from-purple-500 to-pink-500"
-                : "bg-gradient-to-br from-blue-500 to-cyan-500"
-            )}>
-              {isLookalike ? <UserPlus className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+    <>
+      <Card className="border hover:shadow-md transition-all group">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              <div className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center text-white",
+                isLookalike
+                  ? "bg-gradient-to-br from-purple-500 to-pink-500"
+                  : "bg-gradient-to-br from-blue-500 to-cyan-500"
+              )}>
+                {isLookalike ? <UserPlus className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+              </div>
+              <div>
+                <p className="text-sm font-medium line-clamp-1">{audience.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {subtypeLabels[audience.subtype] || audience.subtype}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium line-clamp-1">{audience.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {subtypeLabels[audience.subtype] || audience.subtype}
+            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+              <MoreHorizontal className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Flagged audience warning - per Meta docs (operation_status 471) */}
+          {audience.operation_status === 471 && (
+            <div className="flex items-center gap-2 p-2 mb-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-900">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                This audience is flagged and cannot be used in new campaigns
               </p>
             </div>
-          </div>
-          <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
-            <MoreHorizontal className="w-4 h-4" />
-          </Button>
-        </div>
+          )}
 
-        {/* Flagged audience warning - per Meta docs (operation_status 471) */}
-        {audience.operation_status === 471 && (
-          <div className="flex items-center gap-2 p-2 mb-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-900">
-            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <p className="text-xs text-amber-700 dark:text-amber-300">
-              This audience is flagged and cannot be used in new campaigns
-            </p>
-          </div>
-        )}
+          {audience.description && (
+            <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{audience.description}</p>
+          )}
 
-        {audience.description && (
-          <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{audience.description}</p>
-        )}
-
-        <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50 mb-3">
-          <div>
-            <p className="text-lg font-bold">
-              {audience.approximate_count
-                ? formatNumber(audience.approximate_count)
-                : '-'}
-            </p>
-            <p className="text-xs text-muted-foreground">Estimated Size</p>
+          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50 mb-3">
+            <div>
+              <p className="text-lg font-bold">
+                {audience.approximate_count
+                  ? formatNumber(audience.approximate_count)
+                  : '-'}
+              </p>
+              <p className="text-xs text-muted-foreground">Estimated Size</p>
+            </div>
+            {isLookalike && audience.lookalike_spec && (
+              <div className="text-right">
+                <p className="font-semibold text-sm">{(audience.lookalike_spec.ratio || 0.01) * 100}%</p>
+                <p className="text-xs text-muted-foreground">Similarity</p>
+              </div>
+            )}
           </div>
-          {isLookalike && audience.lookalike_spec && (
-            <div className="text-right">
-              <p className="font-semibold text-sm">{(audience.lookalike_spec.ratio || 0.01) * 100}%</p>
-              <p className="text-xs text-muted-foreground">Similarity</p>
+
+          {audience.retention_days && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
+              <Database className="w-3 h-3" />
+              <span>Retention: {audience.retention_days} days</span>
             </div>
           )}
-        </div>
 
-        {audience.retention_days && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
-            <Database className="w-3 h-3" />
-            <span>Retention: {audience.retention_days} days</span>
+          <div className="flex items-center gap-1.5">
+            {/* Upload button for CUSTOM audiences */}
+            {audience.subtype === 'CUSTOM' && (
+              <Button
+                variant="default"
+                size="sm"
+                className="flex-1 h-7 text-xs gap-1"
+                onClick={() => setShowUploadModal(true)}
+              >
+                <Upload className="w-3 h-3" />
+                Upload Data
+              </Button>
+            )}
+            <Button variant="outline" size="sm" className={cn("h-7 text-xs gap-1", audience.subtype !== 'CUSTOM' && "flex-1")}>
+              <Eye className="w-3 h-3" />
+              View
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0">
+              <Edit className="w-3 h-3" />
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0">
+              <Copy className="w-3 h-3" />
+            </Button>
           </div>
-        )}
+        </CardContent>
+      </Card>
 
-        <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="sm" className="flex-1 h-7 text-xs gap-1">
-            <Eye className="w-3 h-3" />
-            View
-          </Button>
-          <Button variant="outline" size="sm" className="h-7 w-7 p-0">
-            <Edit className="w-3 h-3" />
-          </Button>
-          <Button variant="outline" size="sm" className="h-7 w-7 p-0">
-            <Copy className="w-3 h-3" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Upload Modal for Customer List */}
+      {showUploadModal && (
+        <CustomerUploadModal
+          audienceId={audience.id}
+          audienceName={audience.name}
+          onClose={() => setShowUploadModal(false)}
+          onRefresh={onRefresh}
+        />
+      )}
+    </>
   );
 }
 
@@ -413,6 +448,7 @@ function CreateAudienceModal({
     event_type: 'ALL_VISITORS', // Website
     engagement_event: 'page_engaged', // Engagement/Page
     lead_event: 'lead_generation_submitted', // Lead Form
+    app_event: 'fb_mobile_app_install', // App Activity
     customer_file_source: 'USER_PROVIDED_ONLY', // Customer File
     // Lookal like specific
     source_audience_id: '',
@@ -550,6 +586,12 @@ function CreateAudienceModal({
       return;
     }
 
+    // Validate APP audiences have an app
+    if (type === 'custom' && formData.subtype === 'APP' && !selectedApp) {
+      alert('Please select a mobile app for App Activity audiences');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const endpoint = type === 'custom' ? '/api/v1/meta-ads/audiences/custom' : '/api/v1/meta-ads/audiences/lookalike';
@@ -621,6 +663,24 @@ function CreateAudienceModal({
                 operator: "eq",
                 field: "event",
                 value: "video_view"  // Simplified - could add video engagement levels selector
+              }
+            }]
+          }
+        };
+      }
+
+      // Construct rule for APP audiences
+      if (type === 'custom' && formData.subtype === 'APP' && selectedApp) {
+        payload.rule = {
+          inclusions: {
+            operator: "or",
+            rules: [{
+              event_sources: [{ type: "app", id: selectedApp }],
+              retention_seconds: formData.retention_days * 86400,
+              filter: {
+                operator: "eq",
+                field: "event",
+                value: formData.app_event
               }
             }]
           }
@@ -797,6 +857,32 @@ function CreateAudienceModal({
                     </>
                   )}
 
+                  {formData.subtype === 'VIDEO' && (
+                    <div>
+                      <Label>Facebook Page (Video Source)</Label>
+                      <Select value={selectedPage} onValueChange={setSelectedPage}>
+                        <SelectTrigger className="mt-2">
+                          <SelectValue placeholder="Select a page" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {pages.map(page => (
+                            <SelectItem key={page.id} value={page.id}>
+                              {page.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {pages.length === 0 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          No pages found. Please manage pages in Meta Business Manager.
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Targets people who watched videos from this page.
+                      </p>
+                    </div>
+                  )}
+
                   {formData.subtype === 'LEAD_AD' && (
                     <>
                       <div>
@@ -830,6 +916,47 @@ function CreateAudienceModal({
                           </SelectTrigger>
                           <SelectContent>
                             {LEAD_FORM_EVENTS.map(e => (
+                              <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
+
+                  {formData.subtype === 'APP' && (
+                    <>
+                      <div>
+                        <Label>Mobile App</Label>
+                        <Select value={selectedApp} onValueChange={setSelectedApp}>
+                          <SelectTrigger className="mt-2">
+                            <SelectValue placeholder="Select an app" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {apps.map(app => (
+                              <SelectItem key={app.id} value={app.id}>
+                                {app.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {apps.length === 0 && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            No apps found. Please add a mobile app in Meta Business Manager.
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>App Event</Label>
+                        <Select
+                          value={formData.app_event}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, app_event: value }))}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {APP_EVENTS.map(e => (
                               <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
                             ))}
                           </SelectContent>
@@ -1087,4 +1214,246 @@ function formatNumber(num: number): string {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
   if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
   return num.toString();
+}
+
+// Customer Upload Modal for CUSTOM audiences
+function CustomerUploadModal({
+  audienceId,
+  audienceName,
+  onClose,
+  onRefresh
+}: {
+  audienceId: string;
+  audienceName: string;
+  onClose: () => void;
+  onRefresh: () => void;
+}) {
+  const [step, setStep] = useState(1);
+  const [csvData, setCsvData] = useState<string[][]>([]);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [columnMapping, setColumnMapping] = useState<Record<number, string>>({});
+  const [isUploading, setIsUploading] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; numReceived?: number; numInvalid?: number; error?: string } | null>(null);
+
+  const FIELD_OPTIONS = [
+    { value: '', label: 'Skip this column' },
+    { value: 'EMAIL', label: 'Email' },
+    { value: 'PHONE', label: 'Phone' },
+    { value: 'FN', label: 'First Name' },
+    { value: 'LN', label: 'Last Name' },
+    { value: 'CT', label: 'City' },
+    { value: 'ST', label: 'State' },
+    { value: 'ZIP', label: 'Zip Code' },
+    { value: 'COUNTRY', label: 'Country' },
+    { value: 'GEN', label: 'Gender' },
+    { value: 'EXTERN_ID', label: 'External ID' },
+  ];
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n').filter(line => line.trim());
+      const parsed = lines.map(line => {
+        // Handle quoted CSV values
+        const result: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        for (const char of line) {
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      });
+
+      if (parsed.length > 0) {
+        setHeaders(parsed[0]);
+        setCsvData(parsed.slice(1));
+
+        // Auto-detect column mappings
+        const autoMapping: Record<number, string> = {};
+        parsed[0].forEach((header, idx) => {
+          const h = header.toLowerCase();
+          if (h.includes('email')) autoMapping[idx] = 'EMAIL';
+          else if (h.includes('phone') || h.includes('mobile')) autoMapping[idx] = 'PHONE';
+          else if (h.includes('first') || h === 'fn') autoMapping[idx] = 'FN';
+          else if (h.includes('last') || h === 'ln') autoMapping[idx] = 'LN';
+          else if (h.includes('city')) autoMapping[idx] = 'CT';
+          else if (h.includes('state')) autoMapping[idx] = 'ST';
+          else if (h.includes('zip') || h.includes('postal')) autoMapping[idx] = 'ZIP';
+          else if (h.includes('country')) autoMapping[idx] = 'COUNTRY';
+          else if (h.includes('gender') || h === 'sex') autoMapping[idx] = 'GEN';
+        });
+        setColumnMapping(autoMapping);
+        setStep(2);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleUpload = async () => {
+    // Build schema and data based on mapping
+    const mappedColumns = Object.entries(columnMapping)
+      .filter(([_, field]) => field)
+      .sort(([a], [b]) => parseInt(a) - parseInt(b));
+
+    if (mappedColumns.length === 0) {
+      alert('Please map at least one column');
+      return;
+    }
+
+    const schema = mappedColumns.map(([_, field]) => field);
+    const data = csvData.map(row =>
+      mappedColumns.map(([colIdx]) => row[parseInt(colIdx)] || '')
+    );
+
+    setIsUploading(true);
+    try {
+      const response = await fetch(`/api/v1/meta-ads/audiences/${audienceId}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schema, data })
+      });
+
+      const res = await response.json();
+      if (response.ok && res.success) {
+        setResult({
+          success: true,
+          numReceived: res.num_received,
+          numInvalid: res.num_invalid_entries
+        });
+        onRefresh();
+      } else {
+        setResult({
+          success: false,
+          error: res.error || res.detail || 'Upload failed'
+        });
+      }
+    } catch (error) {
+      setResult({
+        success: false,
+        error: 'Network error'
+      });
+    }
+    setIsUploading(false);
+    setStep(3);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-background rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden mx-4">
+        <div className="flex items-center justify-between p-6 border-b">
+          <div>
+            <h2 className="text-xl font-bold">Upload Customer Data</h2>
+            <p className="text-sm text-muted-foreground">{audienceName}</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+
+        <div className="p-6 overflow-y-auto max-h-[60vh]">
+          {step === 1 && (
+            <div className="space-y-4">
+              <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="font-medium mb-2">Upload CSV File</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Upload a CSV file with customer data (emails, phones, names, etc.)
+                </p>
+                <input
+                  type="file"
+                  accept=".csv,.txt"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  id="csv-upload"
+                />
+                <label htmlFor="csv-upload">
+                  <Button asChild>
+                    <span>Select File</span>
+                  </Button>
+                </label>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                <p className="font-medium mb-1">Supported fields:</p>
+                <p>Email, Phone, First Name, Last Name, City, State, Zip, Country, Gender</p>
+                <p className="mt-2">Data will be hashed before sending to Meta for privacy.</p>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Found <strong>{csvData.length}</strong> rows. Map your columns:
+              </p>
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {headers.map((header, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <span className="w-32 text-sm truncate">{header}</span>
+                    <Select
+                      value={columnMapping[idx] || ''}
+                      onValueChange={(value) => setColumnMapping(prev => ({ ...prev, [idx]: value }))}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select field type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FIELD_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+                <Button onClick={handleUpload} disabled={isUploading} className="flex-1">
+                  {isUploading ? 'Uploading...' : `Upload ${csvData.length} Records`}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && result && (
+            <div className="text-center py-8">
+              {result.success ? (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                    <Sparkles className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">Upload Complete!</h3>
+                  <p className="text-muted-foreground">
+                    {result.numReceived} records received
+                    {result.numInvalid ? `, ${result.numInvalid} invalid entries` : ''}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                    <AlertTriangle className="w-8 h-8 text-red-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">Upload Failed</h3>
+                  <p className="text-muted-foreground">{result.error}</p>
+                </>
+              )}
+              <Button onClick={onClose} className="mt-6">Close</Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }

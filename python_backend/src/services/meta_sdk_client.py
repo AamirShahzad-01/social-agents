@@ -3427,11 +3427,14 @@ class MetaSDKClient:
         subtype: str,
         rule: Dict = None,
         retention_days: int = 30,
-        prefill: bool = True
+        prefill: bool = True,
+        customer_file_source: str = None
     ) -> Dict[str, Any]:
         """Create a custom audience."""
         import httpx
         import json
+        import hmac
+        import hashlib
         
         # Ensure account_id has act_ prefix (but don't duplicate it)
         if not account_id.startswith('act_'):
@@ -3446,6 +3449,20 @@ class MetaSDKClient:
             "retention_days": retention_days,
             "prefill": 1 if prefill else 0
         }
+        
+        # Add appsecret_proof for server-side calls (required by Meta)
+        app_secret = settings.FACEBOOK_APP_SECRET
+        if app_secret:
+            appsecret_proof = hmac.new(
+                app_secret.encode('utf-8'),
+                self._access_token.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            payload["appsecret_proof"] = appsecret_proof
+        
+        # customer_file_source required for CUSTOM subtype
+        if customer_file_source:
+            payload["customer_file_source"] = customer_file_source
         
         # Rule must be JSON-encoded string for the API
         if rule:
@@ -3474,7 +3491,8 @@ class MetaSDKClient:
         subtype: str,
         rule: Dict = None,
         retention_days: int = 30,
-        prefill: bool = True
+        prefill: bool = True,
+        customer_file_source: str = None
     ) -> Dict[str, Any]:
         """Create a custom audience."""
         return await asyncio.to_thread(
@@ -3484,7 +3502,165 @@ class MetaSDKClient:
             subtype,
             rule,
             retention_days,
-            prefill
+            prefill,
+            customer_file_source
+        )
+    
+    def _normalize_for_hash(self, field_type: str, value: str) -> str:
+        """Normalize data before hashing per Meta requirements."""
+        if not value:
+            return ""
+        
+        value = str(value).strip()
+        
+        if field_type == "EMAIL":
+            # Trim whitespace, lowercase
+            return value.lower().strip()
+        
+        elif field_type == "PHONE":
+            # Remove all non-digits, keep country code
+            import re
+            return re.sub(r'[^\d]', '', value)
+        
+        elif field_type in ["FN", "LN"]:
+            # Lowercase, no punctuation
+            import re
+            value = value.lower().strip()
+            return re.sub(r'[^\w\s]', '', value).replace(' ', '')
+        
+        elif field_type in ["CT", "ST", "ZIP", "COUNTRY"]:
+            # Lowercase
+            return value.lower().strip()
+        
+        elif field_type in ["DOBY", "DOBM", "DOBD"]:
+            # Keep as string digits
+            return str(value).strip()
+        
+        elif field_type == "GEN":
+            # m or f
+            val = value.lower().strip()
+            if val in ['male', 'm']:
+                return 'm'
+            elif val in ['female', 'f']:
+                return 'f'
+            return val
+        
+        elif field_type == "EXTERN_ID":
+            # No normalization, no hashing
+            return value
+        
+        return value.lower().strip()
+    
+    def _hash_value(self, value: str) -> str:
+        """SHA256 hash a value."""
+        import hashlib
+        if not value:
+            return ""
+        return hashlib.sha256(value.encode('utf-8')).hexdigest()
+    
+    def _prepare_customer_data(
+        self,
+        schema: List[str],
+        data: List[List[str]]
+    ) -> Dict[str, Any]:
+        """Normalize and hash customer data for Meta API."""
+        hashed_data = []
+        
+        for row in data:
+            hashed_row = []
+            for i, field_type in enumerate(schema):
+                if i < len(row):
+                    value = row[i]
+                    normalized = self._normalize_for_hash(field_type, value)
+                    
+                    # EXTERN_ID is not hashed
+                    if field_type == "EXTERN_ID":
+                        hashed_row.append(normalized)
+                    else:
+                        hashed_row.append(self._hash_value(normalized))
+                else:
+                    hashed_row.append("")
+            hashed_data.append(hashed_row)
+        
+        return {
+            "schema": schema,
+            "data": hashed_data
+        }
+    
+    def _upload_audience_users_sync(
+        self,
+        audience_id: str,
+        schema: List[str],
+        data: List[List[str]],
+        session_id: int = None
+    ) -> Dict[str, Any]:
+        """Upload users to a custom audience."""
+        import httpx
+        import json
+        import hmac
+        import hashlib
+        
+        url = f"https://graph.facebook.com/{META_API_VERSION}/{audience_id}/users"
+        
+        # Prepare and hash the data
+        payload_data = self._prepare_customer_data(schema, data)
+        
+        request_payload = {
+            "access_token": self._access_token,
+            "payload": json.dumps(payload_data)
+        }
+        
+        # Add appsecret_proof for server-side calls
+        app_secret = settings.FACEBOOK_APP_SECRET
+        if app_secret:
+            appsecret_proof = hmac.new(
+                app_secret.encode('utf-8'),
+                self._access_token.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            request_payload["appsecret_proof"] = appsecret_proof
+        
+        # Add session for multi-batch uploads
+        if session_id:
+            request_payload["session"] = json.dumps({
+                "session_id": session_id,
+                "batch_seq": 1,
+                "last_batch_flag": True
+            })
+        
+        with httpx.Client(timeout=60.0) as client:
+            response = client.post(url, data=request_payload)
+            
+            if response.is_success:
+                result = response.json()
+                return {
+                    "success": True,
+                    "audience_id": audience_id,
+                    "num_received": result.get("num_received", 0),
+                    "num_invalid_entries": result.get("num_invalid_entries", 0),
+                    "invalid_entry_samples": result.get("invalid_entry_samples", {})
+                }
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to upload users")
+                }
+    
+    async def upload_audience_users(
+        self,
+        audience_id: str,
+        schema: List[str],
+        data: List[List[str]],
+        session_id: int = None
+    ) -> Dict[str, Any]:
+        """Upload users to a custom audience."""
+        return await asyncio.to_thread(
+            self._upload_audience_users_sync,
+            audience_id,
+            schema,
+            data,
+            session_id
         )
     
     def _create_lookalike_audience_sync(
@@ -3497,6 +3673,8 @@ class MetaSDKClient:
     ) -> Dict[str, Any]:
         """Create a lookalike audience."""
         import httpx
+        import hmac
+        import hashlib
         
         url = f"https://graph.facebook.com/{META_API_VERSION}/act_{account_id}/customaudiences"
         
@@ -3516,6 +3694,16 @@ class MetaSDKClient:
             "subtype": "LOOKALIKE",
             "lookalike_spec": str(lookalike_spec).replace("'", '"')
         }
+        
+        # Add appsecret_proof for server-side calls
+        app_secret = settings.FACEBOOK_APP_SECRET
+        if app_secret:
+            appsecret_proof = hmac.new(
+                app_secret.encode('utf-8'),
+                self._access_token.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            payload["appsecret_proof"] = appsecret_proof
         
         with httpx.Client(timeout=30.0) as client:
             response = client.post(url, data=payload)
