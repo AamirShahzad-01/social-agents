@@ -84,8 +84,11 @@ const nextConfig = {
         source: '/api/canva/:path*',
         destination: `${pythonBackendUrl}/api/v1/canva/:path*`,
       },
-      // Meta Ads API routes - REMOVED: Now handled by Next.js API routes with auth
-      // (see src/app/api/v1/meta-ads/*/route.ts)
+      // Meta Ads API routes
+      {
+        source: '/api/meta-ads/:path*',
+        destination: `${pythonBackendUrl}/api/v1/meta-ads/:path*`,
+      },
       // Posts API routes (base path)
       {
         source: '/api/posts',
