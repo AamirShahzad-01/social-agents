@@ -205,42 +205,42 @@ export default function AdsAnalytics({ campaigns = [], adSets = [], ads = [], on
             Performance insights for {DATE_PRESETS.find(p => p.value === datePreset)?.label || datePreset}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
-            <SelectTrigger className="w-[160px] h-9 text-sm">
+            <SelectTrigger className="w-[140px] h-7 text-xs">
               <SelectValue placeholder="All Campaigns" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Campaigns</SelectItem>
+              <SelectItem value="all" className="text-xs">All Campaigns</SelectItem>
               {campaigns.map((campaign) => (
-                <SelectItem key={campaign.id} value={campaign.id}>
+                <SelectItem key={campaign.id} value={campaign.id} className="text-xs">
                   {campaign.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DatePreset)}>
-            <SelectTrigger className="w-[130px] h-9 text-sm">
-              <Calendar className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+            <SelectTrigger className="w-[110px] h-7 text-xs">
+              <Calendar className="w-3 h-3 mr-1 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {DATE_PRESETS.map((preset) => (
-                <SelectItem key={preset.value} value={preset.value}>
+                <SelectItem key={preset.value} value={preset.value} className="text-xs">
                   {preset.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" className="h-9" onClick={handleRefresh} disabled={isRefreshing}>
+          <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={handleRefresh} disabled={isRefreshing}>
             {isRefreshing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-3.5 h-3.5" />
             )}
           </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5">
-            <Download className="w-4 h-4" />
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs px-2">
+            <Download className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Export</span>
           </Button>
         </div>
@@ -257,7 +257,7 @@ export default function AdsAnalytics({ campaigns = [], adSets = [], ads = [], on
       )}
 
       {/* Key Metrics - Primary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricCard
           title="Total Spend"
           value={`$${totalSpend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -293,7 +293,7 @@ export default function AdsAnalytics({ campaigns = [], adSets = [], ads = [], on
       </div>
 
       {/* Secondary Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SecondaryMetricCard
           title="CTR"
           value={`${avgCTR.toFixed(2)}%`}
@@ -322,20 +322,20 @@ export default function AdsAnalytics({ campaigns = [], adSets = [], ads = [], on
       </div>
 
       {/* Extended Metrics Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="bg-gradient-to-br from-pink-500/10 to-purple-500/5 border-pink-200 dark:border-pink-900">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Instagram className="w-5 h-5 text-pink-600" />
+          <CardContent className="p-2">
+            <div className="flex items-center justify-between mb-1">
+              <Instagram className="w-3.5 h-3.5 text-pink-600" />
               <span className={cn(
-                "flex items-center gap-0.5 text-xs font-medium text-green-600"
+                "flex items-center gap-0.5 text-[9px] font-medium text-green-600"
               )}>
-                <ArrowUpRight className="w-3 h-3" />
+                <ArrowUpRight className="w-2.5 h-2.5" />
                 {trends.instagramVisits}%
               </span>
             </div>
-            <p className="text-xl font-bold">{formatNumber(instagramProfileVisits)}</p>
-            <p className="text-xs text-muted-foreground">Instagram Profile Visits</p>
+            <p className="text-sm font-bold">{formatNumber(instagramProfileVisits)}</p>
+            <p className="text-[9px] text-muted-foreground">Instagram Profile Visits</p>
 
           </CardContent>
         </Card>
@@ -697,33 +697,33 @@ function MetricCard({
   const isPositive = trend >= 0;
 
   return (
-    <Card className="border hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className={cn("p-2 rounded-lg bg-gradient-to-br text-white", colorClasses[color])}>
-            <Icon className="w-4 h-4" />
+    <Card className="border hover:shadow-sm transition-shadow">
+      <CardContent className="p-2">
+        <div className="flex items-center justify-between mb-1">
+          <div className={cn("p-1 rounded bg-gradient-to-br text-white", colorClasses[color])}>
+            <Icon className="w-2.5 h-2.5" />
           </div>
           <div className={cn(
-            "flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded",
+            "flex items-center gap-0.5 text-[9px] font-medium px-1 py-0.5 rounded",
             isPositive ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
           )}>
             {isPositive ? (
-              <ArrowUpRight className="w-3 h-3" />
+              <ArrowUpRight className="w-2.5 h-2.5" />
             ) : (
-              <ArrowDownRight className="w-3 h-3" />
+              <ArrowDownRight className="w-2.5 h-2.5" />
             )}
             {Math.abs(trend).toFixed(1)}%
           </div>
         </div>
         {loading ? (
           <div className="animate-pulse">
-            <div className="h-6 bg-muted rounded w-20 mb-1" />
-            <div className="h-4 bg-muted rounded w-14" />
+            <div className="h-4 bg-muted rounded w-16 mb-1" />
+            <div className="h-3 bg-muted rounded w-12" />
           </div>
         ) : (
           <>
-            <p className="text-xl font-bold">{value}</p>
-            <p className="text-xs text-muted-foreground">{title}</p>
+            <p className="text-sm font-bold">{value}</p>
+            <p className="text-[9px] text-muted-foreground">{title}</p>
           </>
         )}
       </CardContent>
@@ -750,23 +750,23 @@ function SecondaryMetricCard({
 
   return (
     <Card className="border">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</p>
+      <CardContent className="p-2">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">{title}</p>
           <div className={cn(
-            "flex items-center gap-0.5 text-xs font-medium",
+            "flex items-center gap-0.5 text-[9px] font-medium",
             isGood ? "text-green-600" : "text-red-500"
           )}>
             {isPositive ? (
-              <ArrowUpRight className="w-3 h-3" />
+              <ArrowUpRight className="w-2.5 h-2.5" />
             ) : (
-              <ArrowDownRight className="w-3 h-3" />
+              <ArrowDownRight className="w-2.5 h-2.5" />
             )}
             {Math.abs(trend).toFixed(1)}%
           </div>
         </div>
-        <p className="text-lg font-bold">{value}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="text-sm font-bold">{value}</p>
+        <p className="text-[9px] text-muted-foreground">{description}</p>
       </CardContent>
     </Card>
   );

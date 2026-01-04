@@ -279,7 +279,7 @@ export default function MetaAdsManager() {
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <header className="sticky top-0 z-20 bg-background border-b">
-        <div className="px-6 py-3">
+        <div className="px-6 py-1.5">
           <div className="flex items-center justify-between">
             {/* Left: Title & Account */}
             <div className="flex items-center gap-4">
@@ -345,16 +345,16 @@ export default function MetaAdsManager() {
             </div>
 
             {/* Right: Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {/* Date Selector */}
               <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DatePreset)}>
-                <SelectTrigger className="w-[140px] h-9 text-sm">
-                  <Calendar className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                <SelectTrigger className="w-[120px] h-7 text-xs">
+                  <Calendar className="w-3 h-3 mr-1.5 text-muted-foreground" />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {DATE_PRESETS.map((preset) => (
-                    <SelectItem key={preset.value} value={preset.value}>
+                    <SelectItem key={preset.value} value={preset.value} className="text-xs">
                       {preset.label}
                     </SelectItem>
                   ))}
@@ -364,35 +364,35 @@ export default function MetaAdsManager() {
               {/* Tools Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 gap-2">
-                    <MoreHorizontal className="w-4 h-4" />
+                  <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs px-2.5">
+                    <MoreHorizontal className="w-3.5 h-3.5" />
                     Tools
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => setActiveTool('ab-tests')} className="gap-2">
-                    <FlaskConical className="w-4 h-4" />
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem onClick={() => setActiveTool('ab-tests')} className="gap-2 text-xs">
+                    <FlaskConical className="w-3.5 h-3.5" />
                     A/B Tests
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setActiveTool('automation')} className="gap-2">
-                    <Zap className="w-4 h-4" />
+                  <DropdownMenuItem onClick={() => setActiveTool('automation')} className="gap-2 text-xs">
+                    <Zap className="w-3.5 h-3.5" />
                     Automation Rules
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setActiveTool('creative')} className="gap-2">
-                    <Image className="w-4 h-4" />
+                  <DropdownMenuItem onClick={() => setActiveTool('creative')} className="gap-2 text-xs">
+                    <Image className="w-3.5 h-3.5" />
                     Creative Hub
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setActiveTool('capi')} className="gap-2">
-                    <Server className="w-4 h-4" />
+                  <DropdownMenuItem onClick={() => setActiveTool('capi')} className="gap-2 text-xs">
+                    <Server className="w-3.5 h-3.5" />
                     Conversions API
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setActiveTool('compliance')} className="gap-2">
-                    <Shield className="w-4 h-4" />
+                  <DropdownMenuItem onClick={() => setActiveTool('compliance')} className="gap-2 text-xs">
+                    <Shield className="w-3.5 h-3.5" />
                     Compliance
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setActiveTool('sdk')} className="gap-2">
-                    <Wrench className="w-4 h-4" />
+                  <DropdownMenuItem onClick={() => setActiveTool('sdk')} className="gap-2 text-xs">
+                    <Wrench className="w-3.5 h-3.5" />
                     SDK Tools
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -402,24 +402,24 @@ export default function MetaAdsManager() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9"
+                className="h-7 w-7 p-0"
                 onClick={loadDashboardData}
                 disabled={isRefreshing}
               >
-                <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+                <RefreshCw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin")} />
               </Button>
 
               {/* Create */}
               <Button
                 size="sm"
-                className="h-9 gap-2 text-white"
+                className="h-7 gap-1.5 text-xs px-3 text-white"
                 style={{ background: 'linear-gradient(135deg, #14b8a6 0%, #2dd4bf 100%)' }}
                 onClick={() => {
                   setActiveTab('campaigns');
                   setShowCreateCampaign(true);
                 }}
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 Create
               </Button>
             </div>
@@ -452,13 +452,13 @@ export default function MetaAdsManager() {
       <div className="flex-1 overflow-auto">
         <div className="p-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            {/* Tab Navigation - Clean & Professional */}
-            <div className="bg-card border rounded-xl p-1.5 shadow-sm">
-              <TabsList className="grid w-full grid-cols-5 bg-transparent gap-1.5 h-auto">
+            {/* Tab Navigation - Compact (matches Media Studio) */}
+            <div className="bg-card border rounded-lg p-1 shadow-sm">
+              <TabsList className="grid w-full grid-cols-5 bg-transparent gap-1 h-auto">
                 <TabsTrigger
                   value="dashboard"
                   className={cn(
-                    "flex items-center justify-center gap-2 h-10 px-3 rounded-lg text-sm font-medium transition-all duration-200",
+                    "flex items-center justify-center gap-2 h-8 px-4 rounded-md text-xs font-medium transition-all duration-200",
                     activeTab === 'dashboard'
                       ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md"
                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -470,9 +470,9 @@ export default function MetaAdsManager() {
                 <TabsTrigger
                   value="campaigns"
                   className={cn(
-                    "flex items-center justify-center gap-2 h-10 px-3 rounded-lg text-sm font-medium transition-all duration-200",
+                    "flex items-center justify-center gap-2 h-8 px-4 rounded-md text-xs font-medium transition-all duration-200",
                     activeTab === 'campaigns'
-                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
+                      ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md"
                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -482,9 +482,9 @@ export default function MetaAdsManager() {
                 <TabsTrigger
                   value="audiences"
                   className={cn(
-                    "flex items-center justify-center gap-2 h-10 px-3 rounded-lg text-sm font-medium transition-all duration-200",
+                    "flex items-center justify-center gap-2 h-8 px-4 rounded-md text-xs font-medium transition-all duration-200",
                     activeTab === 'audiences'
-                      ? "bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md"
+                      ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md"
                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -494,7 +494,7 @@ export default function MetaAdsManager() {
                 <TabsTrigger
                   value="reports"
                   className={cn(
-                    "flex items-center justify-center gap-2 h-10 px-3 rounded-lg text-sm font-medium transition-all duration-200",
+                    "flex items-center justify-center gap-2 h-8 px-4 rounded-md text-xs font-medium transition-all duration-200",
                     activeTab === 'reports'
                       ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-md"
                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -506,7 +506,7 @@ export default function MetaAdsManager() {
                 <TabsTrigger
                   value="settings"
                   className={cn(
-                    "flex items-center justify-center gap-2 h-10 px-3 rounded-lg text-sm font-medium transition-all duration-200",
+                    "flex items-center justify-center gap-2 h-8 px-4 rounded-md text-xs font-medium transition-all duration-200",
                     activeTab === 'settings'
                       ? "bg-gradient-to-r from-slate-500 to-slate-600 text-white shadow-md"
                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -752,14 +752,14 @@ function MetricCard({
   };
   const isPositive = change >= 0;
   return (
-    <Card className="border hover:shadow-md transition-shadow">
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className={cn("p-1.5 rounded-lg bg-gradient-to-br text-white", colorClasses[color])}>
-            <Icon className="w-3.5 h-3.5" />
+    <Card className="border hover:shadow-sm transition-shadow">
+      <CardContent className="p-2">
+        <div className="flex items-center justify-between mb-1">
+          <div className={cn("p-1 rounded bg-gradient-to-br text-white", colorClasses[color])}>
+            <Icon className="w-2.5 h-2.5" />
           </div>
           <span className={cn(
-            "text-xs font-medium px-1.5 py-0.5 rounded",
+            "text-[9px] font-medium px-1 py-0.5 rounded",
             isPositive
               ? "text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/30"
               : "text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/30"
@@ -767,8 +767,8 @@ function MetricCard({
             {isPositive ? '↑' : '↓'} {Math.abs(change)}%
           </span>
         </div>
-        <p className="text-lg font-bold tracking-tight">{value}</p>
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-sm font-bold tracking-tight">{value}</p>
+        <p className="text-[9px] text-muted-foreground">{label}</p>
       </CardContent>
     </Card>
   );
@@ -821,22 +821,22 @@ function QuickAction({
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors text-left"
+      className="w-full flex items-center gap-2 p-2 rounded-md border hover:bg-muted/50 transition-colors text-left"
     >
-      <div className="p-2 rounded-lg bg-muted">
-        <Icon className="w-4 h-4 text-muted-foreground" />
+      <div className="p-1.5 rounded-md bg-muted">
+        <Icon className="w-3.5 h-3.5 text-muted-foreground" />
       </div>
-      <span className="text-sm font-medium">{label}</span>
-      <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
+      <span className="text-xs font-medium">{label}</span>
+      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
     </button>
   );
 }
 
 function SummaryItem({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex items-center justify-between py-2 border-b last:border-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
+    <div className="flex items-center justify-between py-1.5 border-b last:border-0">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs font-medium">{value}</span>
     </div>
   );
 }
