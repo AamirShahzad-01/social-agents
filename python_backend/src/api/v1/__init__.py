@@ -17,6 +17,8 @@ from .token_refresh import router as token_refresh_router
 from .cron import router as cron_router
 from .meta_ads import router as meta_ads_router
 from .rate_limits import router as rate_limits_router
+from .businesses import router as businesses_router
+from .ab_tests import router as ab_tests_router
 from .social import facebook_router, instagram_router, linkedin_router, twitter_router, tiktok_router, youtube_router
 
 __all__ = [
@@ -43,7 +45,9 @@ __all__ = [
     "twitter_router",
     "tiktok_router",
     "youtube_router",
-    "rate_limits_router"
+    "rate_limits_router",
+    "businesses_router",
+    "ab_tests_router"
 ]
 
 

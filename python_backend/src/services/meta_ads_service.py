@@ -928,39 +928,6 @@ class MetaAdsService:
     # A/B TESTING SERVICE METHODS
     # =========================================================================
     
-    async def create_ab_test(
-        self,
-        account_id: str,
-        access_token: str,
-        name: str,
-        test_type: str = "SPLIT_TEST",
-        cells: List[Dict] = None,
-        objective: str = "OUTCOME_SALES",
-        end_time: Optional[str] = None,
-        confidence_level: float = 0.95,
-    ) -> Dict[str, Any]:
-        """Create an A/B test (ad study)."""
-        try:
-            client = create_meta_sdk_client(access_token)
-            clean_account_id = account_id.replace("act_", "")
-            
-            result = await client.create_ab_test(
-                account_id=clean_account_id,
-                name=name,
-                test_type=test_type,
-                cells=cells or [],
-                objective=objective,
-                end_time=end_time,
-                confidence_level=confidence_level,
-            )
-            return result
-        except MetaSDKError as e:
-            logger.error(f"SDK error creating A/B test: {e.message}")
-            return {"success": False, "error": e.message}
-        except Exception as e:
-            logger.error(f"Error creating A/B test: {e}")
-            return {"success": False, "error": str(e)}
-    
     async def get_ab_tests(
         self,
         account_id: str,
@@ -1372,6 +1339,208 @@ class MetaAdsService:
             },
             "recommendations": recommendations
         }
+    
+    async def fetch_ab_tests(
+        self,
+        business_id: str,
+        access_token: str
+    ) -> Dict[str, Any]:
+        """Fetch A/B tests (ad studies) for a business using SDK"""
+        try:
+            client = create_meta_sdk_client(access_token)
+            ab_tests = await client.get_ad_studies(business_id)
+            
+            return {"ab_tests": ab_tests, "error": None}
+            
+        except MetaSDKError as e:
+            return {"ab_tests": [], "error": e.message}
+        except Exception as e:
+            return {"ab_tests": [], "error": str(e)}
+    
+    async def create_ab_test(
+        self,
+        business_id: str,
+        access_token: str,
+        name: str,
+        cells: List[Dict[str, Any]],
+        start_time: str = None,
+        end_time: str = None,
+        study_type: str = "SPLIT_TEST",
+        description: Optional[str] = None,
+        confidence_level: Optional[float] = 0.9,
+        observation_end_time: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Create A/B test (split test) using SDK"""
+        try:
+            client = create_meta_sdk_client(access_token)
+            result = await client.create_ab_test(
+                account_id=business_id,  # SDK uses account_id parameter
+                name=name,
+                test_type=study_type,
+                cells=cells,
+                description=description,
+                start_time=int(start_time) if start_time and str(start_time).isdigit() else None,
+                end_time=int(end_time) if end_time and str(end_time).isdigit() else None,
+                business_id=business_id
+            )
+            
+            if result.get("success"):
+                return {
+                    "success": True,
+                    "ab_test": result,
+                    "id": result.get("test_id"),
+                    "error": None
+                }
+            else:
+                return {"success": False, "ab_test": None, "error": result.get("error")}
+            
+        except MetaSDKError as e:
+            logger.error(f"SDK error creating A/B test: {e.message}")
+            return {"success": False, "ab_test": None, "error": e.message}
+        except Exception as e:
+            logger.error(f"Error creating A/B test: {e}")
+            return {"success": False, "ab_test": None, "error": str(e)}
+    
+    async def fetch_ab_test_details(
+        self,
+        test_id: str,
+        access_token: str
+    ) -> Dict[str, Any]:
+        """Fetch details of a specific A/B test"""
+        try:
+            client = create_meta_sdk_client(access_token)
+            test_details = await client.get_ad_study_details(test_id)
+            
+            return {"ab_test": test_details, "error": None}
+            
+        except MetaSDKError as e:
+            return {"ab_test": None, "error": e.message}
+        except Exception as e:
+            return {"ab_test": None, "error": str(e)}
+
+    async def fetch_ab_test_insights(
+        self,
+        test_id: str,
+        access_token: str,
+        date_preset: str = "last_7d"
+    ) -> Dict[str, Any]:
+        """Fetch performance insights for an A/B test"""
+        try:
+            client = create_meta_sdk_client(access_token)
+            insights = await client.get_ad_study_insights(test_id, date_preset)
+            
+            # Calculate winner if we have enough data
+            winner = None
+            statistical_significance = 0
+            cells_insights = insights.get("cells", []) if insights else []
+            
+            if len(cells_insights) >= 2:
+                # Find cell with best performance (lowest cost_per_result)
+                sorted_cells = sorted(cells_insights, key=lambda x: x.get("cost_per_result", float('inf')))
+                if sorted_cells[0].get("cost_per_result", 0) > 0:
+                    winner = sorted_cells[0].get("name")
+                    # Simple significance calculation
+                    if len(sorted_cells) > 1 and sorted_cells[1].get("cost_per_result", 0) > 0:
+                        improvement = (sorted_cells[1]["cost_per_result"] - sorted_cells[0]["cost_per_result"]) / sorted_cells[1]["cost_per_result"]
+                        statistical_significance = min(improvement * 100 * 10, 99)  # Rough estimate
+            
+            return {
+                "insights": cells_insights,
+                "winner": winner,
+                "statistical_significance": statistical_significance,
+                "error": None
+            }
+            
+        except MetaSDKError as e:
+            return {"insights": [], "winner": None, "error": e.message}
+        except Exception as e:
+            return {"insights": [], "winner": None, "error": str(e)}
+    
+    async def update_ab_test_status(
+        self,
+        test_id: str,
+        access_token: str,
+        status: str
+    ) -> Dict[str, Any]:
+        """Update A/B test status (pause/resume)"""
+        try:
+            client = create_meta_sdk_client(access_token)
+            
+            # Map status values to Meta API expected values
+            # Meta API expects: OFF, ON, DRAFT, DEPRECATED_PENDING_REVIEW
+            status_mapping = {
+                'ACTIVE': 'ON',
+                'PAUSED': 'OFF',
+                'ON': 'ON',
+                'OFF': 'OFF',
+            }
+            api_status = status_mapping.get(status.upper(), status) if status else None
+            
+            result = await client.update_ad_study(test_id, status=api_status)
+            
+            return {"success": True, "error": None}
+            
+        except MetaSDKError as e:
+            return {"success": False, "error": e.message}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    async def cancel_ab_test(
+        self,
+        test_id: str,
+        access_token: str
+    ) -> Dict[str, Any]:
+        """Cancel/delete an A/B test"""
+        try:
+            client = create_meta_sdk_client(access_token)
+            result = await client.delete_ad_study(test_id)
+            
+            return {"success": True, "error": None}
+            
+        except MetaSDKError as e:
+            return {"success": False, "error": e.message}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    async def duplicate_ab_test(
+        self,
+        test_id: str,
+        access_token: str,
+        new_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Duplicate an A/B test"""
+        try:
+            client = create_meta_sdk_client(access_token)
+            
+            # Get original test details
+            original = await client.get_ad_study_details(test_id)
+            
+            if not original:
+                return {"success": False, "error": "Original test not found"}
+            
+            # Create new test with same settings
+            result = await client.create_ab_test(
+                account_id=original.get("business_id", ""),
+                name=new_name or f"{original.get('name', 'Test')} (Copy)",
+                test_type=original.get("type", "SPLIT_TEST"),
+                cells=original.get("cells", []),
+                start_time=original.get("start_time"),
+                end_time=original.get("end_time"),
+                description=original.get("description"),
+                business_id=original.get("business_id", "")
+            )
+            
+            return {
+                "success": True,
+                "id": result.get("id") or result.get("test_id"),
+                "ab_test": result,
+                "error": None
+            }
+            
+        except MetaSDKError as e:
+            return {"success": False, "ab_test": None, "error": e.message}
+        except Exception as e:
+            return {"success": False, "ab_test": None, "error": str(e)}
 
 
 # Singleton instance

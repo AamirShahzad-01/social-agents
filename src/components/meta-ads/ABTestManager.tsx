@@ -21,6 +21,7 @@ import {
     Image,
     Layout,
     Zap,
+    Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -47,14 +48,18 @@ const TEST_VARIABLES = [
 interface ABTest {
     id: string;
     name: string;
-    test_type: string;
-    test_variable: string;
-    status: string;
+    type?: string; // SPLIT_TEST or LIFT
+    test_type?: string;
+    test_variable?: string;
+    description?: string;
+    status: string; // DRAFT, SCHEDULED, ACTIVE, COMPLETED
     cells: Array<{
+        id?: string;
         name: string;
-        treatment_percentage: number;  // v25.0+ format
+        treatment_percentage: number;
         campaigns?: string[];
         adsets?: string[];
+        adaccounts?: string[];
         results?: {
             spend: number;
             impressions: number;
@@ -65,8 +70,12 @@ interface ABTest {
         };
     }>;
     start_time?: string;
-    end_time: string;
-    confidence_level: number;
+    end_time?: string;
+    observation_end_time?: string;
+    cooldown_start_time?: string;
+    created_time?: string;
+    updated_time?: string;
+    confidence_level?: number;
     winning_cell?: string;
 }
 
@@ -94,6 +103,14 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Results panel state
+    const [selectedTest, setSelectedTest] = useState<ABTest | null>(null);
+    const [showResultsModal, setShowResultsModal] = useState(false);
+    const [insights, setInsights] = useState<any[]>([]);
+    const [winner, setWinner] = useState<string | null>(null);
+    const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+
     // Form state
     const [formData, setFormData] = useState({
         name: '',
@@ -110,18 +127,29 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
     });
 
     useEffect(() => {
-        fetchTests();
         fetchCampaigns();
         fetchBusinesses();
     }, []);
 
+    // Refetch tests when business_id changes
+    useEffect(() => {
+        if (formData.business_id) {
+            fetchTests();
+        }
+    }, [formData.business_id]);
+
     const fetchTests = async () => {
+        // Only fetch if we have a business_id
+        if (!formData.business_id) {
+            setIsLoading(false);
+            return;
+        }
         setIsLoading(true);
         try {
-            const response = await fetch('/api/v1/meta-ads/ab-tests');
+            const response = await fetch(`/api/v1/meta-ads/ab-tests?business_id=${formData.business_id}`);
             if (response.ok) {
                 const data = await response.json();
-                setTests(data.tests || []);
+                setTests(data.ab_tests || []);
             }
         } catch (err) {
             console.error('Failed to fetch A/B tests:', err);
@@ -186,7 +214,19 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
                 onRefresh?.();
             } else {
                 const data = await response.json();
-                setError(data.detail || 'Failed to create test');
+                // Handle both string errors and Pydantic validation error arrays
+                let errorMessage = 'Failed to create test';
+                if (typeof data.detail === 'string') {
+                    errorMessage = data.detail;
+                } else if (Array.isArray(data.detail)) {
+                    // Pydantic validation errors come as array of {type, loc, msg, input}
+                    errorMessage = data.detail.map((e: { msg?: string; loc?: string[] }) =>
+                        e.msg || 'Validation error'
+                    ).join(', ');
+                } else if (data.detail?.msg) {
+                    errorMessage = data.detail.msg;
+                }
+                setError(errorMessage);
             }
         } catch (err) {
             setError('Network error. Please try again.');
@@ -196,8 +236,9 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
     };
 
     const getStatusBadge = (status: string) => {
-        switch (status) {
+        switch (status?.toUpperCase()) {
             case 'ACTIVE':
+            case 'ON':
                 return (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                         <Play className="w-3 h-3" />
@@ -212,17 +253,32 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
                     </span>
                 );
             case 'PAUSED':
+            case 'OFF':
                 return (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
                         <Pause className="w-3 h-3" />
                         Paused
                     </span>
                 );
+            case 'SCHEDULED':
+                return (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                        <Clock className="w-3 h-3" />
+                        Scheduled
+                    </span>
+                );
+            case 'DRAFT':
+                return (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                        <Clock className="w-3 h-3" />
+                        Draft
+                    </span>
+                );
             default:
                 return (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
                         <Clock className="w-3 h-3" />
-                        {status}
+                        {status || 'Unknown'}
                     </span>
                 );
         }
@@ -235,6 +291,92 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
             return <Icon className="w-4 h-4" />;
         }
         return <FlaskConical className="w-4 h-4" />;
+    };
+
+    // Fetch insights for a test
+    const handleViewResults = async (test: ABTest) => {
+        setSelectedTest(test);
+        setShowResultsModal(true);
+        setIsLoadingInsights(true);
+
+        try {
+            const response = await fetch(`/api/v1/meta-ads/ab-tests/${test.id}/insights`);
+            if (response.ok) {
+                const data = await response.json();
+                setInsights(data.insights || []);
+                setWinner(data.winner);
+            }
+        } catch (err) {
+            console.error('Failed to fetch insights:', err);
+        } finally {
+            setIsLoadingInsights(false);
+        }
+    };
+
+    // Pause or Resume a test
+    const handleToggleStatus = async (test: ABTest) => {
+        const newStatus = test.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+        setActionLoading(test.id);
+
+        try {
+            const response = await fetch(`/api/v1/meta-ads/ab-tests/${test.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus }),
+            });
+
+            if (response.ok) {
+                fetchTests();
+            }
+        } catch (err) {
+            console.error('Failed to update status:', err);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    // Duplicate a test
+    const handleDuplicate = async (test: ABTest) => {
+        setActionLoading(`dup-${test.id}`);
+
+        try {
+            const response = await fetch(`/api/v1/meta-ads/ab-tests/${test.id}/duplicate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_name: `${test.name} (Copy)` }),
+            });
+
+            if (response.ok) {
+                fetchTests();
+            }
+        } catch (err) {
+            console.error('Failed to duplicate:', err);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    // Cancel/Delete a test
+    const handleCancel = async (test: ABTest) => {
+        if (!confirm(`Are you sure you want to cancel "${test.name}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        setActionLoading(`del-${test.id}`);
+
+        try {
+            const response = await fetch(`/api/v1/meta-ads/ab-tests/${test.id}`, {
+                method: 'DELETE',
+            });
+
+            if (response.ok) {
+                fetchTests();
+            }
+        } catch (err) {
+            console.error('Failed to cancel:', err);
+        } finally {
+            setActionLoading(null);
+        }
     };
 
     return (
@@ -283,13 +425,23 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
                             <CardHeader className="pb-2">
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center gap-2">
-                                        {getVariableIcon(test.test_variable)}
+                                        <FlaskConical className="w-4 h-4" />
                                         <CardTitle className="text-base">{test.name}</CardTitle>
                                     </div>
                                     {getStatusBadge(test.status)}
                                 </div>
-                                <CardDescription className="flex items-center gap-2">
-                                    Testing: {test.test_variable}
+                                <CardDescription className="text-xs space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium">{test.type === 'LIFT' ? 'Lift Study' : 'Split Test'}</span>
+                                        {test.description && <span>• {test.description.substring(0, 50)}{test.description.length > 50 ? '...' : ''}</span>}
+                                    </div>
+                                    {(test.start_time || test.end_time) && (
+                                        <div className="text-muted-foreground">
+                                            {test.start_time && new Date(parseInt(test.start_time) * 1000).toLocaleDateString()}
+                                            {test.start_time && test.end_time && ' - '}
+                                            {test.end_time && new Date(parseInt(test.end_time) * 1000).toLocaleDateString()}
+                                        </div>
+                                    )}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -310,17 +462,61 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
                                         </div>
                                     ))}
 
-                                    {/* Confidence level */}
+                                    {/* Test status */}
                                     <div className="flex items-center justify-between text-sm pt-2 border-t">
-                                        <span className="text-muted-foreground">Confidence Level</span>
-                                        <span className="font-medium">{(test.confidence_level * 100).toFixed(0)}%</span>
+                                        <span className="text-muted-foreground">Created</span>
+                                        <span className="font-medium">{test.created_time ? new Date(test.created_time).toLocaleDateString() : 'N/A'}</span>
                                     </div>
                                 </div>
                             </CardContent>
-                            <CardFooter className="pt-0">
-                                <Button variant="ghost" size="sm" className="w-full gap-1">
-                                    View Results
-                                    <ChevronRight className="w-4 h-4" />
+                            <CardFooter className="pt-0 flex gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="flex-1 gap-1"
+                                    onClick={() => handleViewResults(test)}
+                                >
+                                    <BarChart3 className="w-3 h-3" />
+                                    Results
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleToggleStatus(test)}
+                                    disabled={actionLoading === test.id}
+                                >
+                                    {actionLoading === test.id ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : test.status === 'ACTIVE' ? (
+                                        <Pause className="w-3 h-3" />
+                                    ) : (
+                                        <Play className="w-3 h-3" />
+                                    )}
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDuplicate(test)}
+                                    disabled={actionLoading === `dup-${test.id}`}
+                                >
+                                    {actionLoading === `dup-${test.id}` ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                        <Copy className="w-3 h-3" />
+                                    )}
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleCancel(test)}
+                                    disabled={actionLoading === `del-${test.id}`}
+                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                >
+                                    {actionLoading === `del-${test.id}` ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                        <Trash2 className="w-3 h-3" />
+                                    )}
                                 </Button>
                             </CardFooter>
                         </Card>
@@ -331,7 +527,7 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
             {/* Create Modal */}
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <Card className="w-full max-w-lg">
+                    <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <FlaskConical className="w-5 h-5 text-purple-500" />
@@ -599,6 +795,142 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
                                 ) : (
                                     'Create Test'
                                 )}
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                </div>
+            )}
+
+            {/* Results Modal */}
+            {showResultsModal && selectedTest && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <Card className="w-full max-w-2xl max-h-[80vh] overflow-auto">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <BarChart3 className="w-5 h-5 text-purple-500" />
+                                        {selectedTest.name} - Results
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Performance metrics and winner analysis
+                                    </CardDescription>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setShowResultsModal(false)}
+                                >
+                                    <XCircle className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            {isLoadingInsights ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Winner Banner */}
+                                    {winner && (
+                                        <div className="p-4 rounded-lg bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-200 dark:border-yellow-800">
+                                            <div className="flex items-center gap-3">
+                                                <Trophy className="w-8 h-8 text-yellow-500" />
+                                                <div>
+                                                    <p className="text-sm text-yellow-700 dark:text-yellow-400 font-medium">Winner Detected</p>
+                                                    <p className="text-lg font-bold text-yellow-800 dark:text-yellow-300">{winner}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Performance Comparison */}
+                                    <div className="space-y-4">
+                                        <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Cell Performance</h4>
+
+                                        {insights.length === 0 ? (
+                                            <p className="text-muted-foreground text-sm">No performance data available yet. Data will appear once the test has been running.</p>
+                                        ) : (
+                                            <div className="grid gap-4">
+                                                {insights.map((cell, idx) => (
+                                                    <div key={idx} className="p-4 rounded-lg border bg-card">
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <span className="font-semibold flex items-center gap-2">
+                                                                {winner === cell.name && <Trophy className="w-4 h-4 text-yellow-500" />}
+                                                                {cell.name}
+                                                            </span>
+                                                            <span className="text-sm text-muted-foreground">{cell.treatment_percentage}% traffic</span>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                                            <div>
+                                                                <p className="text-muted-foreground">Spend</p>
+                                                                <p className="font-semibold">${cell.spend?.toFixed(2) || '0.00'}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-muted-foreground">Impressions</p>
+                                                                <p className="font-semibold">{cell.impressions?.toLocaleString() || '0'}</p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-muted-foreground">CTR</p>
+                                                                <p className="font-semibold flex items-center gap-1">
+                                                                    {cell.ctr?.toFixed(2) || '0.00'}%
+                                                                    {idx === 0 && insights.length > 1 && (
+                                                                        cell.ctr > (insights[1]?.ctr || 0)
+                                                                            ? <TrendingUp className="w-3 h-3 text-green-500" />
+                                                                            : <TrendingDown className="w-3 h-3 text-red-500" />
+                                                                    )}
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-muted-foreground">Cost/Result</p>
+                                                                <p className="font-semibold">${cell.cost_per_result?.toFixed(2) || '0.00'}</p>
+                                                            </div>
+                                                        </div>
+                                                        {/* Simple bar visualization */}
+                                                        <div className="mt-3 pt-3 border-t">
+                                                            <div className="flex gap-2 items-center">
+                                                                <span className="text-xs text-muted-foreground w-16">CTR</span>
+                                                                <Progress value={Math.min((cell.ctr || 0) * 10, 100)} className="flex-1 h-2" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Test Info */}
+                                    <div className="pt-4 border-t">
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <p className="text-muted-foreground">Status</p>
+                                                <p className="font-medium">{selectedTest.status}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-muted-foreground">Created</p>
+                                                <p className="font-medium">{selectedTest.created_time ? new Date(selectedTest.created_time).toLocaleDateString() : 'N/A'}</p>
+                                            </div>
+                                            {selectedTest.start_time && (
+                                                <div>
+                                                    <p className="text-muted-foreground">Start Date</p>
+                                                    <p className="font-medium">{new Date(selectedTest.start_time).toLocaleDateString()}</p>
+                                                </div>
+                                            )}
+                                            {selectedTest.end_time && (
+                                                <div>
+                                                    <p className="text-muted-foreground">End Date</p>
+                                                    <p className="font-medium">{new Date(selectedTest.end_time).toLocaleDateString()}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </CardContent>
+                        <CardFooter className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setShowResultsModal(false)}>
+                                Close
                             </Button>
                         </CardFooter>
                     </Card>

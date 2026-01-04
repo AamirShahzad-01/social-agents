@@ -136,7 +136,9 @@ from .api import (
     twitter_router,
     tiktok_router,
     youtube_router,
-    rate_limits_router
+    rate_limits_router,
+    businesses_router,
+    ab_tests_router
 )
 app.include_router(content_router)
 app.include_router(content_improvement_router)
@@ -162,6 +164,8 @@ app.include_router(twitter_router)
 app.include_router(tiktok_router)
 app.include_router(youtube_router)
 app.include_router(rate_limits_router)
+app.include_router(businesses_router, prefix="/api/v1/meta-ads", tags=["Meta Ads - Business"])
+app.include_router(ab_tests_router, prefix="/api/v1/meta-ads", tags=["Meta Ads - A/B Testing"])
 
 
 @app.exception_handler(Exception)

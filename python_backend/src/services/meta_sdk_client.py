@@ -4104,6 +4104,8 @@ class MetaSDKClient:
         """
         import json
         import httpx
+        import hmac
+        import hashlib
         
         self._ensure_initialized()
         
@@ -4127,8 +4129,16 @@ class MetaSDKClient:
                 cell_data["adsets"] = cell["adsets"]
             study_cells.append(cell_data)
         
+        # Generate appsecret_proof for server-side API calls
+        appsecret_proof = hmac.new(
+            self.app_secret.encode('utf-8'),
+            self._access_token.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        
         params = {
-            "access_token": self.access_token,
+            "access_token": self._access_token,
+            "appsecret_proof": appsecret_proof,
             "name": name,
             "type": test_type,
             "cells": json.dumps(study_cells)  # Must be JSON-encoded string
@@ -4180,6 +4190,194 @@ class MetaSDKClient:
             account_id, name, test_type, cells, description,
             start_time, end_time, business_id
         )
+    
+    # =========================================================================
+    # AD STUDIES (A/B TESTING) - SDK Methods
+    # =========================================================================
+    
+    @async_sdk_call
+    def _get_ad_studies_sync(self, business_id: str) -> List[Dict[str, Any]]:
+        """Get all A/B tests (ad studies) for a business"""
+        self._ensure_initialized()
+        
+        from facebook_business.adobjects.business import Business
+        
+        business = Business(fbid=business_id)
+        # Valid AdStudy fields per Meta API v24.0 docs
+        studies = business.get_ad_studies(fields=[
+            'id', 'name', 'type', 'description', 'start_time', 'end_time',
+            'observation_end_time', 'created_time', 'updated_time', 'cooldown_start_time'
+        ])
+        
+        result = []
+        for study in studies:
+            # Determine status based on times
+            import time
+            current_time = int(time.time())
+            start_time = study.get('start_time')
+            end_time = study.get('end_time')
+            
+            status = 'DRAFT'
+            if start_time and end_time:
+                start_ts = int(start_time) if isinstance(start_time, (int, str)) else 0
+                end_ts = int(end_time) if isinstance(end_time, (int, str)) else 0
+                if current_time < start_ts:
+                    status = 'SCHEDULED'
+                elif current_time >= start_ts and current_time <= end_ts:
+                    status = 'ACTIVE'
+                elif current_time > end_ts:
+                    status = 'COMPLETED'
+            
+            study_data = {
+                'id': study['id'],
+                'name': study.get('name'),
+                'type': study.get('type', 'SPLIT_TEST'),
+                'description': study.get('description'),
+                'status': status,
+                'start_time': study.get('start_time'),
+                'end_time': study.get('end_time'),
+                'observation_end_time': study.get('observation_end_time'),
+                'cooldown_start_time': study.get('cooldown_start_time'),
+                'created_time': study.get('created_time'),
+                'updated_time': study.get('updated_time'),
+                'cells': []
+            }
+            
+            # Fetch cells via edge with more detail
+            try:
+                cells = study.get_cells(fields=[
+                    'id', 'name', 'treatment_percentage', 
+                    'adaccounts', 'adsets', 'campaigns'
+                ])
+                study_data['cells'] = [
+                    {
+                        'id': c['id'], 
+                        'name': c.get('name', f'Cell {i+1}'),
+                        'treatment_percentage': c.get('treatment_percentage', 0),
+                        'adsets': c.get('adsets', []),
+                        'campaigns': c.get('campaigns', []),
+                        'adaccounts': c.get('adaccounts', [])
+                    }
+                    for i, c in enumerate(cells)
+                ]
+            except Exception as e:
+                logger.warning(f"Failed to fetch cells for study {study['id']}: {e}")
+            
+            result.append(study_data)
+        
+        return result
+    
+    async def get_ad_studies(self, business_id: str) -> List[Dict[str, Any]]:
+        """Get all A/B tests for a business"""
+        return await self._get_ad_studies_sync(business_id)
+    
+    @async_sdk_call
+    def _get_ad_study_details_sync(self, study_id: str) -> Dict[str, Any]:
+        """Get details of a specific A/B test"""
+        self._ensure_initialized()
+        
+        from facebook_business.adobjects.adstudy import AdStudy
+        
+        study = AdStudy(fbid=study_id)
+        study_data = study.api_get(fields=[
+            'id', 'name', 'type', 'description', 'start_time', 'end_time',
+            'observation_end_time', 'created_time', 'updated_time'
+        ])
+        
+        # Fetch cells via edge
+        cells = []
+        try:
+            cells_data = study.get_cells(fields=['id', 'name', 'treatment_percentage'])
+            cells = [{'id': c['id'], 'name': c.get('name'), 'treatment_percentage': c.get('treatment_percentage')} for c in cells_data]
+        except:
+            pass
+        
+        return {
+            'id': study_data.get('id'),
+            'name': study_data.get('name'),
+            'type': study_data.get('type'),
+            'description': study_data.get('description'),
+            'start_time': study_data.get('start_time'),
+            'end_time': study_data.get('end_time'),
+            'observation_end_time': study_data.get('observation_end_time'),
+            'created_time': study_data.get('created_time'),
+            'cells': cells
+        }
+    
+    async def get_ad_study_details(self, study_id: str) -> Dict[str, Any]:
+        """Get A/B test details"""
+        return await self._get_ad_study_details_sync(study_id)
+    
+    @async_sdk_call
+    def _get_ad_study_insights_sync(self, study_id: str, date_preset: str = "last_7d") -> Dict[str, Any]:
+        """Get performance insights for an A/B test"""
+        self._ensure_initialized()
+        
+        from facebook_business.adobjects.adstudy import AdStudy
+        
+        study = AdStudy(fbid=study_id)
+        study_data = study.api_get(fields=['cells'])
+        
+        cells_data = []
+        for cell in study_data.get('cells', []):
+            cell_data = {
+                'name': cell.get('name', 'Unknown'),
+                'treatment_percentage': cell.get('treatment_percentage', 0),
+                'spend': 0, 'impressions': 0, 'clicks': 0, 'ctr': 0, 'cost_per_result': 0
+            }
+            for adset_id in cell.get('adsets', []):
+                try:
+                    from facebook_business.adobjects.adset import AdSet
+                    adset = AdSet(fbid=adset_id)
+                    insights = adset.get_insights(
+                        fields=['spend', 'impressions', 'clicks'],
+                        params={'date_preset': date_preset}
+                    )
+                    if insights:
+                        insight = insights[0]
+                        cell_data['spend'] += float(insight.get('spend', 0))
+                        cell_data['impressions'] += int(insight.get('impressions', 0))
+                        cell_data['clicks'] += int(insight.get('clicks', 0))
+                except:
+                    pass
+            if cell_data['impressions'] > 0:
+                cell_data['ctr'] = (cell_data['clicks'] / cell_data['impressions']) * 100
+            if cell_data['clicks'] > 0:
+                cell_data['cost_per_result'] = cell_data['spend'] / cell_data['clicks']
+            cells_data.append(cell_data)
+        
+        return {'cells': cells_data}
+    
+    async def get_ad_study_insights(self, study_id: str, date_preset: str = "last_7d") -> Dict[str, Any]:
+        """Get A/B test insights"""
+        return await self._get_ad_study_insights_sync(study_id, date_preset)
+    
+    @async_sdk_call
+    def _update_ad_study_sync(self, study_id: str, status: str = None) -> Dict[str, Any]:
+        """Update an A/B test"""
+        self._ensure_initialized()
+        from facebook_business.adobjects.adstudy import AdStudy
+        study = AdStudy(fbid=study_id)
+        if status:
+            study.api_update(params={'status': status})
+        return {'success': True, 'id': study_id}
+    
+    async def update_ad_study(self, study_id: str, status: str = None) -> Dict[str, Any]:
+        """Update A/B test"""
+        return await self._update_ad_study_sync(study_id, status)
+    
+    @async_sdk_call
+    def _delete_ad_study_sync(self, study_id: str) -> Dict[str, Any]:
+        """Delete/cancel an A/B test"""
+        self._ensure_initialized()
+        from facebook_business.adobjects.adstudy import AdStudy
+        study = AdStudy(fbid=study_id)
+        study.api_delete()
+        return {'success': True, 'id': study_id}
+    
+    async def delete_ad_study(self, study_id: str) -> Dict[str, Any]:
+        """Delete A/B test"""
+        return await self._delete_ad_study_sync(study_id)
 
 
 # =============================================================================
@@ -4225,3 +4423,227 @@ def create_meta_sdk_client(access_token: str) -> MetaSDKClient:
         New MetaSDKClient instance
     """
     return MetaSDKClient(access_token=access_token)
+    # =========================================================================
+    # AD STUDIES (A/B TESTING) - v25.0+
+    # =========================================================================
+    
+    @async_sdk_call
+    def _get_ad_studies_sync(self, business_id: str) -> List[Dict[str, Any]]:
+        """Get all A/B tests (ad studies) for a business"""
+        self._ensure_initialized()
+        
+        from facebook_business.adobjects.business import Business
+        
+        business = Business(fbid=business_id)
+        studies = business.get_ad_studies(fields=[
+            'id',
+            'name',
+            'type',
+            'description',
+            'start_time',
+            'end_time',
+            'observation_end_time',
+            'confidence_level',
+            'cells'
+        ])
+        
+        return [
+            {
+                'id': study['id'],
+                'name': study.get('name'),
+                'type': study.get('type'),
+                'description': study.get('description'),
+                'start_time': study.get('start_time'),
+                'end_time': study.get('end_time'),
+                'observation_end_time': study.get('observation_end_time'),
+                'confidence_level': study.get('confidence_level'),
+                'cells': study.get('cells', [])
+            }
+            for study in studies
+        ]
+    
+    async def get_ad_studies(self, business_id: str) -> List[Dict[str, Any]]:
+        """Get all A/B tests for a business"""
+        return await self._get_ad_studies_sync(business_id)
+    
+    @async_sdk_call
+    def _create_ad_study_sync(
+        self,
+        business_id: str,
+        name: str,
+        study_type: str,
+        cells: List[Dict[str, Any]],
+        start_time: str,
+        end_time: str,
+        description: Optional[str] = None,
+        confidence_level: Optional[float] = 0.9,
+        observation_end_time: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Create a new A/B test (ad study)"""
+        self._ensure_initialized()
+        
+        from facebook_business.adobjects.business import Business
+        
+        business = Business(fbid=business_id)
+        
+        params = {
+            'name': name,
+            'type': study_type,
+            'cells': cells,
+            'start_time': start_time,
+            'end_time': end_time
+        }
+        
+        if description:
+            params['description'] = description
+        if confidence_level:
+            params['confidence_level'] = confidence_level
+        if observation_end_time:
+            params['observation_end_time'] = observation_end_time
+        
+        study = business.create_ad_study(params=params)
+        return {'id': study.get('id'), 'study_id': study.get('id')}
+    
+    async def create_ad_study(
+        self,
+        business_id: str,
+        name: str,
+        study_type: str,
+        cells: List[Dict[str, Any]],
+        start_time: str,
+        end_time: str,
+        description: Optional[str] = None,
+        confidence_level: Optional[float] = 0.9,
+        observation_end_time: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Create an A/B test"""
+        return await self._create_ad_study_sync(
+            business_id, name, study_type, cells, start_time, end_time,
+            description, confidence_level, observation_end_time
+        )
+    
+    @async_sdk_call
+    def _get_ad_study_details_sync(self, study_id: str) -> Dict[str, Any]:
+        """Get details of a specific A/B test"""
+        self._ensure_initialized()
+        
+        from facebook_business.adobjects.adstudy import AdStudy
+        
+        study = AdStudy(fbid=study_id)
+        study.remote_read(fields=[
+            'id', 'name', 'type', 'description',
+            'start_time', 'end_time', 'observation_end_time',
+            'confidence_level', 'cells', 'results'
+        ])
+        
+        return dict(study)
+    
+    async def get_ad_study_details(self, study_id: str) -> Dict[str, Any]:
+        """Get A/B test details"""
+        return await self._get_ad_study_details_sync(study_id)
+
+    @async_sdk_call
+    def _get_ad_study_insights_sync(
+        self,
+        study_id: str,
+        date_preset: str = "last_7d"
+    ) -> Dict[str, Any]:
+        """Get insights/results for an A/B test"""
+        self._ensure_initialized()
+        
+        from facebook_business.adobjects.adstudy import AdStudy
+        
+        study = AdStudy(fbid=study_id)
+        
+        # Get study cells with their insights
+        cells_data = []
+        try:
+            study.remote_read(fields=['id', 'name', 'cells', 'results'])
+            cells = study.get('cells', [])
+            
+            for cell in cells:
+                cell_data = {
+                    'name': cell.get('name', 'Unknown'),
+                    'treatment_percentage': cell.get('treatment_percentage', 0),
+                    'spend': 0,
+                    'impressions': 0,
+                    'clicks': 0,
+                    'conversions': 0,
+                    'ctr': 0,
+                    'cost_per_result': 0
+                }
+                
+                # Get insights for adsets/campaigns in this cell
+                adsets = cell.get('adsets', [])
+                for adset_id in adsets:
+                    try:
+                        from facebook_business.adobjects.adset import AdSet
+                        adset = AdSet(fbid=adset_id)
+                        insights = adset.get_insights(
+                            fields=['spend', 'impressions', 'clicks', 'actions'],
+                            params={'date_preset': date_preset}
+                        )
+                        if insights:
+                            insight = insights[0]
+                            cell_data['spend'] += float(insight.get('spend', 0))
+                            cell_data['impressions'] += int(insight.get('impressions', 0))
+                            cell_data['clicks'] += int(insight.get('clicks', 0))
+                    except:
+                        pass
+                
+                # Calculate derived metrics
+                if cell_data['impressions'] > 0:
+                    cell_data['ctr'] = (cell_data['clicks'] / cell_data['impressions']) * 100
+                if cell_data['clicks'] > 0:
+                    cell_data['cost_per_result'] = cell_data['spend'] / cell_data['clicks']
+                
+                cells_data.append(cell_data)
+        except:
+            pass
+        
+        return {'cells': cells_data}
+    
+    async def get_ad_study_insights(
+        self,
+        study_id: str,
+        date_preset: str = "last_7d"
+    ) -> Dict[str, Any]:
+        """Get A/B test insights"""
+        return await self._get_ad_study_insights_sync(study_id, date_preset)
+    
+    @async_sdk_call
+    def _update_ad_study_sync(self, study_id: str, status: str = None) -> Dict[str, Any]:
+        """Update an A/B test (e.g., pause/resume)"""
+        self._ensure_initialized()
+        
+        from facebook_business.adobjects.adstudy import AdStudy
+        
+        study = AdStudy(fbid=study_id)
+        params = {}
+        
+        if status:
+            params['status'] = status
+        
+        if params:
+            study.api_update(params=params)
+        
+        return {'success': True, 'id': study_id}
+    
+    async def update_ad_study(self, study_id: str, status: str = None) -> Dict[str, Any]:
+        """Update A/B test"""
+        return await self._update_ad_study_sync(study_id, status)
+    
+    @async_sdk_call
+    def _delete_ad_study_sync(self, study_id: str) -> Dict[str, Any]:
+        """Delete/cancel an A/B test"""
+        self._ensure_initialized()
+        
+        from facebook_business.adobjects.adstudy import AdStudy
+        
+        study = AdStudy(fbid=study_id)
+        study.api_delete()
+        return {'success': True, 'id': study_id}
+    
+    async def delete_ad_study(self, study_id: str) -> Dict[str, Any]:
+        """Delete A/B test"""
+        return await self._delete_ad_study_sync(study_id)
