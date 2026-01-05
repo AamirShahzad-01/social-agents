@@ -9,7 +9,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Mic, MicOff, Loader2, Volume2, Settings, ChevronDown, Video, VideoOff, Monitor, Camera } from 'lucide-react';
+import { X, Mic, MicOff, Loader2, Volume2, Settings, ChevronDown, Video, VideoOff, Monitor, Camera, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GoogleGenAI, Modality } from '@google/genai';
 
@@ -80,6 +80,16 @@ registerProcessor('audio-processor', AudioProcessor);
 // Gemini Live WebSocket URL (Fallback if SDK not used directly)
 const GEMINI_WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent';
 
+// Session resumption storage key
+const SESSION_HANDLE_KEY = 'gemini-live-session-handle';
+
+// Retry configuration
+const MAX_RETRY_ATTEMPTS = 3;
+const INITIAL_RETRY_DELAY_MS = 1000;
+
+// Preferred model for native audio
+const PREFERRED_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
+
 export function VoiceAgentModal({
   isOpen,
   onClose,
@@ -97,6 +107,11 @@ export function VoiceAgentModal({
   const [selectedLanguage] = useState(initialLanguage);
   const [hasGeneratedContent, setHasGeneratedContent] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+
+  // Retry and reconnection state
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [showRetryButton, setShowRetryButton] = useState(false);
 
   // Video sharing state
   const [showVideoMenu, setShowVideoMenu] = useState(false);
@@ -118,6 +133,8 @@ export function VoiceAgentModal({
   const nextPlayTimeRef = useRef(0); // For seamless audio scheduling
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]); // Track active audio sources for interruption
   const sessionHandleRef = useRef<string | null>(null); // For session resumption
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null); // For retry scheduling
+  const shouldResumeRef = useRef(false); // Whether to attempt session resumption
 
   // Video sharing refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -138,16 +155,35 @@ export function VoiceAgentModal({
       setError(null);
       setVoiceState('idle');
       setStatusText('');
+      setRetryCount(0);
+      setShowRetryButton(false);
+
+      // Try to load existing session handle for resumption
+      const storedHandle = localStorage.getItem(SESSION_HANDLE_KEY);
+      if (storedHandle) {
+        sessionHandleRef.current = storedHandle;
+        shouldResumeRef.current = true;
+      }
     }
   }, [isOpen]);
+
+  // Cleanup retry timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, []);
 
   /**
    * Start Gemini Live session
    */
-  const startSession = useCallback(async () => {
+  const startSession = useCallback(async (isRetry: boolean = false) => {
     setVoiceState('connecting');
     setError(null);
-    setStatusText('Getting credentials...');
+    setShowRetryButton(false);
+    setStatusText(isRetry ? `Reconnecting (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})...` : 'Getting credentials...');
     isActiveRef.current = true;
 
     try {
@@ -161,8 +197,10 @@ export function VoiceAgentModal({
         throw new Error(tokenData.error || 'Failed to get credentials');
       }
 
-      const { apiKey, model, config } = tokenData;
-      setStatusText('Connecting to Gemini...');
+      const { apiKey, config } = tokenData;
+      // Use preferred native audio model
+      const model = PREFERRED_MODEL;
+      setStatusText(shouldResumeRef.current ? 'Resuming session...' : 'Connecting to Gemini...');
 
       // Initialize Google Gen AI SDK with v1alpha for native audio features
       const genAI = new GoogleGenAI({
@@ -192,7 +230,15 @@ export function VoiceAgentModal({
           tools: config.tools || [],
           // Enable Native Audio capabilities
           enableAffectiveDialog: true,
-        }
+          // Enable Proactive Audio for smarter VAD and response timing
+          enableProactiveAudio: true,
+        },
+        // Session resumption config (if we have a previous handle)
+        ...(shouldResumeRef.current && sessionHandleRef.current ? {
+          sessionResumptionConfig: {
+            handle: sessionHandleRef.current
+          }
+        } : {})
       };
 
       // Connect using the SDK
@@ -259,23 +305,31 @@ export function VoiceAgentModal({
               await handleToolCall(message.toolCall);
             }
 
-            // Handle session resumption update
+            // Handle session resumption update - persist to localStorage
             if (message.sessionResumptionUpdate) {
               const update = message.sessionResumptionUpdate;
               if (update.resumable && update.newHandle) {
                 sessionHandleRef.current = update.newHandle;
+                localStorage.setItem(SESSION_HANDLE_KEY, update.newHandle);
+                console.log('[Gemini Live] Session handle saved for resumption');
               }
+            }
+
+            // Handle proactive audio events (when model decides to speak unsolicited)
+            if (message.serverContent?.proactiveAudio) {
+              console.log('[Gemini Live] Proactive audio received');
+              // The audio data will come through the normal audio handling path
             }
           },
           onerror: (e: any) => {
             console.error('[Gemini Live] SDK Error:', e);
-            setError(e.message || 'SDK connection failed');
-            setVoiceState('error');
+            handleConnectionError(e.message || 'SDK connection failed');
           },
           onclose: (e: any) => {
             console.log('[Gemini Live] SDK Closed:', e);
             if (isActiveRef.current) {
-              setVoiceState('idle');
+              // Attempt auto-reconnect if unexpectedly closed
+              handleConnectionError('Connection closed unexpectedly');
             }
           }
         }
@@ -285,10 +339,52 @@ export function VoiceAgentModal({
 
     } catch (err: any) {
       console.error('[Gemini Live] Error starting session:', err);
-      setError(err.message || 'Failed to connect');
-      setVoiceState('error');
+      handleConnectionError(err.message || 'Failed to connect');
     }
-  }, [selectedVoice, selectedLanguage]);
+  }, [selectedVoice, selectedLanguage, retryCount]);
+
+  /**
+   * Handle connection errors with exponential backoff retry
+   */
+  const handleConnectionError = useCallback((errorMessage: string) => {
+    // Clear session handle if connection failed (might be stale)
+    if (shouldResumeRef.current) {
+      shouldResumeRef.current = false;
+      localStorage.removeItem(SESSION_HANDLE_KEY);
+      sessionHandleRef.current = null;
+    }
+
+    if (retryCount < MAX_RETRY_ATTEMPTS && isActiveRef.current) {
+      const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCount);
+      console.log(`[Gemini Live] Retry attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS} in ${delay}ms`);
+
+      setIsRetrying(true);
+      setError(`Connection failed. Retrying in ${delay / 1000}s...`);
+      setVoiceState('connecting');
+      setStatusText(`Retrying (${retryCount + 1}/${MAX_RETRY_ATTEMPTS})...`);
+
+      retryTimeoutRef.current = setTimeout(() => {
+        setRetryCount(prev => prev + 1);
+        startSession(true);
+        setIsRetrying(false);
+      }, delay);
+    } else {
+      // Max retries reached or user stopped
+      setError(errorMessage + '. Please try again.');
+      setVoiceState('error');
+      setShowRetryButton(true);
+      setIsRetrying(false);
+    }
+  }, [retryCount, startSession]);
+
+  /**
+   * Manual retry after max retries exhausted
+   */
+  const handleManualRetry = useCallback(() => {
+    setRetryCount(0);
+    shouldResumeRef.current = false;
+    startSession(false);
+  }, [startSession]);
 
   /**
    * Start audio capture and send to Gemini
@@ -569,6 +665,15 @@ export function VoiceAgentModal({
     setVideoMode('none');
     setVideoStream(null);
     setShowVideoMenu(false);
+
+    // Cancel any pending retry
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+    setRetryCount(0);
+    setIsRetrying(false);
+    setShowRetryButton(false);
   }, []);
 
   /**
@@ -928,6 +1033,21 @@ export function VoiceAgentModal({
             }`}>
             {getStatusText()}
           </span>
+
+          {/* Retry button - shown when max retries exhausted */}
+          {showRetryButton && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleManualRetry();
+              }}
+              className="w-6 h-6 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center transition-colors cursor-pointer shadow-md z-50"
+              title="Retry connection"
+            >
+              <RefreshCw className="h-3 w-3" />
+            </button>
+          )}
+
           <button
             onClick={(e) => {
               e.stopPropagation();
