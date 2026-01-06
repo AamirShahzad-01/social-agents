@@ -53,8 +53,8 @@ interface MediaLibraryItem {
 
 interface CanvaEditorProps {
   onMediaSaved?: (url: string) => void;
-  activeTab?: 'library' | 'designs' | 'video-editor';
-  onTabChange?: (tab: 'library' | 'designs' | 'video-editor') => void;
+  activeTab?: 'designs' | 'video-editor';
+  onTabChange?: (tab: 'designs' | 'video-editor') => void;
   onCountsChange?: (libraryCount: number, designsCount: number) => void;
 }
 
@@ -90,7 +90,7 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
   const [sendingDesignId, setSendingDesignId] = useState<string | null>(null);
   const [creatingDesignFrom, setCreatingDesignFrom] = useState<string | null>(null);
 
-  const [internalActiveTab, setInternalActiveTab] = useState<'library' | 'designs' | 'video-editor'>('library');
+  const [internalActiveTab, setInternalActiveTab] = useState<'designs' | 'video-editor'>('video-editor');
   const activeTab = controlledActiveTab ?? internalActiveTab;
   const setActiveTab = onTabChange ?? setInternalActiveTab;
 
@@ -109,7 +109,7 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
   // Handle video editor completion
   const handleVideoProcessed = async (videoUrl: string) => {
     await fetchLibraryItems();
-    setActiveTab('library');
+    setActiveTab('designs');
     if (onMediaSaved) {
       onMediaSaved(videoUrl);
     }
@@ -773,14 +773,9 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
   return (
     <div className="space-y-6">
       {/* Tabs - Only show TabsList if not controlled from parent (header) */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'library' | 'designs' | 'video-editor')}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'designs' | 'video-editor')}>
         {!controlledActiveTab && (
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="library" className="gap-2">
-              <FolderOpen className="w-4 h-4" />
-              Media Library
-              <Badge variant="secondary" className="ml-1">{libraryItems.length}</Badge>
-            </TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="designs" className="gap-2">
               <Sparkles className="w-4 h-4" />
               Canva Designs
@@ -792,126 +787,6 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
             </TabsTrigger>
           </TabsList>
         )}
-
-        {/* Library Tab - Select media to edit */}
-        <TabsContent value="library" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Select Media to Edit</CardTitle>
-              <CardDescription>
-                Choose an image or video from your library to edit in Canva
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingLibrary ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                </div>
-              ) : libraryItems.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <FolderOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>No media in library yet</p>
-                  <p className="text-sm">Generate some images or videos first</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {libraryItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${selectedItem?.id === item.id
-                        ? 'border-purple-500 ring-2 ring-purple-200'
-                        : 'border-transparent hover:border-purple-300'
-                        }`}
-                      onClick={() => setSelectedItem(item)}
-                    >
-                      {item.type === 'video' ? (
-                        item.thumbnail_url ? (
-                          <img
-                            src={item.thumbnail_url}
-                            alt={item.prompt || 'Video'}
-                            className="aspect-[4/3] object-cover w-full"
-                          />
-                        ) : (
-                          <video
-                            src={item.url}
-                            className="aspect-[4/3] object-cover w-full"
-                            muted
-                            preload="metadata"
-                            onLoadedMetadata={(e) => {
-                              // Seek to first frame to show preview
-                              (e.target as HTMLVideoElement).currentTime = 0.1;
-                            }}
-                          />
-                        )
-                      ) : (
-                        <img
-                          src={item.thumbnail_url || item.url}
-                          alt={item.prompt || 'Media'}
-                          className="aspect-[4/3] object-cover w-full"
-                        />
-                      )}
-
-                      {/* Overlay */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            createDesignFromAsset(item);
-                          }}
-                          disabled={creatingDesignFrom === item.id}
-                          className="bg-gradient-to-r from-purple-500 to-pink-500"
-                        >
-                          {creatingDesignFrom === item.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Palette className="w-4 h-4 mr-1" />
-                              Edit in Canva
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSendToPost(item);
-                          }}
-                          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
-                        >
-                          <Send className="w-4 h-4 mr-1" />
-                          Send to Post
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSendToAd(item);
-                          }}
-                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                        >
-                          <Megaphone className="w-4 h-4 mr-1" />
-                          Create Ad
-                        </Button>
-                      </div>
-
-                      {/* Type badge */}
-                      <div className="absolute top-2 right-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {item.type === 'video' ? (
-                            <Video className="w-3 h-3" />
-                          ) : (
-                            <ImageIcon className="w-3 h-3" />
-                          )}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* Designs Tab - Export designs back */}
         <TabsContent value="designs" className="mt-4">

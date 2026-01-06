@@ -118,11 +118,24 @@ export function AudioGenerator() {
     const fetchLibraryAudio = useCallback(async () => {
         if (!workspaceId) return;
         try {
-            const data = await get<{ items: MediaItem[] }>(
+            const data = await get<{ items: any[] }>(
                 `/media-studio/library?workspace_id=${workspaceId}&type=audio&limit=20`
             );
             if (data.items) {
-                setLibraryAudio(data.items);
+                // Map snake_case backend response to camelCase frontend types
+                const mappedItems: MediaItem[] = data.items.map((item) => ({
+                    id: item.id,
+                    type: item.type,
+                    url: item.url,
+                    thumbnailUrl: item.thumbnail_url,
+                    prompt: item.prompt,
+                    config: item.config,
+                    createdAt: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
+                    isFavorite: item.is_favorite,
+                    tags: item.tags,
+                    folder: item.folder,
+                }));
+                setLibraryAudio(mappedItems);
             }
         } catch (error) {
             console.error('Failed to fetch audio history', error);

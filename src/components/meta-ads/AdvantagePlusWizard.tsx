@@ -210,21 +210,19 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl max-h-[90vh] overflow-auto">
-                <CardHeader className="border-b bg-gradient-to-r from-blue-500/10 to-purple-500/10">
+            <Card className="w-full max-w-2xl max-h-[90vh] overflow-auto scrollbar-hide">
+                <CardHeader className="pb-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                                <Sparkles className="w-6 h-6" />
-                            </div>
+                            <Zap className="w-5 h-5" />
                             <div>
-                                <CardTitle className="text-xl">Create Advantage+ Campaign</CardTitle>
-                                <CardDescription>
+                                <CardTitle className="text-lg text-white">Create Advantage+ Campaign</CardTitle>
+                                <CardDescription className="text-white/80 text-sm">
                                     AI-powered campaign optimization
                                 </CardDescription>
                             </div>
                         </div>
-                        <Button variant="ghost" size="icon" onClick={onClose}>
+                        <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20">
                             ✕
                         </Button>
                     </div>
@@ -237,10 +235,10 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
                                     className={cn(
                                         "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors",
                                         s < step
-                                            ? "bg-green-500 text-white"
+                                            ? "bg-white text-amber-600"
                                             : s === step
-                                                ? "bg-primary text-primary-foreground"
-                                                : "bg-muted text-muted-foreground"
+                                                ? "bg-white text-amber-600"
+                                                : "bg-white/30 text-white/80"
                                     )}
                                 >
                                     {s < step ? <Check className="w-4 h-4" /> : s}
@@ -249,7 +247,7 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
                                     <div
                                         className={cn(
                                             "flex-1 h-1 rounded-full",
-                                            s < step ? "bg-green-500" : "bg-muted"
+                                            s < step ? "bg-white" : "bg-white/30"
                                         )}
                                     />
                                 )}
@@ -417,7 +415,7 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
                                                         <p className="font-medium flex items-center gap-2">
                                                             {strategy.label}
                                                             {strategy.recommended && (
-                                                                <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
+                                                                <span className="text-xs text-green-600 dark:text-green-400 font-medium">
                                                                     Recommended
                                                                 </span>
                                                             )}
@@ -479,14 +477,14 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
                                 Geographic Targeting
                             </h3>
 
-                            <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900 mb-4">
+                            <div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900 mb-4">
                                 <div className="flex items-start gap-2">
-                                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                    <Info className="w-5 h-5 text-foreground flex-shrink-0 mt-0.5" />
                                     <div>
-                                        <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                                        <p className="text-sm font-medium">
                                             Advantage+ Audience
                                         </p>
-                                        <p className="text-sm text-blue-600 dark:text-blue-300">
+                                        <p className="text-sm text-muted-foreground">
                                             Meta's AI will find the best audience within your selected countries.
                                             More targeting options may reduce Advantage+ benefits.
                                         </p>
@@ -616,7 +614,7 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
                         <Button
                             onClick={handleSubmit}
                             disabled={isSubmitting || !canProceed()}
-                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
                         >
                             {isSubmitting ? (
                                 <>
@@ -625,8 +623,8 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
                                 </>
                             ) : (
                                 <>
-                                    <Sparkles className="w-4 h-4 mr-2" />
-                                    Create Advantage+ Campaign
+                                    <Zap className="w-4 h-4 mr-2" />
+                                    Create Campaign
                                 </>
                             )}
                         </Button>

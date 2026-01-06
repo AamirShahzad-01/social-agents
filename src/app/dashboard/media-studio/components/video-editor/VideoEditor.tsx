@@ -79,43 +79,77 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
     }
   };
 
+  const tabs = [
+    { id: 'merge' as const, label: 'Merge', icon: Merge, color: 'teal' },
+    { id: 'trim' as const, label: 'Trim', icon: Scissors, color: 'teal' },
+    { id: 'speed' as const, label: 'Speed', icon: Gauge, color: 'blue' },
+    { id: 'text' as const, label: 'Text', icon: Type, color: 'purple' },
+    { id: 'audio' as const, label: 'Audio', icon: Music, color: 'purple' },
+    { id: 'resize' as const, label: 'Resize', icon: Crop, color: 'blue' },
+    { id: 'image' as const, label: 'Image', icon: ImageIcon, color: 'teal' },
+  ];
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-        <div className="bg-card border rounded-lg p-1 shadow-sm">
-          <TabsList className="grid w-full grid-cols-7 bg-transparent gap-1 h-auto">
-            <TabsTrigger value="merge" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
-              <Merge className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Merge</span>
-            </TabsTrigger>
-            <TabsTrigger value="trim" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
-              <Scissors className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Trim</span>
-            </TabsTrigger>
-            <TabsTrigger value="speed" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
-              <Gauge className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Speed</span>
-            </TabsTrigger>
-            <TabsTrigger value="text" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
-              <Type className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Text</span>
-            </TabsTrigger>
-            <TabsTrigger value="audio" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
-              <Music className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Audio</span>
-            </TabsTrigger>
-            <TabsTrigger value="resize" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
-              <Crop className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Resize</span>
-            </TabsTrigger>
-            <TabsTrigger value="image" className="gap-1.5 text-[11px] sm:text-[12px] h-8 rounded-md data-[state=active]:shadow-sm">
-              <ImageIcon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Image</span>
-            </TabsTrigger>
+        {/* Tab Navigation - Compact Style */}
+        <div className="bg-card border rounded-md p-0.5 shadow-sm">
+          <TabsList className="grid w-full grid-cols-7 bg-transparent gap-0.5 h-auto">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+
+              return (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className={`
+                    relative flex items-center justify-center gap-1 h-7 px-1.5 rounded 
+                    text-[10px] sm:text-[11px] font-medium transition-all duration-200
+                    data-[state=inactive]:hover:bg-muted/60
+                    group
+                  `}
+                  style={isActive ? {
+                    background: tab.color === 'teal'
+                      ? 'var(--ms-gradient-primary)'
+                      : tab.color === 'blue'
+                        ? 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)'
+                        : 'var(--ms-gradient-accent)',
+                    color: 'white',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)'
+                  } : undefined}
+                >
+                  <tab.icon
+                    className={`w-3 h-3 transition-transform duration-200 ${isActive ? '' : 'group-hover:scale-110'}`}
+                    style={!isActive ? {
+                      color: tab.color === 'teal'
+                        ? 'var(--ms-primary)'
+                        : tab.color === 'blue'
+                          ? '#0ea5e9'
+                          : 'var(--ms-accent)'
+                    } : undefined}
+                  />
+                  <span className="hidden sm:inline">{tab.label}</span>
+
+                  {/* Animated underline for inactive tabs on hover */}
+                  {!isActive && (
+                    <span
+                      className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-0 h-0.5 rounded-full transition-all duration-300 group-hover:w-5"
+                      style={{
+                        background: tab.color === 'teal'
+                          ? 'var(--ms-primary)'
+                          : tab.color === 'blue'
+                            ? '#0ea5e9'
+                            : 'var(--ms-accent)'
+                      }}
+                    />
+                  )}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
         </div>
 
-        <TabsContent value="merge" className="mt-4">
+        <TabsContent value="merge" className="mt-2">
           <VideoMerger
             libraryVideos={libraryVideos}
             isLoadingLibrary={isLoadingLibrary}
@@ -123,7 +157,7 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
           />
         </TabsContent>
 
-        <TabsContent value="trim" className="mt-4">
+        <TabsContent value="trim" className="mt-2">
           <VideoTrimmer
             libraryVideos={libraryVideos}
             isLoadingLibrary={isLoadingLibrary}
@@ -131,7 +165,7 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
           />
         </TabsContent>
 
-        <TabsContent value="speed" className="mt-4">
+        <TabsContent value="speed" className="mt-2">
           <SpeedController
             libraryVideos={libraryVideos}
             isLoadingLibrary={isLoadingLibrary}
@@ -139,7 +173,7 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
           />
         </TabsContent>
 
-        <TabsContent value="text" className="mt-4">
+        <TabsContent value="text" className="mt-2">
           <TextOverlay
             libraryVideos={libraryVideos}
             isLoadingLibrary={isLoadingLibrary}
@@ -147,7 +181,7 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
           />
         </TabsContent>
 
-        <TabsContent value="audio" className="mt-4">
+        <TabsContent value="audio" className="mt-2">
           <AudioMixer
             libraryVideos={libraryVideos}
             isLoadingLibrary={isLoadingLibrary}
@@ -155,7 +189,7 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
           />
         </TabsContent>
 
-        <TabsContent value="resize" className="mt-4">
+        <TabsContent value="resize" className="mt-2">
           <VideoResizer
             libraryVideos={libraryVideos}
             isLoadingLibrary={isLoadingLibrary}
@@ -163,7 +197,7 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
           />
         </TabsContent>
 
-        <TabsContent value="image" className="mt-4">
+        <TabsContent value="image" className="mt-2">
           <ImageResizer
             onResizeComplete={handleProcessComplete}
           />
@@ -172,4 +206,3 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
     </div>
   );
 }
-

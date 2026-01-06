@@ -29,6 +29,7 @@ import {
   Layers,
   Megaphone,
   Music,
+  Palette,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { SendToPostModal, SendConfig, MediaToSend } from './SendToPostModal';
@@ -106,6 +107,9 @@ export function MediaGallery({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Canva state
+  const [creatingDesignFrom, setCreatingDesignFrom] = useState<string | null>(null);
 
   // Dashboard context for refreshing posts
   const { refreshData } = useDashboard();
@@ -254,6 +258,93 @@ export function MediaGallery({
   const handleToggleFavorite = async (item: MediaItem) => {
     if (!workspaceId) return;
     await contextToggleFavorite(item.id);
+  };
+
+  // Get media dimensions for Canva
+  const getMediaDimensions = (url: string, type: 'image' | 'video' | 'audio'): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      if (type === 'image') {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = reject;
+        img.src = url;
+      } else if (type === 'video') {
+        const video = document.createElement('video');
+        video.onloadedmetadata = () => resolve({ width: video.videoWidth, height: video.videoHeight });
+        video.onerror = reject;
+        video.src = url;
+      } else {
+        // Audio doesn't have dimensions
+        resolve({ width: 1280, height: 720 });
+      }
+    });
+  };
+
+  // Create design in Canva from media item
+  const createDesignFromAsset = async (item: MediaItem) => {
+    setCreatingDesignFrom(item.id);
+    try {
+      let dimensions = { width: 0, height: 0 };
+      try {
+        dimensions = await getMediaDimensions(item.url, item.type);
+      } catch (e) {
+        // Fallback dimensions
+      }
+
+      const response = await fetch(`/api/canva/designs?user_id=${user?.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetUrl: item.url,
+          assetType: item.type,
+          designType: item.type === 'video' ? 'Video' : 'Document',
+          width: dimensions.width,
+          height: dimensions.height,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Open Canva editor - try multiple URL formats
+        const editUrl =
+          data.design?.urls?.edit_url ||
+          data.design?.design?.urls?.edit_url ||
+          (data.design?.design?.id && `https://www.canva.com/design/${data.design.design.id}/edit`) ||
+          (data.design?.id && `https://www.canva.com/design/${data.design.id}/edit`);
+
+        if (editUrl) {
+          toast.success('Design created! Opening Canva editor...');
+          const newWindow = window.open(editUrl, '_blank');
+          if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+            // Popup was blocked
+            toast((t) => (
+              <div className="flex items-center gap-2">
+                <span>Popup blocked. </span>
+                <a
+                  href={editUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 underline"
+                  onClick={() => toast.dismiss(t.id)}
+                >
+                  Click here to open Canva
+                </a>
+              </div>
+            ), { duration: 10000 });
+          }
+        } else {
+          toast.success('Design created! Check your Canva account to edit.');
+        }
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to create design');
+      }
+    } catch (error) {
+      toast.error('Failed to create design');
+    } finally {
+      setCreatingDesignFrom(null);
+    }
   };
 
   const handleDelete = async (item: MediaItem) => {
@@ -1073,6 +1164,20 @@ export function MediaGallery({
                           <Button
                             size="sm"
                             variant="secondary"
+                            className="h-8 w-8 p-0 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white backdrop-blur-sm transition-all duration-200 hover:scale-110"
+                            onClick={(e) => { e.stopPropagation(); createDesignFromAsset(item); }}
+                            title="Edit in Canva"
+                            disabled={creatingDesignFrom === item.id}
+                          >
+                            {creatingDesignFrom === item.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Palette className="w-3.5 h-3.5" />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
                             className="h-8 w-8 p-0 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white backdrop-blur-sm transition-all duration-200 hover:scale-110"
                             onClick={(e) => { e.stopPropagation(); handleSendToAd(item); }}
                             title="Create Ad"
@@ -1148,6 +1253,9 @@ export function MediaGallery({
                       </Button>
                       <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleSendToPost(item); }} title="Send to Publish">
                         <Send className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); createDesignFromAsset(item); }} title="Edit in Canva" className="text-purple-600 hover:text-purple-700" disabled={creatingDesignFrom === item.id}>
+                        {creatingDesignFrom === item.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Palette className="w-4 h-4" />}
                       </Button>
                       <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleSendToAd(item); }} title="Create Ad" className="text-blue-600 hover:text-blue-700">
                         <Megaphone className="w-4 h-4" />
@@ -1238,6 +1346,19 @@ export function MediaGallery({
                     >
                       <Send className="w-4 h-4 mr-2" />
                       Send to Post
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0"
+                      onClick={() => createDesignFromAsset(selectedItem as MediaItem)}
+                      disabled={creatingDesignFrom === (selectedItem as MediaItem).id}
+                    >
+                      {creatingDesignFrom === (selectedItem as MediaItem).id ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Palette className="w-4 h-4 mr-2" />
+                      )}
+                      Edit in Canva
                     </Button>
                     <Button
                       variant="outline"

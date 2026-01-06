@@ -3,15 +3,13 @@
 import React, { useState } from 'react';
 import { CanvaEditor } from '../media-studio/components/CanvaEditor';
 import { Badge } from '@/components/ui/badge';
-import { Palette, Zap, FolderOpen, Sparkles, Film } from 'lucide-react';
+import { Palette, Zap, Sparkles, Film } from 'lucide-react';
 
 export default function CanvaEditorPage() {
-  const [activeTab, setActiveTab] = useState<'library' | 'designs' | 'video-editor'>('library');
-  const [libraryCount, setLibraryCount] = useState(0);
+  const [activeTab, setActiveTab] = useState<'designs' | 'video-editor'>('video-editor');
   const [designsCount, setDesignsCount] = useState(0);
 
   const tabs = [
-    { id: 'library' as const, label: 'Media Library', icon: FolderOpen, count: libraryCount },
     { id: 'designs' as const, label: 'Canva Designs', icon: Sparkles, count: designsCount },
     { id: 'video-editor' as const, label: 'Video Editor', icon: Film, count: null },
   ];
@@ -35,7 +33,7 @@ export default function CanvaEditorPage() {
 
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/10" />
 
-        <div className="relative px-6 py-5">
+        <div className="relative px-6 py-3">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             {/* Left: Logo and Title */}
             <div className="flex items-center gap-4">
@@ -96,14 +94,13 @@ export default function CanvaEditorPage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 pt-3 px-6 pb-6 bg-gradient-to-b from-muted/30 to-background overflow-auto">
+      <div className="flex-1 pt-2 px-6 pb-6 bg-gradient-to-b from-muted/30 to-background overflow-auto">
         <CanvaEditor
           onMediaSaved={(url) => {
           }}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          onCountsChange={(library, designs) => {
-            setLibraryCount(library);
+          onCountsChange={(_library, designs) => {
             setDesignsCount(designs);
           }}
         />

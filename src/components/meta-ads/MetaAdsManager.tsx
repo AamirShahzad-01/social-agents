@@ -759,10 +759,10 @@ function MetricCard({
             <Icon className="w-2.5 h-2.5" />
           </div>
           <span className={cn(
-            "text-[9px] font-medium px-1 py-0.5 rounded",
+            "text-[9px] font-medium",
             isPositive
-              ? "text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/30"
-              : "text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/30"
+              ? "text-green-600 dark:text-green-400"
+              : "text-red-600 dark:text-red-400"
           )}>
             {isPositive ? '↑' : '↓'} {Math.abs(change)}%
           </span>
