@@ -440,15 +440,15 @@ export class InstagramService extends BasePlatformService {
 }
 
 /**
- * Post to Instagram via backend API
+ * Post to Instagram via Python backend API
  * Supports single image, video, Reels, and Stories posts
  * Backend handles credentials from database
  */
 export async function postToInstagram(
   credentials: any,
-  options: { 
-    caption: string; 
-    imageUrl?: string; 
+  options: {
+    caption: string;
+    imageUrl?: string;
     mediaType?: string;
     postType?: string; // 'story' for Stories, 'reel' for Reels
     carouselUrls?: string[]; // Array of URLs for carousel posts
@@ -459,38 +459,25 @@ export async function postToInstagram(
     // 'reel' = Instagram Reels (short-form vertical video)
     // 'video' = Regular video post
     // 'image' = Image post
-    const mediaType = options.mediaType === 'reel' ? 'reel' 
-                    : options.mediaType === 'video' ? 'video' 
-                    : 'image';
-    
-    
-    // Call the backend API which has access to credentials
-    const response = await fetch('/api/instagram/post', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        caption: options.caption,
-        imageUrl: options.imageUrl,
-        mediaType: mediaType,
-        postType: options.postType, // Pass postType for Stories
-      }),
+    const mediaType = options.mediaType === 'reel' ? 'reel'
+      : options.mediaType === 'video' ? 'video'
+        : 'image';
+
+    // Use Python backend client for Instagram posting
+    const { createPost } = await import('@/lib/python-backend/api/social/instagram');
+
+    const result = await createPost({
+      caption: options.caption,
+      imageUrl: options.imageUrl,
+      mediaType: mediaType,
+      postType: options.postType,
+      carouselUrls: options.carouselUrls,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || data.details || 'Failed to post to Instagram'
-      };
-    }
-
     return {
-      success: true,
-      postId: data.postId,
-      url: data.postUrl
+      success: result.success,
+      postId: result.postId,
+      url: result.postUrl
     };
   } catch (error) {
     return {
@@ -515,8 +502,8 @@ export async function postToInstagram(
  */
 export async function postCarouselToInstagram(
   credentials: any,
-  options: { 
-    caption: string; 
+  options: {
+    caption: string;
     mediaUrls: string[]; // Array of image/video URLs (2-10 items)
   }
 ): Promise<{ success: boolean; postId?: string; url?: string; error?: string }> {
@@ -525,7 +512,7 @@ export async function postCarouselToInstagram(
     const mediaTypes = options.mediaUrls?.map(url => {
       const lowerUrl = url.toLowerCase();
       if (lowerUrl.match(/\.(mp4|webm|mov|avi|mkv|m4v|3gp)(\?|$)/i) ||
-          lowerUrl.includes('/video/') || lowerUrl.includes('/videos/')) {
+        lowerUrl.includes('/video/') || lowerUrl.includes('/videos/')) {
         return 'VIDEO';
       }
       return 'IMAGE';
@@ -547,7 +534,7 @@ export async function postCarouselToInstagram(
     }
 
     // Validate URLs are not blob/data URLs (Instagram requires public URLs)
-    const invalidUrls = options.mediaUrls.filter(url => 
+    const invalidUrls = options.mediaUrls.filter(url =>
       url.startsWith('blob:') || url.startsWith('data:')
     );
     if (invalidUrls.length > 0) {
@@ -557,31 +544,18 @@ export async function postCarouselToInstagram(
       };
     }
 
-    // Call the backend API which has access to credentials
-    const response = await fetch('/api/instagram/post', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        caption: options.caption || '',
-        carouselUrls: options.mediaUrls,
-      }),
+    // Use Python backend client for Instagram carousel posting
+    const { createPost } = await import('@/lib/python-backend/api/social/instagram');
+
+    const result = await createPost({
+      caption: options.caption || '',
+      carouselUrls: options.mediaUrls,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || data.details || 'Failed to post carousel to Instagram'
-      };
-    }
-
     return {
-      success: true,
-      postId: data.postId,
-      url: data.postUrl
+      success: result.success,
+      postId: result.postId,
+      url: result.postUrl
     };
   } catch (error) {
     return {
@@ -604,29 +578,16 @@ export async function uploadInstagramMedia(
     // Instagram requires publicly accessible URLs
     // If the URL is already a public URL (starts with http/https), use it directly
     // If it's a base64 data URL, we need to upload it to storage first
-    
+
     if (mediaUrl.startsWith('data:')) {
-      // Upload base64 to storage via API
-      const response = await fetch('/api/instagram/upload-media', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ mediaData: mediaUrl }),
-      });
+      // Upload base64 to storage via Python backend API
+      const { uploadMedia } = await import('@/lib/python-backend/api/social/instagram');
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          error: data.error || 'Failed to upload media'
-        };
-      }
+      const result = await uploadMedia({ mediaData: mediaUrl });
 
       return {
-        success: true,
-        imageUrl: data.imageUrl
+        success: result.success,
+        imageUrl: result.imageUrl
       };
     }
 

@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from ....services.platforms.tiktok_service import tiktok_service
 from ....services.supabase_service import verify_jwt, db_select, db_update
+from ....services.rate_limit_service import RateLimitService
 from ....config import settings
 
 logger = logging.getLogger(__name__)
@@ -180,6 +181,9 @@ async def post_to_tiktok(
         # Generate share URL
         username = credentials.get("username", "user")
         share_url = f"https://www.tiktok.com/@{username}"
+        
+        # Increment rate limit usage
+        await RateLimitService.increment_usage(workspace_id, "tiktok", 1)
         
         logger.info(f"Posted to TikTok - workspace: {workspace_id}, publish_id: {publish_id}")
         

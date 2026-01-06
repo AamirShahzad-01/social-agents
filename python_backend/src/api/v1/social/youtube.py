@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from ....services.platforms.youtube_service import youtube_service
 from ....services.supabase_service import verify_jwt, db_select, db_update
+from ....services.rate_limit_service import RateLimitService
 from ....config import settings
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class YouTubePostRequest(BaseModel):
     title: str = Field(..., max_length=100, description="Video title (max 100 chars)")
     description: str = Field(default="", max_length=5000, description="Video description (max 5,000 chars)")
     videoUrl: str = Field(..., description="Publicly accessible video URL")
+    thumbnailUrl: Optional[str] = Field(default=None, description="Custom thumbnail image URL (max 2MB, 1280x720 recommended)")
     tags: Optional[List[str]] = Field(default=None, description="Video tags")
     privacyStatus: Optional[str] = Field(default="private", description="public, private, or unlisted")
     categoryId: Optional[str] = Field(default="22", description="YouTube category ID")
@@ -159,7 +161,8 @@ async def post_to_youtube(
             request_body.videoUrl,
             request_body.tags,
             request_body.privacyStatus or "private",
-            request_body.categoryId or "22"
+            request_body.categoryId or "22",
+            request_body.thumbnailUrl  # Pass thumbnail URL
         )
         
         if not result.get("success"):
@@ -170,6 +173,9 @@ async def post_to_youtube(
         
         video_id = result["video_id"]
         video_url = f"https://www.youtube.com/watch?v={video_id}"
+        
+        # Increment rate limit usage
+        await RateLimitService.increment_usage(workspace_id, "youtube", 1)
         
         logger.info(f"Uploaded to YouTube - workspace: {workspace_id}, video_id: {video_id}")
         

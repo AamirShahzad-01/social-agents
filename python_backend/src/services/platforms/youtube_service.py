@@ -218,7 +218,8 @@ class YouTubeService:
         video_url: str,
         tags: Optional[List[str]] = None,
         privacy_status: str = "private",
-        category_id: str = "22"
+        category_id: str = "22",
+        thumbnail_url: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Download video from URL and upload to YouTube
@@ -231,6 +232,7 @@ class YouTubeService:
             tags: Optional tags
             privacy_status: Privacy status
             category_id: Category ID
+            thumbnail_url: Optional custom thumbnail URL
             
         Returns:
             Dict with video_id
@@ -242,7 +244,7 @@ class YouTubeService:
             video_buffer = response.content
             
             # Upload to YouTube
-            return await self.upload_video(
+            result = await self.upload_video(
                 access_token,
                 title,
                 description,
@@ -252,6 +254,87 @@ class YouTubeService:
                 category_id
             )
             
+            # Set custom thumbnail if provided and video upload succeeded
+            if result.get('success') and thumbnail_url:
+                video_id = result.get('video_id')
+                thumb_result = await self.set_thumbnail(access_token, video_id, thumbnail_url)
+                if not thumb_result.get('success'):
+                    # Log warning but don't fail the upload
+                    result['thumbnail_warning'] = thumb_result.get('error', 'Failed to set thumbnail')
+                else:
+                    result['thumbnail_set'] = True
+            
+            return result
+            
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    async def set_thumbnail(
+        self,
+        access_token: str,
+        video_id: str,
+        thumbnail_url: str
+    ) -> Dict[str, Any]:
+        """
+        Set custom thumbnail for a video
+        
+        YouTube requires the user to be verified to upload custom thumbnails.
+        Supported formats: JPEG, PNG, GIF, BMP
+        Max file size: 2MB
+        Recommended resolution: 1280x720 (16:9 aspect ratio)
+        
+        Args:
+            access_token: Access token
+            video_id: Video ID to set thumbnail for
+            thumbnail_url: URL of the thumbnail image
+            
+        Returns:
+            Dict with success status and thumbnail info
+        """
+        try:
+            # Download thumbnail image
+            response = await self.http_client.get(thumbnail_url)
+            response.raise_for_status()
+            thumbnail_data = response.content
+            
+            # Validate file size (max 2MB)
+            if len(thumbnail_data) > 2 * 1024 * 1024:
+                return {'success': False, 'error': 'Thumbnail exceeds 2MB limit'}
+            
+            # Detect content type from URL or default to JPEG
+            content_type = 'image/jpeg'
+            if '.png' in thumbnail_url.lower():
+                content_type = 'image/png'
+            elif '.gif' in thumbnail_url.lower():
+                content_type = 'image/gif'
+            
+            # Upload thumbnail using YouTube API
+            upload_response = await self.http_client.post(
+                f"{self.YOUTUBE_UPLOAD_BASE}/thumbnails/set",
+                params={'videoId': video_id},
+                content=thumbnail_data,
+                headers={
+                    'Authorization': f'Bearer {access_token}',
+                    'Content-Type': content_type
+                }
+            )
+            
+            upload_response.raise_for_status()
+            result = upload_response.json()
+            
+            return {
+                'success': True,
+                'thumbnails': result.get('items', [{}])[0].get('default', {})
+            }
+            
+        except httpx.HTTPStatusError as e:
+            # Handle common errors
+            if e.response.status_code == 403:
+                return {
+                    'success': False, 
+                    'error': 'Custom thumbnails require YouTube channel verification. Please verify your channel at youtube.com/verify'
+                }
+            return {'success': False, 'error': f'HTTP {e.response.status_code}: {str(e)}'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     

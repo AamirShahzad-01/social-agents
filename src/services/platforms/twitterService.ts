@@ -432,29 +432,18 @@ export async function postTweet(
   options: { text: string; mediaIds?: string[] }
 ): Promise<{ success: boolean; tweetId?: string; url?: string; error?: string }> {
   try {
-    // Call the backend API which handles credentials from database
-    const response = await fetch('/api/twitter/post', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: options.text,
-        mediaIds: options.mediaIds,
-      }),
+    // Use Python backend client for Twitter posting
+    const { createPost } = await import('@/lib/python-backend/api/social/twitter');
+
+    const result = await createPost({
+      text: options.text,
+      mediaIds: options.mediaIds,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || data.details || 'Failed to post tweet'
-      };
-    }
-
     return {
-      success: true,
-      tweetId: data.tweetId,
-      url: data.tweetUrl
+      success: result.success,
+      tweetId: result.tweetId,
+      url: result.tweetUrl
     };
   } catch (error) {
     return {
@@ -475,28 +464,17 @@ export async function uploadTwitterMedia(
   mediaType: 'image' | 'video' = 'image'
 ): Promise<{ success: boolean; mediaId?: string; error?: string }> {
   try {
-    // Call the backend API which handles credentials from database
-    const response = await fetch('/api/twitter/upload-media', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mediaUrl: mediaUrl,
-        mediaType: mediaType,
-      }),
+    // Use Python backend client for Twitter media upload
+    const { uploadMedia } = await import('@/lib/python-backend/api/social/twitter');
+
+    const result = await uploadMedia({
+      mediaUrl: mediaUrl,
+      mediaType: mediaType,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || data.details || 'Failed to upload media'
-      };
-    }
-
     return {
-      success: true,
-      mediaId: data.mediaId
+      success: result.success,
+      mediaId: result.mediaId
     };
   } catch (error) {
     return {

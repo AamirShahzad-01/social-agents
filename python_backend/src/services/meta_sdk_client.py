@@ -513,7 +513,7 @@ class MetaSDKClient:
         if media_type == 'REELS':
             params['share_to_feed'] = share_to_feed
         
-        result = ig_user.create_media(**params)
+        result = ig_user.create_media(params=params)
         return {'container_id': result.get('id'), 'id': result.get('id')}
     
     async def create_instagram_media_container(
@@ -566,7 +566,7 @@ class MetaSDKClient:
         if caption:
             params['caption'] = caption
         
-        result = ig_user.create_media(**params)
+        result = ig_user.create_media(params=params)
         return {'container_id': result.get('id'), 'id': result.get('id')}
     
     async def create_instagram_carousel_container(
@@ -601,7 +601,7 @@ class MetaSDKClient:
         self._ensure_initialized()
         
         ig_user = IGUser(fbid=ig_user_id)
-        result = ig_user.create_media_publish(creation_id=creation_id)
+        result = ig_user.create_media_publish(params={'creation_id': creation_id})
         return {'id': result.get('id'), 'media_id': result.get('id')}
     
     async def publish_instagram_media(

@@ -343,15 +343,15 @@ export class YouTubeService extends BasePlatformService {
  */
 export async function uploadToYouTube(
   credentials: any,
-  options: { title: string; description: string; videoUrl: string; privacyStatus: string; tags?: string[]; isShort?: boolean }
-): Promise<{ success: boolean; videoId?: string; url?: string; error?: string }> {
+  options: { title: string; description: string; videoUrl: string; privacyStatus: string; tags?: string[]; isShort?: boolean; thumbnailUrl?: string }
+): Promise<{ success: boolean; videoId?: string; url?: string; error?: string; thumbnailWarning?: string }> {
   try {
     // For YouTube Shorts, add #Shorts hashtag to title and description
     // YouTube recognizes Shorts by: vertical video (9:16), under 60 seconds, and #Shorts in title/description
     let title = options.title;
     let description = options.description;
     let tags = options.tags || [];
-    
+
     if (options.isShort) {
       // Add #Shorts to title if not already present (keep within 100 char limit)
       if (!title.includes('#Shorts') && !title.includes('#shorts')) {
@@ -363,46 +363,34 @@ export async function uploadToYouTube(
           title = title.substring(0, 100 - shortsTag.length) + shortsTag;
         }
       }
-      
+
       // Add #Shorts to description if not already present
       if (!description.includes('#Shorts') && !description.includes('#shorts')) {
         description = description + '\n\n#Shorts';
       }
-      
+
       // Add 'Shorts' to tags if not present
       if (!tags.some(tag => tag.toLowerCase() === 'shorts')) {
         tags = ['Shorts', ...tags];
       }
     }
-    
-    // Call the backend API which handles credentials from database
-    // Pass video URL - backend will fetch and upload to YouTube directly
-    // This avoids 413 payload too large errors from base64 encoding
-    const response = await fetch('/api/youtube/post', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: title,
-        description: description,
-        videoUrl: options.videoUrl, // Pass URL instead of base64 buffer
-        privacyStatus: options.privacyStatus,
-        tags: tags,
-      }),
+
+    // Use Python backend client for YouTube posting
+    const { createPost } = await import('@/lib/python-backend/api/social/youtube');
+
+    const result = await createPost({
+      title: title,
+      description: description,
+      videoUrl: options.videoUrl,
+      privacyStatus: options.privacyStatus as 'public' | 'private' | 'unlisted',
+      tags: tags,
+      thumbnailUrl: options.thumbnailUrl,  // Pass thumbnail URL to backend
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || data.details || 'Failed to upload to YouTube'
-      };
-    }
-
     return {
-      success: true,
-      videoId: data.data?.videoId,
-      url: data.data?.videoUrl
+      success: result.success,
+      videoId: result.data?.videoId,
+      url: result.data?.videoUrl
     };
   } catch (error) {
     return {

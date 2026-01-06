@@ -338,24 +338,15 @@ export async function uploadTikTokVideo(
       };
     }
 
-    // Upload to storage via backend
-    const response = await fetch('/api/tiktok/upload-media', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ videoData })
-    });
+    // Use Python backend client for TikTok media upload
+    const { uploadMedia } = await import('@/lib/python-backend/api/social/tiktok');
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.details || error.error || 'Failed to upload video');
-    }
-
-    const data = await response.json();
+    const result = await uploadMedia({ videoData });
 
     return {
-      success: true,
-      videoUrl: data.videoUrl,
-      videoSize: data.videoSize || 0
+      success: result.success,
+      videoUrl: result.videoUrl,
+      videoSize: result.videoSize || 0
     };
   } catch (error) {
     return {
@@ -376,26 +367,18 @@ export async function getTikTokAccountInfo(
       return { success: false, error: 'TikTok account not connected' };
     }
 
-    // Call backend to get account info
-    const response = await fetch('/api/tiktok/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
+    // Use Python backend client for TikTok verification
+    const { verifyCredentials } = await import('@/lib/python-backend/api/social/tiktok');
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to fetch account info');
-    }
-
-    const data = await response.json();
+    const result = await verifyCredentials();
 
     return {
-      success: true,
+      success: result.success,
       accountInfo: {
-        username: data.username,
-        displayName: data.displayName,
-        avatarUrl: data.avatarUrl,
-        connectedAt: data.connectedAt
+        username: result.username,
+        displayName: result.displayName,
+        avatarUrl: result.avatarUrl,
+        connectedAt: result.connectedAt
       }
     };
   } catch (error) {
@@ -416,30 +399,19 @@ export async function postToTikTok(
   options: { caption: string; videoUrl: string; videoSize: number }
 ): Promise<{ success: boolean; videoId?: string; url?: string; error?: string }> {
   try {
-    // Call the backend API which handles credentials from database
-    const response = await fetch('/api/tiktok/post', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        caption: options.caption,
-        videoUrl: options.videoUrl,
-        videoSize: options.videoSize,
-      }),
+    // Use Python backend client for TikTok posting
+    const { createPost } = await import('@/lib/python-backend/api/social/tiktok');
+
+    const result = await createPost({
+      caption: options.caption,
+      videoUrl: options.videoUrl,
+      videoSize: options.videoSize,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || data.details || 'Failed to post to TikTok'
-      };
-    }
-
     return {
-      success: true,
-      videoId: data.data?.videoId,
-      url: data.data?.shareUrl
+      success: result.success,
+      videoId: result.data?.videoId,
+      url: result.data?.shareUrl
     };
   } catch (error) {
     return {

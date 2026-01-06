@@ -515,7 +515,8 @@ class SocialMediaService:
         ig_user_id: str,
         access_token: str,
         video_url: str,
-        caption: str
+        caption: str,
+        share_to_feed: bool = True
     ) -> Dict[str, Any]:
         """
         Create Instagram Reels container using SDK
@@ -526,7 +527,8 @@ class SocialMediaService:
                 ig_user_id=ig_user_id,
                 video_url=video_url,
                 caption=caption,
-                media_type='REELS'
+                media_type='REELS',
+                share_to_feed=share_to_feed
             )
             
             return {

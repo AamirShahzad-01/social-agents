@@ -41,7 +41,9 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
     const [publishSuccess, setPublishSuccess] = useState(false);
 
     const handlePublish = async () => {
-        if (!onPublishPost) return;
+        // Guard against double-click
+        if (!onPublishPost || isPublishing) return;
+
         setIsPublishing(true);
         setPublishError(null);
         setPublishSuccess(false);

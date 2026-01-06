@@ -160,29 +160,54 @@ class RateLimitService:
             platform_lower = platform.lower()
             limit = get_daily_post_limit(platform_lower)
             
-            # Check if record exists
-            result = client.table("rate_limit_usage").select("id, posts_count").eq(
-                "workspace_id", workspace_id
-            ).eq("platform", platform_lower).eq("date", today).maybe_single().execute()
+            # Check if record exists - handle None result from maybe_single()
+            try:
+                result = client.table("rate_limit_usage").select("id, posts_count").eq(
+                    "workspace_id", workspace_id
+                ).eq("platform", platform_lower).eq("date", today).maybe_single().execute()
+            except Exception as query_err:
+                # Table might not exist - log and return success (non-critical)
+                logger.warning(f"Rate limit table query failed (table may not exist): {query_err}")
+                return True
             
-            if result.data:
-                # Update existing
+            # maybe_single() can return None when no rows match or on error
+            if result is None:
+                # No result object - try to insert new record
+                try:
+                    client.table("rate_limit_usage").insert({
+                        "workspace_id": workspace_id,
+                        "platform": platform_lower,
+                        "date": today,
+                        "posts_count": count,
+                        "daily_limit": limit,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }).execute()
+                except Exception as insert_err:
+                    logger.warning(f"Rate limit insert failed (non-critical): {insert_err}")
+                    return True
+            elif result.data:
+                # Update existing record
                 new_count = result.data["posts_count"] + count
                 client.table("rate_limit_usage").update({
                     "posts_count": new_count,
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }).eq("id", result.data["id"]).execute()
             else:
-                # Insert new
-                client.table("rate_limit_usage").insert({
-                    "workspace_id": workspace_id,
-                    "platform": platform_lower,
-                    "date": today,
-                    "posts_count": count,
-                    "daily_limit": limit,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "updated_at": datetime.now(timezone.utc).isoformat()
-                }).execute()
+                # Result exists but data is None/empty - insert new record
+                try:
+                    client.table("rate_limit_usage").insert({
+                        "workspace_id": workspace_id,
+                        "platform": platform_lower,
+                        "date": today,
+                        "posts_count": count,
+                        "daily_limit": limit,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }).execute()
+                except Exception as insert_err:
+                    logger.warning(f"Rate limit insert failed (non-critical): {insert_err}")
+                    return True
             
             logger.info(f"Usage incremented: {workspace_id}/{platform_lower} +{count}")
             return True
@@ -206,11 +231,17 @@ class RateLimitService:
             client = get_supabase_admin_client()
             today = date.today().isoformat()
             
-            result = client.table("rate_limit_usage").select("posts_count").eq(
-                "workspace_id", workspace_id
-            ).eq("platform", platform.lower()).eq("date", today).maybe_single().execute()
+            try:
+                result = client.table("rate_limit_usage").select("posts_count").eq(
+                    "workspace_id", workspace_id
+                ).eq("platform", platform.lower()).eq("date", today).maybe_single().execute()
+            except Exception as query_err:
+                # Table might not exist - return 0 (non-critical)
+                logger.warning(f"Rate limit table query failed (table may not exist): {query_err}")
+                return 0
             
-            if result.data:
+            # Handle None result from maybe_single()
+            if result is not None and result.data:
                 return result.data.get("posts_count", 0)
             return 0
             

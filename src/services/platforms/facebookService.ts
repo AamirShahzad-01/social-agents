@@ -419,31 +419,20 @@ export async function postToFacebook(
   options: { message: string; imageUrl?: string; mediaType?: string; postType?: string }
 ): Promise<{ success: boolean; postId?: string; url?: string; error?: string }> {
   try {
-    // Call the backend API which handles actual posting with credentials from database
-    const response = await fetch('/api/facebook/post', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: options.message,
-        imageUrl: options.imageUrl,
-        mediaType: options.mediaType,
-        postType: options.postType, // 'post', 'reel', 'story'
-      }),
+    // Use Python backend client for Facebook posting
+    const { createPost } = await import('@/lib/python-backend/api/social/facebook');
+
+    const result = await createPost({
+      message: options.message,
+      imageUrl: options.imageUrl,
+      mediaType: options.mediaType,
+      postType: options.postType,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || 'Failed to post to Facebook'
-      };
-    }
-
     return {
-      success: true,
-      postId: data.postId,
-      url: data.postUrl
+      success: result.success,
+      postId: result.postId,
+      url: result.postUrl
     };
   } catch (error) {
     return {
@@ -462,29 +451,18 @@ export async function postCarouselToFacebook(
   options: { message: string; imageUrls: string[] }
 ): Promise<{ success: boolean; postId?: string; url?: string; error?: string }> {
   try {
-    // Call the backend API which handles actual posting with credentials from database
-    const response = await fetch('/api/facebook/carousel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: options.message,
-        imageUrls: options.imageUrls,
-      }),
+    // Use Python backend client for Facebook carousel posting
+    const { createCarousel } = await import('@/lib/python-backend/api/social/facebook');
+
+    const result = await createCarousel({
+      message: options.message,
+      imageUrls: options.imageUrls,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || 'Failed to post carousel to Facebook'
-      };
-    }
-
     return {
-      success: true,
-      postId: data.postId,
-      url: data.postUrl
+      success: result.success,
+      postId: result.postId,
+      url: result.postUrl
     };
   } catch (error) {
     return {

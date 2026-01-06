@@ -515,10 +515,13 @@ async def publish_to_platform(
                 title = text_content[:100] if text_content else post.get("topic", "")[:100]
                 description = text_content or post.get("topic", "")
                 
-                # Use upload_video_from_url with correct parameters
+                # Extract thumbnail URL if available
+                thumbnail_url = content.get("thumbnailUrl") or content.get("coverImage")
+                
+                # Use upload_video_from_url with correct parameters including thumbnail
                 result = await youtube_service.upload_video_from_url(
                     access_token, title, description, generated_video_url,
-                    None, "public", "22"
+                    None, "public", "22", thumbnail_url
                 )
                 
                 if result.get("success"):

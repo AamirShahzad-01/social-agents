@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from ....services.platforms.twitter_service import twitter_service
 from ....services.supabase_service import verify_jwt, db_select
 from ....services.storage_service import storage_service
+from ....services.rate_limit_service import RateLimitService
 from ....config import settings
 
 logger = logging.getLogger(__name__)
@@ -239,6 +240,9 @@ async def post_to_twitter(
         username = credentials.get("username", "user")
         tweet_id = result["tweet_id"]
         tweet_url = f"https://x.com/{username}/status/{tweet_id}"
+        
+        # Increment rate limit usage
+        await RateLimitService.increment_usage(workspace_id, "twitter", 1)
         
         logger.info(f"Posted to X - workspace: {workspace_id}")
         

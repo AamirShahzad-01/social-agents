@@ -142,8 +142,8 @@ export class LinkedInService extends BasePlatformService {
       }
 
       // Use the author URN from credentials (should be urn:li:person:xxx format)
-      const authorUrn = credentials.userId?.startsWith('urn:li:') 
-        ? credentials.userId 
+      const authorUrn = credentials.userId?.startsWith('urn:li:')
+        ? credentials.userId
         : `urn:li:person:${credentials.userId}`
 
       // New Posts API request body
@@ -243,8 +243,8 @@ export class LinkedInService extends BasePlatformService {
     scheduledTime: Date
   ): Promise<PlatformPostResponse> {
     try {
-      const authorUrn = credentials.userId?.startsWith('urn:li:') 
-        ? credentials.userId 
+      const authorUrn = credentials.userId?.startsWith('urn:li:')
+        ? credentials.userId
         : `urn:li:person:${credentials.userId}`
 
       const body: any = {
@@ -386,31 +386,20 @@ export async function postToLinkedIn(
   options: { text: string; visibility: string; mediaUrn?: string; postToPage?: boolean }
 ): Promise<{ success: boolean; postId?: string; url?: string; error?: string }> {
   try {
-    // Call the backend API which handles credentials from database
-    const response = await fetch('/api/linkedin/post', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: options.text,
-        visibility: options.visibility,
-        mediaUrn: options.mediaUrn,
-        postToPage: options.postToPage, // Pass LinkedIn target preference
-      }),
+    // Use Python backend client for LinkedIn posting
+    const { createPost } = await import('@/lib/python-backend/api/social/linkedin');
+
+    const result = await createPost({
+      text: options.text,
+      visibility: options.visibility as 'PUBLIC' | 'CONNECTIONS',
+      mediaUrn: options.mediaUrn,
+      postToPage: options.postToPage,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || data.details || 'Failed to post to LinkedIn'
-      };
-    }
-
     return {
-      success: true,
-      postId: data.postId,
-      url: data.postUrl
+      success: result.success,
+      postId: result.postId,
+      url: result.postUrl
     };
   } catch (error) {
     return {
@@ -433,31 +422,20 @@ export async function postCarouselToLinkedIn(
   options: { text: string; imageUrls: string[]; visibility?: string; postToPage?: boolean }
 ): Promise<{ success: boolean; postId?: string; url?: string; error?: string }> {
   try {
-    // Call the backend API which handles credentials from database
-    const response = await fetch('/api/linkedin/carousel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: options.text,
-        imageUrls: options.imageUrls,
-        visibility: options.visibility || 'PUBLIC',
-        postToPage: options.postToPage, // Pass LinkedIn target preference
-      }),
+    // Use Python backend client for LinkedIn carousel posting
+    const { createCarousel } = await import('@/lib/python-backend/api/social/linkedin');
+
+    const result = await createCarousel({
+      text: options.text,
+      imageUrls: options.imageUrls,
+      visibility: (options.visibility || 'PUBLIC') as 'PUBLIC' | 'CONNECTIONS',
+      postToPage: options.postToPage,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || data.details || 'Failed to post carousel to LinkedIn'
-      };
-    }
-
     return {
-      success: true,
-      postId: data.postId,
-      url: data.postUrl
+      success: result.success,
+      postId: result.postId,
+      url: result.postUrl
     };
   } catch (error) {
     return {
@@ -478,28 +456,17 @@ export async function uploadLinkedInMedia(
   mediaType?: string
 ): Promise<{ success: boolean; mediaUrn?: string; error?: string }> {
   try {
-    // Call the backend API which handles credentials from database
-    const response = await fetch('/api/linkedin/upload-media', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mediaUrl: mediaUrl,
-        mediaType: mediaType || 'image',
-      }),
+    // Use Python backend client for LinkedIn media upload
+    const { uploadMedia } = await import('@/lib/python-backend/api/social/linkedin');
+
+    const result = await uploadMedia({
+      mediaUrl: mediaUrl,
+      mediaType: (mediaType || 'image') as 'image' | 'video',
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || data.details || 'Failed to upload media'
-      };
-    }
-
     return {
-      success: true,
-      mediaUrn: data.mediaUrn
+      success: result.success,
+      mediaUrn: result.assetUrn
     };
   } catch (error) {
     return {
