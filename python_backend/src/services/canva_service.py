@@ -10,7 +10,7 @@ import secrets
 import json
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, List, Literal
+from typing import Optional, Dict, Any, List, Literal, Union
 from functools import wraps
 
 import httpx
@@ -84,8 +84,8 @@ class CanvaDesign(BaseModel):
     id: str
     title: str
     thumbnail_url: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Optional[Union[str, int]] = None
+    updated_at: Optional[Union[str, int]] = None
     urls: Optional[Dict[str, str]] = None
     design_type: Optional[str] = None
 
