@@ -669,6 +669,77 @@ class MetaSDKClient:
         ])
         return [self._serialize_sdk_object(dict(a)) for a in audiences]
     
+    async def create_lookalike_audience(
+        self,
+        account_id: str,
+        name: str,
+        source_audience_id: str,
+        target_countries: List[str],
+        ratio: float = 0.01
+    ) -> Dict[str, Any]:
+        """Create a lookalike audience"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(
+            self._create_lookalike_audience_sync,
+            account_id,
+            name,
+            source_audience_id,
+            target_countries,
+            ratio
+        )
+    
+    def _create_lookalike_audience_sync(
+        self,
+        account_id: str,
+        name: str,
+        source_audience_id: str,
+        target_countries: List[str],
+        ratio: float
+    ) -> Dict[str, Any]:
+        try:
+            account = AdAccount(f'act_{account_id}')
+            
+            # Construct spec per v25.0+
+            lookalike_spec = {
+                'type': 'similarity',
+                'ratio': ratio,
+                'allow_international_seeds': True
+            }
+            
+            # Handle country targeting
+            if len(target_countries) == 1:
+                lookalike_spec['country'] = target_countries[0]
+            elif len(target_countries) > 1:
+                lookalike_spec['location_spec'] = {
+                    'geo_locations': {
+                        'countries': target_countries
+                    }
+                }
+            else:
+                 lookalike_spec['country'] = 'US'
+            
+            params = {
+                'name': name,
+                'subtype': 'LOOKALIKE',
+                'origin_audience_id': source_audience_id,
+                'lookalike_spec': lookalike_spec
+            }
+            
+            audience = account.create_custom_audience(params=params)
+            
+            return {
+                'success': True,
+                'audience_id': audience['id'],
+                'audience': self._serialize_sdk_object(dict(audience))
+            }
+            
+        except FacebookRequestError as e:
+            logger.error(f"Meta API error creating lookalike audience: {e}")
+            return {'success': False, 'error': e.api_error_message()}
+        except Exception as e:
+            logger.error(f"Error creating lookalike audience: {e}")
+            return {'success': False, 'error': str(e)}
+    
     # =========================================================================
     # AD ACCOUNT INFO
     # =========================================================================

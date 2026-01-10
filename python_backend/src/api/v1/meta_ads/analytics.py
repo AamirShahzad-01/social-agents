@@ -35,11 +35,11 @@ async def get_analytics(
         client = create_meta_sdk_client(credentials["access_token"])
         
         insights = await client.get_account_insights(
-            ad_account_id=credentials["account_id"],
+            account_id=credentials["account_id"],
             date_preset=date_preset
         )
         
-        return JSONResponse(content={"insights": insights or []})
+        return JSONResponse(content={"insights": insights.get("data", []) if insights else []})
         
     except HTTPException:
         raise
@@ -70,12 +70,12 @@ async def get_analytics_breakdown(
         breakdown_list = [b.strip() for b in breakdown.split(",") if b.strip()]
         
         insights = await client.get_account_insights(
-            ad_account_id=credentials["account_id"],
+            account_id=credentials["account_id"],
             date_preset=date_preset,
             breakdowns=breakdown_list
         )
         
-        return JSONResponse(content={"breakdowns": insights or []})
+        return JSONResponse(content={"breakdowns": insights.get("data", []) if insights else []})
         
     except HTTPException:
         raise
@@ -189,7 +189,7 @@ async def get_account_insights(
             time_range = {"since": time_range_since, "until": time_range_until}
         
         insights = await client.get_account_insights(
-            ad_account_id=credentials["account_id"],
+            account_id=credentials["account_id"],
             date_preset=date_preset,
             level=level,
             breakdowns=breakdown_list,
@@ -197,7 +197,7 @@ async def get_account_insights(
             time_range=time_range
         )
         
-        return JSONResponse(content={"success": True, "data": insights})
+        return JSONResponse(content={"success": True, "data": insights.get("data", []) if insights else []})
         
     except HTTPException:
         raise

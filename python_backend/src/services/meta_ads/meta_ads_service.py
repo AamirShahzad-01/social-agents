@@ -805,7 +805,7 @@ class MetaAdsService:
             ]
             
             result = await client.get_account_insights(
-                ad_account_id=account_id,
+                account_id=account_id,
                 date_preset=date_preset,
                 fields=fields or default_fields
             )
@@ -865,8 +865,8 @@ class MetaAdsService:
         """
         try:
             client = self._get_sdk_client(access_token)
-            breakdowns = await client.get_account_insights_breakdown(
-                ad_account_id=account_id,
+            breakdowns = await client.get_insights_breakdown(
+                account_id=account_id,
                 breakdown=breakdown,
                 date_preset=date_preset,
                 level=level
