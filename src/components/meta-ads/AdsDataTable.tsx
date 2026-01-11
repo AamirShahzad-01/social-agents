@@ -62,7 +62,7 @@ interface AdsDataTableProps {
   currency?: string;
 }
 
-// Meta Marketing API v25.0+ - Table Columns
+// Meta Marketing API v24.0 2026 - Table Columns
 const DEFAULT_COLUMNS: TableColumn[] = [
   { id: 'name', label: 'Name', accessor: 'name', type: 'text', sortable: true, frozen: true, minWidth: 250 },
   { id: 'delivery', label: 'Delivery', accessor: 'delivery_status', type: 'status', sortable: true, width: 130 },

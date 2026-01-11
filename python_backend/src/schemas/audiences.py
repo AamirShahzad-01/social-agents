@@ -65,7 +65,7 @@ class WebsiteEventType(str, Enum):
 
 
 # =============================================================================
-# ENGAGEMENT AUDIENCES - per Meta v25.0+ docs
+# ENGAGEMENT AUDIENCES - per Meta v24.0 2026 docs
 # =============================================================================
 
 class EngagementSourceType(str, Enum):
@@ -116,7 +116,7 @@ class CustomerFileSource(str, Enum):
 
 
 class CreateCustomAudienceRequest(BaseModel):
-    """Request to create a custom audience - per Meta v25.0+ docs"""
+    """Request to create a custom audience - per Meta v24.0 2026 docs"""
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     subtype: AudienceSubtype
@@ -196,7 +196,7 @@ class AudienceResponse(BaseModel):
 
 
 class AudienceListItem(BaseModel):
-    """Audience in list view - per Meta v25.0+ docs"""
+    """Audience in list view - per Meta v24.0 2026 docs"""
     id: str
     name: str
     subtype: AudienceSubtype
@@ -254,12 +254,12 @@ RECOMMENDED_SOURCE_SIZE = 1000
 
 
 # =============================================================================
-# CUSTOMER DATA UPLOAD - per Meta v25.0+ docs
+# CUSTOMER DATA UPLOAD - per Meta v24.0 2026 docs
 # =============================================================================
 
 class CustomerDataField(str, Enum):
     """
-    Customer data field types for upload - per Meta v25.0+ docs
+    Customer data field types for upload - per Meta v24.0 2026 docs
     All fields (except EXTERN_ID) are normalized and SHA256 hashed before sending
     """
     EMAIL = "EMAIL"  # Lowercase, trimmed
@@ -281,7 +281,7 @@ class CustomerDataField(str, Enum):
 
 class UploadUsersRequest(BaseModel):
     """
-    Request to upload customer data to a Custom Audience - per Meta v25.0+ docs
+    Request to upload customer data to a Custom Audience - per Meta v24.0 2026 docs
     
     Data is automatically normalized and SHA256 hashed by the backend
     before being sent to Meta's API.
@@ -311,7 +311,7 @@ class UploadUsersRequest(BaseModel):
 
 
 class UploadUsersResponse(BaseModel):
-    """Response from customer data upload - per Meta v25.0+ docs"""
+    """Response from customer data upload - per Meta v24.0 2026 docs"""
     success: bool
     audience_id: str
     num_received: int = Field(

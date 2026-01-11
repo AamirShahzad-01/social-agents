@@ -1,6 +1,6 @@
 """
 Compliance Center Schemas
-Meta Marketing API v25.0+ Special Ad Categories & Restrictions
+Meta Marketing API v24.0 2026 Special Ad Categories & Restrictions
 """
 from enum import Enum
 from typing import Optional, List, Dict, Any
@@ -10,7 +10,7 @@ from datetime import datetime
 
 class SpecialAdCategory(str, Enum):
     """
-    Special Ad Categories requiring additional restrictions (v25.0+).
+    Special Ad Categories requiring additional restrictions (v24.0 2026).
     """
     HOUSING = "HOUSING"
     EMPLOYMENT = "EMPLOYMENT"

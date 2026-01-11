@@ -63,7 +63,7 @@ async def get_auth_url(request: Request):
         ])
         
         auth_url = (
-            f"https://www.facebook.com/v25.0/dialog/oauth?"
+            f"https://www.facebook.com/v24.0/dialog/oauth?"
             f"client_id={app_id}"
             f"&redirect_uri={redirect_uri}"
             f"&scope={scopes}"

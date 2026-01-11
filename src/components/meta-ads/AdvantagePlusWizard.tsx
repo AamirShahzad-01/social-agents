@@ -32,7 +32,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { BID_STRATEGIES, COUNTRIES } from '@/types/metaAds';
 
-// Advantage+ Campaign Objectives with emojis for wizard UI
+// Advantage+ Campaign Objectives (v24.0 2026) - All 6 OUTCOME objectives supported
 const ADVANTAGE_OBJECTIVES = [
     {
         value: 'OUTCOME_SALES',
@@ -40,6 +40,7 @@ const ADVANTAGE_OBJECTIVES = [
         icon: '🛒',
         description: 'Drive purchases on your website or app',
         advantageLabel: 'Advantage+ Sales Campaign',
+        supportsAdvantage: true,
     },
     {
         value: 'OUTCOME_APP_PROMOTION',
@@ -47,6 +48,7 @@ const ADVANTAGE_OBJECTIVES = [
         icon: '📱',
         description: 'Get more app installs and in-app actions',
         advantageLabel: 'Advantage+ App Campaign',
+        supportsAdvantage: true,
     },
     {
         value: 'OUTCOME_LEADS',
@@ -54,6 +56,31 @@ const ADVANTAGE_OBJECTIVES = [
         icon: '📋',
         description: 'Collect leads via forms or messaging',
         advantageLabel: 'Advantage+ Leads Campaign',
+        supportsAdvantage: true,
+    },
+    {
+        value: 'OUTCOME_TRAFFIC',
+        label: 'Traffic',
+        icon: '🌐',
+        description: 'Send people to a destination like a website or app',
+        advantageLabel: 'Traffic Campaign',
+        supportsAdvantage: false,
+    },
+    {
+        value: 'OUTCOME_ENGAGEMENT',
+        label: 'Engagement',
+        icon: '❤️',
+        description: 'Get more messages, video views, post engagement, or Page likes',
+        advantageLabel: 'Engagement Campaign',
+        supportsAdvantage: false,
+    },
+    {
+        value: 'OUTCOME_AWARENESS',
+        label: 'Awareness',
+        icon: '👁️',
+        description: 'Show ads to people most likely to remember them',
+        advantageLabel: 'Awareness Campaign',
+        supportsAdvantage: false,
     },
 ];
 
@@ -72,7 +99,10 @@ interface WizardFormData {
     bidAmount: number | null;
     roasFloor: number | null;
     countries: string[];
-    // pixelId and customEventType removed - set at Ad Set level
+    startTime: string | null;  // ISO datetime string for v24.0 2026
+    endTime: string | null;    // ISO datetime string for v24.0 2026 (required for lifetime budget)
+    pixelId: string | null;    // For conversion tracking (promoted_object)
+    customEventType: string | null;  // For conversion tracking
     status: 'ACTIVE' | 'PAUSED';
 }
 
@@ -104,12 +134,16 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
         bidAmount: null,
         roasFloor: null,
         countries: ['US'],
+        startTime: null,
+        endTime: null,
+        pixelId: null,
+        customEventType: null,
         status: 'PAUSED',
     });
 
     const totalSteps = 4;
 
-    // Validate advantage eligibility when config changes (v25.0+ API)
+    // Validate advantage eligibility when config changes (v24.0 2026 API)
     useEffect(() => {
         const validateConfig = async () => {
             try {
@@ -154,7 +188,15 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
         setError(null);
 
         try {
-            const payload = {
+            // Build promoted_object for conversion tracking (v24.0 2026)
+            const promotedObject = formData.pixelId && formData.customEventType
+                ? {
+                    pixel_id: formData.pixelId,
+                    custom_event_type: formData.customEventType,
+                }
+                : null;
+
+            const payload: any = {
                 name: formData.name,
                 objective: formData.objective,
                 status: formData.status,
@@ -170,6 +212,19 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
                 },
                 special_ad_categories: [],
             };
+
+            // Add start_time and end_time for scheduling (v24.0 2026)
+            if (formData.startTime) {
+                payload.start_time = formData.startTime;
+            }
+            if (formData.endTime) {
+                payload.end_time = formData.endTime;
+            }
+
+            // Add promoted_object for conversion tracking (v24.0 2026)
+            if (promotedObject) {
+                payload.promoted_object = promotedObject;
+            }
 
             const response = await fetch('/api/v1/meta-ads/campaigns/advantage-plus', {
                 method: 'POST',
@@ -196,7 +251,10 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
             case 1:
                 return formData.name.length > 0 && formData.objective;
             case 2:
-                return formData.dailyBudget > 0 || (formData.lifetimeBudget && formData.lifetimeBudget > 0);
+                // Validate budget and end_time requirement for lifetime budget (v24.0 2026)
+                const hasValidBudget = formData.dailyBudget > 0 || (formData.lifetimeBudget && formData.lifetimeBudget > 0);
+                const hasValidLifetimeBudget = formData.budgetType === 'daily' || (formData.budgetType === 'lifetime' && formData.lifetimeBudget && formData.endTime);
+                return hasValidBudget && hasValidLifetimeBudget;
             case 3:
                 return formData.countries.length > 0;
             case 4:
@@ -431,9 +489,11 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
                                     </div>
                                 </div>
 
-                                {formData.bidStrategy === 'COST_CAP' && (
+                                {(formData.bidStrategy === 'COST_CAP' || formData.bidStrategy === 'LOWEST_COST_WITH_BID_CAP') && (
                                     <div>
-                                        <Label htmlFor="bidAmount">Cost Cap Amount</Label>
+                                        <Label htmlFor="bidAmount">
+                                            {formData.bidStrategy === 'COST_CAP' ? 'Cost Cap Amount' : 'Bid Cap Amount'}
+                                        </Label>
                                         <div className="relative mt-1">
                                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                                             <Input
@@ -443,8 +503,12 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
                                                 onChange={(e) => setFormData({ ...formData, bidAmount: parseFloat(e.target.value) || null })}
                                                 className="pl-8"
                                                 placeholder="10.00"
+                                                required
                                             />
                                         </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {formData.bidStrategy === 'COST_CAP' ? 'Target average cost per result' : 'Maximum bid across all auctions'}
+                                        </p>
                                     </div>
                                 )}
 
@@ -465,6 +529,79 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
                                         </p>
                                     </div>
                                 )}
+
+                                {/* Scheduling (v24.0 2026) - Optional for daily budget, required for lifetime budget */}
+                                <div className="pt-4 border-t">
+                                    <Label className="text-base font-semibold">Campaign Schedule (Optional)</Label>
+                                    <p className="text-xs text-muted-foreground mb-3">
+                                        Set when your campaign should start and end. End date is required for lifetime budgets.
+                                    </p>
+                                    
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label htmlFor="startTime">Start Date & Time</Label>
+                                            <Input
+                                                id="startTime"
+                                                type="datetime-local"
+                                                value={formData.startTime || ''}
+                                                onChange={(e) => setFormData({ ...formData, startTime: e.target.value || null })}
+                                                className="mt-1"
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="endTime">
+                                                End Date & Time
+                                                {formData.budgetType === 'lifetime' && (
+                                                    <span className="text-red-500 ml-1">*</span>
+                                                )}
+                                            </Label>
+                                            <Input
+                                                id="endTime"
+                                                type="datetime-local"
+                                                value={formData.endTime || ''}
+                                                onChange={(e) => setFormData({ ...formData, endTime: e.target.value || null })}
+                                                className="mt-1"
+                                                required={formData.budgetType === 'lifetime'}
+                                            />
+                                            {formData.budgetType === 'lifetime' && !formData.endTime && (
+                                                <p className="text-xs text-red-500 mt-1">Required for lifetime budget campaigns</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Conversion Tracking (v24.0 2026) - Optional */}
+                                <div className="pt-4 border-t">
+                                    <Label className="text-base font-semibold">Conversion Tracking (Optional)</Label>
+                                    <p className="text-xs text-muted-foreground mb-3">
+                                        Track conversions with Meta Pixel and custom events. Recommended for OUTCOME_SALES campaigns.
+                                    </p>
+                                    
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label htmlFor="pixelId">Meta Pixel ID</Label>
+                                            <Input
+                                                id="pixelId"
+                                                type="text"
+                                                value={formData.pixelId || ''}
+                                                onChange={(e) => setFormData({ ...formData, pixelId: e.target.value || null })}
+                                                className="mt-1"
+                                                placeholder="123456789"
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="customEventType">Custom Event Type</Label>
+                                            <Input
+                                                id="customEventType"
+                                                type="text"
+                                                value={formData.customEventType || ''}
+                                                onChange={(e) => setFormData({ ...formData, customEventType: e.target.value || null })}
+                                                className="mt-1"
+                                                placeholder="PURCHASE, ADD_TO_CART, etc."
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -532,6 +669,55 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
                                 Review & Create
                             </h3>
 
+                            {/* Advantage+ Three Automation Levers Visualization (v24.0 2026) */}
+                            {selectedObjective?.supportsAdvantage && (
+                                <Card className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-900">
+                                    <CardHeader>
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                            <Sparkles className="w-5 h-5 text-amber-600" />
+                                            Advantage+ Automation Levers (v24.0 2026)
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Three automation levers will be enabled for optimal performance
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3">
+                                        {/* Lever 1: Campaign Budget */}
+                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-white/50 dark:bg-black/20">
+                                            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                            <div className="flex-1">
+                                                <p className="font-medium text-sm">Lever 1: Advantage+ Campaign Budget</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Budget set at campaign level - Meta optimizes distribution across ad sets
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Lever 2: Advantage+ Audience */}
+                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-white/50 dark:bg-black/20">
+                                            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                            <div className="flex-1">
+                                                <p className="font-medium text-sm">Lever 2: Advantage+ Audience</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Meta's AI finds the best audience within your selected countries: {formData.countries.join(', ')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Lever 3: Advantage+ Placements */}
+                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-white/50 dark:bg-black/20">
+                                            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                            <div className="flex-1">
+                                                <p className="font-medium text-sm">Lever 3: Advantage+ Placements</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    No placement exclusions - Meta optimizes across all available placements
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <Card className="bg-muted/30">
@@ -561,6 +747,38 @@ export default function AdvantagePlusWizard({ onClose, onSuccess }: AdvantagePlu
                                             <p className="font-medium">{formData.countries.join(', ')}</p>
                                         </CardContent>
                                     </Card>
+                                    {formData.startTime && (
+                                        <Card className="bg-muted/30">
+                                            <CardContent className="p-4">
+                                                <p className="text-sm text-muted-foreground">Start Time</p>
+                                                <p className="font-medium">{new Date(formData.startTime).toLocaleString()}</p>
+                                            </CardContent>
+                                        </Card>
+                                    )}
+                                    {formData.endTime && (
+                                        <Card className="bg-muted/30">
+                                            <CardContent className="p-4">
+                                                <p className="text-sm text-muted-foreground">End Time</p>
+                                                <p className="font-medium">{new Date(formData.endTime).toLocaleString()}</p>
+                                            </CardContent>
+                                        </Card>
+                                    )}
+                                    {formData.pixelId && (
+                                        <Card className="bg-muted/30">
+                                            <CardContent className="p-4">
+                                                <p className="text-sm text-muted-foreground">Pixel ID</p>
+                                                <p className="font-medium">{formData.pixelId}</p>
+                                            </CardContent>
+                                        </Card>
+                                    )}
+                                    {formData.customEventType && (
+                                        <Card className="bg-muted/30">
+                                            <CardContent className="p-4">
+                                                <p className="text-sm text-muted-foreground">Event Type</p>
+                                                <p className="font-medium">{formData.customEventType}</p>
+                                            </CardContent>
+                                        </Card>
+                                    )}
                                 </div>
 
                                 <div>

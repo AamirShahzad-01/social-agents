@@ -428,14 +428,21 @@ class MetaSDKClient:
         targeting: Dict = None, status: str = 'PAUSED',
         daily_budget: int = None, lifetime_budget: int = None,
         start_time: str = None, end_time: str = None, bid_amount: int = None,
+        is_adset_budget_sharing_enabled: Optional[bool] = None,
+        placement_soft_opt_out: Optional[bool] = None,
+        promoted_object: Optional[Dict] = None,
+        destination_type: Optional[str] = None,
+        attribution_spec: Optional[List[Dict]] = None,
         **kwargs
     ) -> Dict[str, Any]:
-        """Create an ad set"""
+        """Create an ad set (v24.0 2026 standards)"""
         self._ensure_initialized()
         return await asyncio.to_thread(
             self._create_adset_sync, ad_account_id, name, campaign_id,
             optimization_goal, billing_event, targeting, status,
-            daily_budget, lifetime_budget, start_time, end_time, bid_amount
+            daily_budget, lifetime_budget, start_time, end_time, bid_amount,
+            is_adset_budget_sharing_enabled, placement_soft_opt_out,
+            promoted_object, destination_type, attribution_spec
         )
     
     def _create_adset_sync(
@@ -443,17 +450,39 @@ class MetaSDKClient:
         optimization_goal: str, billing_event: str = 'IMPRESSIONS',
         targeting: Dict = None, status: str = 'PAUSED',
         daily_budget: int = None, lifetime_budget: int = None,
-        start_time: str = None, end_time: str = None, bid_amount: int = None
+        start_time: str = None, end_time: str = None, bid_amount: int = None,
+        is_adset_budget_sharing_enabled: Optional[bool] = None,
+        placement_soft_opt_out: Optional[bool] = None,
+        promoted_object: Optional[Dict] = None,
+        destination_type: Optional[str] = None,
+        attribution_spec: Optional[List[Dict]] = None
     ) -> Dict[str, Any]:
+        """
+        Create an ad set (v24.0 2026 standards).
+        
+        v24.0 2026 Updates:
+        - attribution_spec: Updated windows per Jan 12, 2026 - view-through limited to 1 day only
+        - is_adset_budget_sharing_enabled: Share up to 20% budget between ad sets
+        - placement_soft_opt_out: Allow 5% spend on excluded placements
+        
+        Note: targeting should include targeting_automation for Advantage+ Audience.
+        If targeting is None, it will use default geo_locations (US), but this is not recommended for production.
+        """
         account = AdAccount(f'act_{ad_account_id}')
+        
+        # Require targeting to be provided (no hardcoded defaults)
+        if not targeting:
+            raise ValueError("targeting parameter is required for ad set creation (v24.0 2026)")
+        
         params = {
             'name': name,
             'campaign_id': campaign_id,
             'optimization_goal': optimization_goal,
             'billing_event': billing_event,
-            'targeting': targeting or {'geo_locations': {'countries': ['US']}},
+            'targeting': targeting,
             'status': status,
         }
+        
         if daily_budget:
             params['daily_budget'] = daily_budget
         if lifetime_budget:
@@ -464,19 +493,118 @@ class MetaSDKClient:
             params['end_time'] = end_time
         if bid_amount:
             params['bid_amount'] = bid_amount
+        if promoted_object:
+            params['promoted_object'] = promoted_object
+        if destination_type:
+            params['destination_type'] = destination_type
+        
+        # v24.0 2026 Required Parameters
+        if is_adset_budget_sharing_enabled is not None:
+            params['is_adset_budget_sharing_enabled'] = is_adset_budget_sharing_enabled
+        if placement_soft_opt_out is not None:
+            params['placement_soft_opt_out'] = placement_soft_opt_out
+        
+        # Attribution Spec (v24.0 2026): Updated windows per Jan 12, 2026 changes
+        # View-through deprecated: 7-day and 28-day view windows removed
+        # Only 1-day view-through remains allowed
+        if attribution_spec:
+            # Validate attribution_spec for 2026 standards
+            for spec in attribution_spec:
+                if spec.get('event_type') == 'VIEW_THROUGH' and spec.get('window_days', 0) > 1:
+                    raise ValueError(
+                        'View-through attribution is strictly limited to 1 day as of 2026 (v24.0 2026 standards). '
+                        '7-day and 28-day view windows are deprecated.'
+                    )
+            params['attribution_spec'] = attribution_spec
+        
         result = account.create_ad_set(params=params)
         return {'id': result.get('id'), 'adset_id': result.get('id')}
     
-    async def update_adset(self, adset_id: str, **updates) -> Dict[str, Any]:
-        """Update an ad set"""
+    async def update_adset(
+        self, adset_id: str,
+        name: str = None,
+        status: str = None,
+        daily_budget: int = None,
+        lifetime_budget: int = None,
+        targeting: Dict = None,
+        start_time: str = None,
+        end_time: str = None,
+        bid_amount: int = None,
+        is_adset_budget_sharing_enabled: Optional[bool] = None,
+        placement_soft_opt_out: Optional[bool] = None,
+        attribution_spec: Optional[List[Dict]] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Update an ad set (v24.0 2026 standards)"""
         self._ensure_initialized()
-        return await asyncio.to_thread(self._update_adset_sync, adset_id, **updates)
-    
-    def _update_adset_sync(self, adset_id: str, **updates) -> Dict[str, Any]:
+        return await asyncio.to_thread(
+            self._update_adset_sync, adset_id, name, status, daily_budget, lifetime_budget,
+            targeting, start_time, end_time, bid_amount, is_adset_budget_sharing_enabled,
+            placement_soft_opt_out, attribution_spec
+        )
+
+    def _update_adset_sync(
+        self, adset_id: str,
+        name: str = None,
+        status: str = None,
+        daily_budget: int = None,
+        lifetime_budget: int = None,
+        targeting: Dict = None,
+        start_time: str = None,
+        end_time: str = None,
+        bid_amount: int = None,
+        is_adset_budget_sharing_enabled: Optional[bool] = None,
+        placement_soft_opt_out: Optional[bool] = None,
+        attribution_spec: Optional[List[Dict]] = None
+    ) -> Dict[str, Any]:
+        """
+        Update an ad set (v24.0 2026 standards).
+        
+        v24.0 2026 Updates:
+        - attribution_spec: Updated windows per Jan 12, 2026 - view-through limited to 1 day only
+        - is_adset_budget_sharing_enabled: Share up to 20% budget between ad sets
+        - placement_soft_opt_out: Allow 5% spend on excluded placements
+        """
         from facebook_business.adobjects.adset import AdSet
         adset = AdSet(fbid=adset_id)
-        params = {k: v for k, v in updates.items() if v is not None}
-        adset.api_update(params=params)
+        
+        params = {}
+        if name is not None:
+            params['name'] = name
+        if status is not None:
+            params['status'] = status
+        if daily_budget is not None:
+            params['daily_budget'] = daily_budget
+        if lifetime_budget is not None:
+            params['lifetime_budget'] = lifetime_budget
+        if targeting is not None:
+            params['targeting'] = targeting
+        if start_time is not None:
+            params['start_time'] = start_time
+        if end_time is not None:
+            params['end_time'] = end_time
+        if bid_amount is not None:
+            params['bid_amount'] = bid_amount
+        
+        # v24.0 2026 Required Parameters
+        if is_adset_budget_sharing_enabled is not None:
+            params['is_adset_budget_sharing_enabled'] = is_adset_budget_sharing_enabled
+        if placement_soft_opt_out is not None:
+            params['placement_soft_opt_out'] = placement_soft_opt_out
+        
+        # Attribution Spec (v24.0 2026): Updated windows per Jan 12, 2026 changes
+        if attribution_spec:
+            # Validate attribution_spec for 2026 standards
+            for spec in attribution_spec:
+                if isinstance(spec, dict) and spec.get('event_type') == 'VIEW_THROUGH' and spec.get('window_days', 0) > 1:
+                    raise ValueError(
+                        'View-through attribution is strictly limited to 1 day as of 2026 (v24.0 2026 standards). '
+                        '7-day and 28-day view windows are deprecated.'
+                    )
+            params['attribution_spec'] = attribution_spec
+        
+        if params:
+            adset.api_update(params=params)
         return {'success': True, 'id': adset_id}
     
     async def delete_adset(self, adset_id: str) -> Dict[str, Any]:
@@ -540,24 +668,36 @@ class MetaSDKClient:
         message: str = None, link: str = None,
         call_to_action_type: str = 'LEARN_MORE'
     ) -> Dict[str, Any]:
+        """
+        Create ad creative. Link is required for link-based creatives.
+        """
+        if not link and not video_id:
+            raise ValueError("Either link or video_id must be provided for ad creative")
+        
         account = AdAccount(f'act_{ad_account_id}')
         object_story_spec = {
             'page_id': page_id,
-            'link_data': {
-                'message': message or '',
-                'link': link or 'https://example.com',
-                'call_to_action': {'type': call_to_action_type}
-            }
         }
-        if image_hash:
-            object_story_spec['link_data']['image_hash'] = image_hash
+        
         if video_id:
+            # Video creative
             object_story_spec['video_data'] = {
                 'video_id': video_id,
                 'message': message or '',
-                'call_to_action': {'type': call_to_action_type, 'value': {'link': link or ''}}
+                'call_to_action': {'type': call_to_action_type}
             }
-            del object_story_spec['link_data']
+            if link:
+                object_story_spec['video_data']['call_to_action']['value'] = {'link': link}
+        else:
+            # Link creative (requires link)
+            object_story_spec['link_data'] = {
+                'message': message or '',
+                'link': link,
+                'call_to_action': {'type': call_to_action_type}
+            }
+            if image_hash:
+                object_story_spec['link_data']['image_hash'] = image_hash
+        
         params = {'name': name, 'object_story_spec': object_story_spec}
         result = account.create_ad_creative(params=params)
         return {'id': result.get('id'), 'creative_id': result.get('id')}
@@ -699,24 +839,25 @@ class MetaSDKClient:
         try:
             account = AdAccount(f'act_{account_id}')
             
-            # Construct spec per v25.0+
+            # Construct spec per v24.0 2026 standards
             lookalike_spec = {
                 'type': 'similarity',
                 'ratio': ratio,
                 'allow_international_seeds': True
             }
             
-            # Handle country targeting
+            # Handle country targeting - require at least one country
+            if not target_countries:
+                raise ValueError("At least one target country is required for lookalike audience")
+            
             if len(target_countries) == 1:
                 lookalike_spec['country'] = target_countries[0]
-            elif len(target_countries) > 1:
+            else:
                 lookalike_spec['location_spec'] = {
                     'geo_locations': {
                         'countries': target_countries
                     }
                 }
-            else:
-                 lookalike_spec['country'] = 'US'
             
             params = {
                 'name': name,
@@ -763,12 +904,40 @@ class MetaSDKClient:
         return await asyncio.to_thread(self._get_campaign_advantage_state_sync, campaign_id)
     
     def _get_campaign_advantage_state_sync(self, campaign_id: str) -> Dict[str, Any]:
+        """
+        Get Advantage+ state for a campaign using v24.0 API.
+        Uses advantage_state_info instead of deprecated smart_promotion_type.
+        """
         from facebook_business.adobjects.campaign import Campaign
         campaign = Campaign(fbid=campaign_id)
-        campaign.api_get(fields=['id', 'name', 'smart_promotion_type'])
+        campaign.api_get(fields=['id', 'name', 'objective', 'status', 'advantage_state_info'])
+        
+        advantage_state_info = campaign.get('advantage_state_info', {})
+        if not advantage_state_info:
+            return {
+                'campaign_id': campaign_id,
+                'name': campaign.get('name'),
+                'objective': campaign.get('objective'),
+                'advantage_state': 'DISABLED',
+                'advantage_state_info': {
+                    'advantage_state': 'DISABLED',
+                    'advantage_budget_state': 'DISABLED',
+                    'advantage_audience_state': 'DISABLED',
+                    'advantage_placement_state': 'DISABLED'
+                }
+            }
+        
         return {
             'campaign_id': campaign_id,
-            'advantage_state': campaign.get('smart_promotion_type', 'DISABLED')
+            'name': campaign.get('name'),
+            'objective': campaign.get('objective'),
+            'advantage_state': advantage_state_info.get('advantage_state', 'DISABLED'),
+            'advantage_state_info': {
+                'advantage_state': advantage_state_info.get('advantage_state', 'DISABLED'),
+                'advantage_budget_state': advantage_state_info.get('advantage_budget_state', 'DISABLED'),
+                'advantage_audience_state': advantage_state_info.get('advantage_audience_state', 'DISABLED'),
+                'advantage_placement_state': advantage_state_info.get('advantage_placement_state', 'DISABLED')
+            }
         }
     
     # =========================================================================

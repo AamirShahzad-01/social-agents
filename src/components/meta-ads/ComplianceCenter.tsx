@@ -324,12 +324,12 @@ export default function ComplianceCenter({ onRefresh }: ComplianceCenterProps) {
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm flex items-center gap-2">
                                 <Info className="w-4 h-4" />
-                                v25.0+ Compliance
+                                v24.0 2026 Compliance
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <p className="text-xs text-muted-foreground">
-                                This system is fully compliant with Meta Marketing API v25.0+.
+                                This system is fully compliant with Meta Marketing API v24.0 2026.
                                 All deprecated fields and features have been removed.
                             </p>
                         </CardContent>

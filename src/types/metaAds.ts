@@ -911,6 +911,73 @@ export const OBJECTIVE_OPTIMIZATION_GOALS: Record<CampaignObjective, { value: Op
   ],
 };
 
+/**
+ * Objective-specific configuration (v24.0 2026)
+ * Defines which features and options are available for each objective
+ * Similar to Meta Ad Manager's workflow
+ */
+export interface ObjectiveConfig {
+  /** Whether placement_soft_opt_out is available */
+  supportsPlacementSoftOptOut: boolean;
+  /** Available bid strategies for this objective */
+  bidStrategies: BidStrategy[];
+  /** Default optimization goal */
+  defaultOptimizationGoal: OptimizationGoal;
+  /** Whether promoted_object/destination_type configuration is available */
+  supportsPromotedObject: boolean;
+  /** Recommended bid strategy */
+  recommendedBidStrategy?: BidStrategy;
+}
+
+/**
+ * Objective-specific configurations (v24.0 2026)
+ * Maps each objective to its available features
+ */
+export const OBJECTIVE_CONFIGS: Record<CampaignObjective, ObjectiveConfig> = {
+  'OUTCOME_AWARENESS': {
+    supportsPlacementSoftOptOut: false,
+    bidStrategies: ['LOWEST_COST_WITHOUT_CAP', 'COST_CAP', 'LOWEST_COST_WITH_BID_CAP'],
+    defaultOptimizationGoal: 'REACH',
+    supportsPromotedObject: false,
+    recommendedBidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+  },
+  'OUTCOME_TRAFFIC': {
+    supportsPlacementSoftOptOut: false,
+    bidStrategies: ['LOWEST_COST_WITHOUT_CAP', 'COST_CAP', 'LOWEST_COST_WITH_BID_CAP'],
+    defaultOptimizationGoal: 'LINK_CLICKS',
+    supportsPromotedObject: true,
+    recommendedBidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+  },
+  'OUTCOME_ENGAGEMENT': {
+    supportsPlacementSoftOptOut: false,
+    bidStrategies: ['LOWEST_COST_WITHOUT_CAP', 'COST_CAP', 'LOWEST_COST_WITH_BID_CAP'],
+    defaultOptimizationGoal: 'POST_ENGAGEMENT',
+    supportsPromotedObject: false,
+    recommendedBidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+  },
+  'OUTCOME_LEADS': {
+    supportsPlacementSoftOptOut: true, // Only Sales and Leads support this
+    bidStrategies: ['LOWEST_COST_WITHOUT_CAP', 'COST_CAP', 'LOWEST_COST_WITH_BID_CAP'],
+    defaultOptimizationGoal: 'LEAD_GENERATION',
+    supportsPromotedObject: true,
+    recommendedBidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+  },
+  'OUTCOME_SALES': {
+    supportsPlacementSoftOptOut: true, // Only Sales and Leads support this
+    bidStrategies: ['LOWEST_COST_WITHOUT_CAP', 'COST_CAP', 'LOWEST_COST_WITH_BID_CAP', 'LOWEST_COST_WITH_MIN_ROAS'],
+    defaultOptimizationGoal: 'OFFSITE_CONVERSIONS',
+    supportsPromotedObject: true,
+    recommendedBidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+  },
+  'OUTCOME_APP_PROMOTION': {
+    supportsPlacementSoftOptOut: false,
+    bidStrategies: ['LOWEST_COST_WITHOUT_CAP', 'COST_CAP', 'LOWEST_COST_WITH_BID_CAP'],
+    defaultOptimizationGoal: 'APP_INSTALLS',
+    supportsPromotedObject: true,
+    recommendedBidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+  },
+};
+
 // Updated for Meta Marketing API v25.0+
 export const OPTIMIZATION_GOALS: { value: OptimizationGoal; label: string; objectives: CampaignObjective[]; billingEvent: BillingEvent }[] = [
   // Awareness objectives

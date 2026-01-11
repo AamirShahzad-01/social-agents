@@ -118,7 +118,7 @@ const initialFormData: AdFormData = {
         image_enhancement: { enroll_status: 'OPT_IN' },
         video_auto_crop: { enroll_status: 'OPT_IN' },
         text_optimizations: { enroll_status: 'OPT_IN' },
-        // v25.0+ 2026 Additional Features
+        // v24.0 2026 Additional Features
         inline_comment: { enroll_status: 'OPT_IN' },
         expand_image: { enroll_status: 'OPT_IN' },
         dynamic_media: { enroll_status: 'OPT_IN' },
@@ -723,7 +723,7 @@ function CreateAdModal({
             <div className="grid grid-cols-2 gap-6">
               {/* Creative Form */}
               <div className="space-y-4">
-                {/* Advantage+ Creative Toggle (v25.0+) */}
+                {/* Advantage+ Creative Toggle (v24.0 2026) */}
                 <div className="p-4 rounded-xl bg-orange-50/50 dark:bg-orange-900/10 border border-orange-200/50 dark:border-orange-900/50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">

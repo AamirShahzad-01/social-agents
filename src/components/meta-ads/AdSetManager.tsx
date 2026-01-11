@@ -20,6 +20,8 @@ import {
   Smartphone,
   Monitor,
   Zap,
+  AlertCircle,
+  Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,7 +46,7 @@ import type {
   AdSetStatus,
   BidStrategy,
 } from '@/types/metaAds';
-import { OBJECTIVE_OPTIMIZATION_GOALS, PLACEMENTS } from '@/types/metaAds';
+import { OBJECTIVE_OPTIMIZATION_GOALS, OBJECTIVE_CONFIGS, PLACEMENTS, BID_STRATEGIES } from '@/types/metaAds';
 
 interface AdSetManagerProps {
   adSets: AdSet[];
@@ -90,11 +92,11 @@ const initialFormData: AdSetFormData = {
   budget_type: 'daily',
   budget_amount: 10,
   bid_strategy: 'LOWEST_COST_WITHOUT_CAP', // Default - no bid amount needed
-  advantage_audience: true, // v25.0+ default: Enable Advantage+ Audience
-  advantage_placements: true, // v25.0+ default: Advantage+ Placements (Automatic)
-  // v25.0+ 2026 Required Parameters (Jan 6, 2026+)
-  is_adset_budget_sharing_enabled: false, // Share up to 20% budget between ad sets
-  placement_soft_opt_out: false, // Allow 5% spend on excluded placements
+  advantage_audience: true, // v24.0 2026 default: Enable Advantage+ Audience
+  advantage_placements: true, // v24.0 2026 default: Advantage+ Placements (Automatic)
+  // v24.0 2026 Required Parameters (Jan 6, 2026+)
+  is_adset_budget_sharing_enabled: true, // Default: True for Advantage+ campaigns (allows up to 20% budget sharing)
+  placement_soft_opt_out: false, // Default: False for Advantage+ Placements compliance
   targeting: {
     age_min: 18,
     age_max: 65,
@@ -105,18 +107,24 @@ const initialFormData: AdSetFormData = {
     facebook_positions: ['feed', 'story'],
     instagram_positions: ['stream', 'story', 'reels'],
   },
+  // Attribution Spec (v24.0 2026): Updated windows per Jan 12, 2026 changes
+  // View-through deprecated: 7-day and 28-day view windows removed
+  // Only 1-day view-through remains allowed
   attribution_spec: [
     { event_type: 'CLICK_THROUGH', window_days: 7 },
-    { event_type: 'VIEW_THROUGH', window_days: 1 },
+    { event_type: 'VIEW_THROUGH', window_days: 1 }, // Only 1-day view allowed per 2026 standards
   ],
 };
 
 export default function AdSetManager({ adSets, campaigns, onRefresh, showCreate, onShowCreateChange, preselectedCampaignId }: AdSetManagerProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingAdSet, setEditingAdSet] = useState<AdSet | null>(null);
+  const [editFormData, setEditFormData] = useState<Partial<AdSetFormData>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [formData, setFormData] = useState<AdSetFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Sync with external showCreate prop
   React.useEffect(() => {
@@ -146,10 +154,21 @@ export default function AdSetManager({ adSets, campaigns, onRefresh, showCreate,
   const handleCreateAdSet = async () => {
     setIsSubmitting(true);
     try {
+      // Check if campaign uses CBO - if so, don't send budget fields
+      const selectedCampaign = campaigns.find(c => c.id === formData.campaign_id);
+      const campaignUsesCBO = !!(selectedCampaign?.daily_budget || selectedCampaign?.lifetime_budget);
+      
+      // Prepare form data - exclude budget if CBO is active
+      const submitData = { ...formData };
+      if (campaignUsesCBO) {
+        delete submitData.budget_type;
+        delete submitData.budget_amount;
+      }
+      
       const response = await fetch('/api/v1/meta-ads/adsets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
       const data = await response.json();
@@ -178,6 +197,62 @@ export default function AdSetManager({ adSets, campaigns, onRefresh, showCreate,
       });
       onRefresh();
     } catch (error) {
+    }
+  };
+
+  const handleEditAdSet = (adSet: AdSet) => {
+    setEditingAdSet(adSet);
+    setEditFormData({
+      name: adSet.name,
+      status: adSet.status,
+      budget_type: adSet.daily_budget ? 'daily' : 'lifetime',
+      budget_amount: adSet.daily_budget ? adSet.daily_budget / 100 : (adSet.lifetime_budget ? adSet.lifetime_budget / 100 : 0),
+      bid_amount: adSet.bid_amount ? adSet.bid_amount / 100 : undefined,
+      advantage_audience: adSet.advantage_audience,
+      is_adset_budget_sharing_enabled: adSet.is_adset_budget_sharing_enabled ?? true,
+      placement_soft_opt_out: adSet.placement_soft_opt_out ?? false,
+      attribution_spec: adSet.attribution_spec || [
+        { event_type: 'CLICK_THROUGH', window_days: 7 },
+        { event_type: 'VIEW_THROUGH', window_days: 1 },
+      ],
+    });
+  };
+
+  const handleUpdateAdSet = async () => {
+    if (!editingAdSet) return;
+    setIsUpdating(true);
+    try {
+      const updateData: any = {
+        name: editFormData.name,
+        status: editFormData.status,
+        budget_type: editFormData.budget_type,
+        budget_amount: editFormData.budget_amount,
+        bid_amount: editFormData.bid_amount,
+        advantage_audience: editFormData.advantage_audience,
+        is_adset_budget_sharing_enabled: editFormData.is_adset_budget_sharing_enabled,
+        placement_soft_opt_out: editFormData.placement_soft_opt_out,
+        attribution_spec: editFormData.attribution_spec,
+      };
+
+      const response = await fetch(`/api/v1/meta-ads/adsets/${editingAdSet.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setEditingAdSet(null);
+        setEditFormData({});
+        onRefresh();
+      } else {
+        alert(`Failed to update ad set: ${data.detail || data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      alert('Failed to update ad set. Please try again.');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -236,6 +311,7 @@ export default function AdSetManager({ adSets, campaigns, onRefresh, showCreate,
               adSet={adSet}
               campaign={campaigns.find(c => c.id === adSet.campaign_id)}
               onStatusChange={handleStatusChange}
+              onEdit={handleEditAdSet}
             />
           ))}
         </div>
@@ -273,6 +349,22 @@ export default function AdSetManager({ adSets, campaigns, onRefresh, showCreate,
           isSubmitting={isSubmitting}
         />
       )}
+
+      {/* Edit Ad Set Modal */}
+      {editingAdSet && (
+        <EditAdSetModal
+          adSet={editingAdSet}
+          formData={editFormData}
+          setFormData={setEditFormData}
+          campaign={campaigns.find(c => c.id === editingAdSet.campaign_id)}
+          onClose={() => {
+            setEditingAdSet(null);
+            setEditFormData({});
+          }}
+          onSubmit={handleUpdateAdSet}
+          isSubmitting={isUpdating}
+        />
+      )}
     </div>
   );
 }
@@ -281,10 +373,12 @@ function AdSetCard({
   adSet,
   campaign,
   onStatusChange,
+  onEdit,
 }: {
   adSet: AdSet;
   campaign?: Campaign;
   onStatusChange: (id: string, status: AdSetStatus) => void;
+  onEdit?: (adSet: AdSet) => void;
 }) {
   const statusColors = {
     ACTIVE: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -389,7 +483,12 @@ function AdSetCard({
               Activate
             </Button>
           )}
-          <Button variant="outline" size="sm" className="flex-1 gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex-1 gap-2"
+            onClick={() => onEdit?.(adSet)}
+          >
             <Edit className="w-4 h-4" />
             Edit
           </Button>
@@ -492,17 +591,48 @@ function CreateAdSetModal({
                 <Select
                   value={formData.campaign_id}
                   onValueChange={(value) => {
-                    // Find the selected campaign and set the default optimization goal
+                    // Find the selected campaign and set objective-specific defaults
                     const selectedCampaign = campaigns.find(c => c.id === value);
+                    const objectiveConfig = selectedCampaign?.objective 
+                      ? OBJECTIVE_CONFIGS[selectedCampaign.objective]
+                      : null;
+                    
+                    // Check if campaign uses CBO
+                    const campaignUsesCBO = !!(selectedCampaign?.daily_budget || selectedCampaign?.lifetime_budget);
+                    
+                    // Set default optimization goal from objective config
                     const defaultGoals = selectedCampaign?.objective
                       ? (OBJECTIVE_OPTIMIZATION_GOALS[selectedCampaign.objective] || DEFAULT_OPTIMIZATION_GOALS)
                       : DEFAULT_OPTIMIZATION_GOALS;
-                    const defaultGoal = defaultGoals[0]?.value || 'LINK_CLICKS';
+                    const defaultGoal = objectiveConfig?.defaultOptimizationGoal || defaultGoals[0]?.value || 'LINK_CLICKS';
+                    
+                    // Set default bid strategy from objective config
+                    const defaultBidStrategy = objectiveConfig?.recommendedBidStrategy || 'LOWEST_COST_WITHOUT_CAP';
+                    
+                    // v24.0 2026: Set default budget sharing for Advantage+ campaigns
+                    const isAdvantagePlus = selectedCampaign?.advantage_state_info && 
+                                            selectedCampaign.advantage_state_info.advantage_state !== 'DISABLED';
+                    const defaultBudgetSharing = isAdvantagePlus ? true : (formData.is_adset_budget_sharing_enabled ?? true);
+                    
+                    // Set default placement_soft_opt_out based on objective (only for Sales/Leads)
+                    const defaultPlacementSoftOptOut = objectiveConfig?.supportsPlacementSoftOptOut ? false : undefined;
 
                     setFormData(prev => ({
                       ...prev,
                       campaign_id: value,
-                      optimization_goal: defaultGoal as OptimizationGoal
+                      optimization_goal: defaultGoal as OptimizationGoal,
+                      bid_strategy: defaultBidStrategy as BidStrategy,
+                      // v24.0 2026: Enable budget sharing by default for Advantage+ campaigns
+                      is_adset_budget_sharing_enabled: defaultBudgetSharing,
+                      // Only set placement_soft_opt_out if supported by objective
+                      ...(objectiveConfig?.supportsPlacementSoftOptOut !== undefined && {
+                        placement_soft_opt_out: defaultPlacementSoftOptOut
+                      }),
+                      // Clear budget if campaign uses CBO
+                      ...(campaignUsesCBO ? {
+                        budget_type: undefined,
+                        budget_amount: undefined
+                      } : {})
                     }));
                   }}
                 >
@@ -553,7 +683,7 @@ function CreateAdSetModal({
 
           {step === 2 && (
             <div className="space-y-6">
-              {/* v25.0+ Advantage+ Audience Toggle */}
+              {/* v24.0 2026 Advantage+ Audience Toggle */}
               <div className="p-4 rounded-xl bg-orange-50/50 dark:bg-orange-900/10 border border-orange-200/50 dark:border-orange-900/50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -692,7 +822,7 @@ function CreateAdSetModal({
 
           {step === 3 && (
             <div className="space-y-6">
-              {/* v25.0+ Advantage+ Placements Toggle */}
+              {/* v24.0 2026 Advantage+ Placements Toggle */}
               <div className="p-4 rounded-xl bg-orange-50/50 dark:bg-orange-900/10 border border-orange-200/50 dark:border-orange-900/50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -927,36 +1057,49 @@ function CreateAdSetModal({
               )}
 
               {/* Bid Strategy - Only show if campaign doesn't use CBO */}
-              {!campaignUsesCBO && (
-                <div>
-                  <Label>Bid Strategy</Label>
-                  <Select
-                    value={formData.bid_strategy || 'LOWEST_COST_WITHOUT_CAP'}
-                    onValueChange={(value) => setFormData(prev => ({
-                      ...prev,
-                      bid_strategy: value as BidStrategy,
-                      // Clear bid_amount if switching to lowest cost
-                      bid_amount: value === 'LOWEST_COST_WITHOUT_CAP' ? undefined : prev.bid_amount
-                    }))}
-                  >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="LOWEST_COST_WITHOUT_CAP">Lowest Cost (Recommended)</SelectItem>
-                      <SelectItem value="LOWEST_COST_WITH_BID_CAP">Bid Cap</SelectItem>
-                      <SelectItem value="COST_CAP">Cost Cap</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formData.bid_strategy === 'LOWEST_COST_WITH_BID_CAP'
-                      ? 'Set a maximum bid for each optimization event'
-                      : formData.bid_strategy === 'COST_CAP'
-                        ? 'Set an average cost target per optimization event'
-                        : 'Get the most results at the lowest cost'}
-                  </p>
-                </div>
-              )}
+              {!campaignUsesCBO && (() => {
+                // Get objective-specific bid strategies
+                const objectiveConfig = selectedCampaign?.objective 
+                  ? OBJECTIVE_CONFIGS[selectedCampaign.objective]
+                  : null;
+                const availableBidStrategies = objectiveConfig?.bidStrategies || BID_STRATEGIES.map(s => s.value);
+                const filteredStrategies = BID_STRATEGIES.filter(s => availableBidStrategies.includes(s.value));
+                
+                return (
+                  <div>
+                    <Label>Bid Strategy</Label>
+                    <Select
+                      value={formData.bid_strategy || objectiveConfig?.recommendedBidStrategy || 'LOWEST_COST_WITHOUT_CAP'}
+                      onValueChange={(value) => setFormData(prev => ({
+                        ...prev,
+                        bid_strategy: value as BidStrategy,
+                        // Clear bid_amount if switching to lowest cost
+                        bid_amount: value === 'LOWEST_COST_WITHOUT_CAP' ? undefined : prev.bid_amount
+                      }))}
+                    >
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredStrategies.map(strategy => (
+                          <SelectItem key={strategy.value} value={strategy.value}>
+                            {strategy.label}{strategy.recommended ? ' (Recommended)' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formData.bid_strategy === 'LOWEST_COST_WITH_BID_CAP'
+                        ? 'Set a maximum bid for each optimization event'
+                        : formData.bid_strategy === 'COST_CAP'
+                          ? 'Set an average cost target per optimization event'
+                          : formData.bid_strategy === 'LOWEST_COST_WITH_MIN_ROAS'
+                            ? 'Set a minimum return on ad spend (ROAS)'
+                            : 'Get the most results at the lowest cost'}
+                    </p>
+                  </div>
+                );
+              })()}
 
               {/* Show campaign bid strategy info when CBO is used */}
               {campaignUsesCBO && (
@@ -1023,12 +1166,21 @@ function CreateAdSetModal({
                 </div>
               </div>
 
-              {/* Attribution Settings (v25.0+) */}
+              {/* Attribution Settings (v24.0 2026) */}
               <div className="pt-4 border-t space-y-4">
-                <Label className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-2">
                   <Target className="w-4 h-4" />
-                  Attribution Settings (v25.0)
-                </Label>
+                  <Label>Attribution Settings (v24.0 2026)</Label>
+                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-red-500/10 text-red-600 dark:text-red-400 rounded-full">UPDATED</span>
+                </div>
+                <div className="p-3 rounded-lg bg-red-50/50 dark:bg-red-900/10 border border-red-200/50 dark:border-red-900/50 mb-4">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-red-700 dark:text-red-300">
+                      <strong>Jan 12, 2026 Update:</strong> 7-day and 28-day view-through windows are deprecated. Only 1-day view-through is allowed per v24.0 2026 standards.
+                    </p>
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-xs">Click-Through Window</Label>
@@ -1045,29 +1197,32 @@ function CreateAdSetModal({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="1">1 Day</SelectItem>
-                        <SelectItem value="7">7 Days</SelectItem>
-                        <SelectItem value="28">28 Days (Limited)</SelectItem>
+                        <SelectItem value="7">7 Days (Recommended)</SelectItem>
+                        <SelectItem value="28">28 Days</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-[10px] text-muted-foreground">
+                      Click-through attribution supports 1, 7, or 28 days
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">View-Through Window</Label>
                     <div className="p-2 rounded border bg-muted/50 text-sm font-medium">
-                      1 Day (Forced for 2026)
+                      1 Day (Required per 2026 standards)
                     </div>
-                    <p className="text-[10px] text-muted-foreground uppercase">
-                      ✓ meta compliance strike applied
+                    <p className="text-[10px] text-muted-foreground">
+                      ✓ v24.0 2026 Compliance: View-through limited to 1 day only (7-day and 28-day deprecated)
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* v25.0+ 2026 Advanced Settings */}
+              {/* v24.0 2026 Advanced Settings */}
               <div className="pt-4 border-t space-y-4">
                 <div className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-orange-500" />
-                  <Label>Advanced Settings (v25.0 2026)</Label>
-                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded-full">NEW</span>
+                  <Label>Advanced Settings (v24.0 2026)</Label>
+                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded-full">2026</span>
                 </div>
 
                 {/* Budget Sharing Toggle */}
@@ -1080,7 +1235,7 @@ function CreateAdSetModal({
                       <div>
                         <p className="font-semibold text-foreground">Budget Sharing</p>
                         <p className="text-sm text-muted-foreground">
-                          Allow up to 20% budget sharing between ad sets
+                          Allow up to 20% budget sharing between ad sets (Recommended for Advantage+ campaigns)
                         </p>
                       </div>
                     </div>
@@ -1100,13 +1255,19 @@ function CreateAdSetModal({
                   {formData.is_adset_budget_sharing_enabled && (
                     <div className="mt-3 pl-12 flex items-center gap-2 text-xs text-muted-foreground">
                       <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                      Meta can reallocate up to 20% of budget to higher-performing ad sets
+                      Meta can reallocate up to 20% of budget to higher-performing ad sets for better optimization
+                    </div>
+                  )}
+                  {!formData.is_adset_budget_sharing_enabled && selectedCampaign?.advantage_state_info && selectedCampaign.advantage_state_info.advantage_state !== 'DISABLED' && (
+                    <div className="mt-3 pl-12 flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+                      <AlertCircle className="w-3 h-3" />
+                      Recommended: Enable budget sharing for Advantage+ campaigns
                     </div>
                   )}
                 </div>
 
                 {/* Placement Soft Opt-Out Toggle - Only for Sales/Leads */}
-                {selectedCampaign?.objective && ['OUTCOME_SALES', 'OUTCOME_LEADS'].includes(selectedCampaign.objective) && (
+                {selectedCampaign?.objective && OBJECTIVE_CONFIGS[selectedCampaign.objective]?.supportsPlacementSoftOptOut && (
                   <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-900/10 border border-purple-200/50 dark:border-purple-900/50">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -1187,4 +1348,246 @@ function formatNumber(num: number): string {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
   if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
   return num.toString();
+}
+
+function EditAdSetModal({
+  adSet,
+  formData,
+  setFormData,
+  campaign,
+  onClose,
+  onSubmit,
+  isSubmitting,
+}: {
+  adSet: AdSet;
+  formData: Partial<AdSetFormData>;
+  setFormData: React.Dispatch<React.SetStateAction<Partial<AdSetFormData>>>;
+  campaign?: Campaign;
+  onClose: () => void;
+  onSubmit: () => void;
+  isSubmitting: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-background rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden mx-4 scrollbar-hide">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-purple-500 to-pink-600 text-white p-6 pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Edit className="w-5 h-5" />
+              <div>
+                <h2 className="text-xl font-bold text-white">Edit Ad Set</h2>
+                <p className="text-sm text-white/80">Update ad set settings (v24.0 2026)</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20">
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[60vh] space-y-6">
+          {/* Basic Info */}
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Ad Set Name</Label>
+              <Input
+                id="edit-name"
+                value={formData.name || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                className="mt-2"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-status">Status</Label>
+              <Select
+                value={formData.status || 'PAUSED'}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, status: value as AdSetStatus }))}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="PAUSED">Paused</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Budget Type</Label>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <button
+                  onClick={() => setFormData(prev => ({ ...prev, budget_type: 'daily' }))}
+                  className={cn(
+                    "p-4 rounded-xl border-2 text-left transition-all",
+                    formData.budget_type === 'daily'
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  )}
+                >
+                  <p className="font-semibold">Daily Budget</p>
+                  <p className="text-sm text-muted-foreground">Set a daily spending limit</p>
+                </button>
+                <button
+                  onClick={() => setFormData(prev => ({ ...prev, budget_type: 'lifetime' }))}
+                  className={cn(
+                    "p-4 rounded-xl border-2 text-left transition-all",
+                    formData.budget_type === 'lifetime'
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  )}
+                >
+                  <p className="font-semibold">Lifetime Budget</p>
+                  <p className="text-sm text-muted-foreground">Set total budget for campaign</p>
+                </button>
+              </div>
+              {formData.budget_type && (
+                <div className="mt-2">
+                  <Label htmlFor="edit-budget">Budget Amount ($)</Label>
+                  <Input
+                    id="edit-budget"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.budget_amount || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, budget_amount: parseFloat(e.target.value) || 0 }))}
+                    className="mt-2"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* v24.0 2026 Advanced Settings */}
+          <div className="pt-4 border-t space-y-4">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-orange-500" />
+              <Label>Advanced Settings (v24.0 2026)</Label>
+            </div>
+
+            {/* Budget Sharing Toggle */}
+            <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-900/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-white dark:bg-background shadow-sm border border-blue-100 dark:border-blue-900">
+                    <DollarSign className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">Budget Sharing</p>
+                    <p className="text-sm text-muted-foreground">
+                      Allow up to 20% budget sharing between ad sets
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setFormData(prev => ({ ...prev, is_adset_budget_sharing_enabled: !(prev.is_adset_budget_sharing_enabled ?? true) }))}
+                  className={cn(
+                    "w-12 h-6 rounded-full transition-colors relative",
+                    (formData.is_adset_budget_sharing_enabled ?? true) ? "bg-blue-500" : "bg-muted"
+                  )}
+                >
+                  <div className={cn(
+                    "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                    (formData.is_adset_budget_sharing_enabled ?? true) ? "translate-x-7" : "translate-x-1"
+                  )} />
+                </button>
+              </div>
+            </div>
+
+            {/* Placement Soft Opt-Out - Only for Sales/Leads */}
+            {campaign?.objective && OBJECTIVE_CONFIGS[campaign.objective]?.supportsPlacementSoftOptOut && (
+              <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-900/10 border border-purple-200/50 dark:border-purple-900/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-white dark:bg-background shadow-sm border border-purple-100 dark:border-purple-900">
+                      <Globe className="w-5 h-5 text-purple-500" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">Placement Soft Opt-Out</p>
+                      <p className="text-sm text-muted-foreground">
+                        Allow 5% spend on excluded placements
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setFormData(prev => ({ ...prev, placement_soft_opt_out: !(prev.placement_soft_opt_out ?? false) }))}
+                    className={cn(
+                      "w-12 h-6 rounded-full transition-colors relative",
+                      (formData.placement_soft_opt_out ?? false) ? "bg-purple-500" : "bg-muted"
+                    )}
+                  >
+                    <div className={cn(
+                      "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                      (formData.placement_soft_opt_out ?? false) ? "translate-x-7" : "translate-x-1"
+                    )} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Attribution Settings (v24.0 2026) */}
+            <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/50">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-4 h-4" />
+                <Label>Attribution Settings (v24.0 2026)</Label>
+              </div>
+              <div className="p-3 rounded-lg bg-red-50/50 dark:bg-red-900/10 border border-red-200/50 dark:border-red-900/50 mb-4">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-red-700 dark:text-red-300">
+                    <strong>Jan 12, 2026 Update:</strong> View-through limited to 1 day only per v24.0 2026 standards.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs">Click-Through Window</Label>
+                  <Select
+                    value={formData.attribution_spec?.find(s => s.event_type === 'CLICK_THROUGH')?.window_days.toString() || '7'}
+                    onValueChange={(val) => {
+                      const days = parseInt(val) as 1 | 7 | 28;
+                      const others = formData.attribution_spec?.filter(s => s.event_type !== 'CLICK_THROUGH') || [];
+                      setFormData(prev => ({ ...prev, attribution_spec: [...others, { event_type: 'CLICK_THROUGH', window_days: days }] }));
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 Day</SelectItem>
+                      <SelectItem value="7">7 Days</SelectItem>
+                      <SelectItem value="28">28 Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">View-Through Window</Label>
+                  <div className="p-2 rounded border bg-muted/50 text-sm font-medium">
+                    1 Day (Required per 2026 standards)
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    ✓ v24.0 2026 Compliance: View-through limited to 1 day only
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between p-6 border-t bg-muted/30">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={onSubmit} disabled={isSubmitting || !formData.name}>
+            {isSubmitting ? 'Updating...' : 'Save Changes'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }

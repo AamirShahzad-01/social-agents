@@ -44,7 +44,7 @@ class ABTestCell(BaseModel):
         ..., 
         ge=1, 
         le=100,
-        description="Percentage of audience for this cell (v25.0+ uses treatment_percentage)"
+        description="Percentage of audience for this cell (v24.0 2026 uses treatment_percentage)"
     )
     # Link to campaigns or adsets per Meta docs (use one or the other)
     campaigns: Optional[List[str]] = Field(

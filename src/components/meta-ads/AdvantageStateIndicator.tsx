@@ -30,7 +30,7 @@ interface AdvantageStateIndicatorProps {
     className?: string;
 }
 
-// v25.0+ State configuration mapping
+// v24.0 2026 State configuration mapping
 const STATE_CONFIG: Record<string, {
     label: string;
     shortLabel: string;
@@ -68,7 +68,7 @@ const STATE_CONFIG: Record<string, {
     },
 };
 
-// Automation lever labels for v25.0+
+// Automation lever labels for v24.0 2026
 const LEVER_LABELS: Record<string, { name: string; description: string }> = {
     advantage_budget_state: {
         name: 'Advantage+ Budget',
@@ -85,7 +85,7 @@ const LEVER_LABELS: Record<string, { name: string; description: string }> = {
 };
 
 /**
- * AdvantageStateIndicator - v25.0+ Compliant
+ * AdvantageStateIndicator - v24.0 2026 Compliant
  * 
  * Displays the Advantage+ state of a campaign based on the three automation levers:
  * - Advantage+ Campaign Budget (budget at campaign level)
@@ -201,7 +201,7 @@ export default function AdvantageStateIndicator({
 
             <div className="grid gap-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Automation Levers (v25.0+)
+                    Automation Levers (v24.0 2026)
                 </p>
                 {levers.map(({ key, enabled }) => (
                     <div

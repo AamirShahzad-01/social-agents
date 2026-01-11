@@ -1,14 +1,14 @@
 /**
- * Validation schemas for Meta Ads - v25.0+
+ * Validation schemas for Meta Ads - v24.0 2026
  * Using Zod for runtime validation
- * STRICT v25.0+ COMPLIANCE - No deprecated fields
+ * STRICT v24.0 2026 COMPLIANCE - No deprecated fields
  * 
  * @see https://developers.facebook.com/docs/marketing-api
  */
 
 import { z } from 'zod';
 
-// Call to Action types supported by Meta Marketing API v25.0+
+// Call to Action types supported by Meta Marketing API v24.0 2026
 export const CallToActionTypeSchema = z.enum([
   'LEARN_MORE',
   'SHOP_NOW',
@@ -47,7 +47,7 @@ export const AdStatusSchema = z.enum([
   'PREAPPROVED',
 ]);
 
-// Campaign objective types (OUTCOME-based for v25.0+)
+// Campaign objective types (OUTCOME-based for v24.0 2026)
 export const CampaignObjectiveSchema = z.enum([
   'OUTCOME_AWARENESS',
   'OUTCOME_ENGAGEMENT',
@@ -57,7 +57,7 @@ export const CampaignObjectiveSchema = z.enum([
   'OUTCOME_APP_PROMOTION',
 ]);
 
-// Optimization goal types (v25.0+)
+// Optimization goal types (v24.0 2026)
 export const OptimizationGoalSchema = z.enum([
   'REACH',
   'IMPRESSIONS',
@@ -82,7 +82,7 @@ export const OptimizationGoalSchema = z.enum([
   'REMINDERS_SET',
 ]);
 
-// Billing event types (v25.0+)
+// Billing event types (v24.0 2026)
 export const BillingEventSchema = z.enum([
   'IMPRESSIONS',
   'LINK_CLICKS',
@@ -97,7 +97,7 @@ export const BillingEventSchema = z.enum([
   'NONE',
 ]);
 
-// Destination types for ad sets (v25.0+)
+// Destination types for ad sets (v24.0 2026)
 export const DestinationTypeSchema = z.enum([
   'WEBSITE',
   'APP',
@@ -123,7 +123,7 @@ export const BidStrategySchema = z.enum([
   'LOWEST_COST_WITH_MIN_ROAS',
 ]);
 
-// Special Ad Categories (v25.0+)
+// Special Ad Categories (v24.0 2026)
 export const SpecialAdCategorySchema = z.enum([
   'NONE',
   'EMPLOYMENT',
@@ -160,12 +160,12 @@ export const AdCreativeSchema = z.object({
   }
 );
 
-// Targeting Automation for Advantage+ Audience (v25.0+)
+// Targeting Automation for Advantage+ Audience (v24.0 2026)
 export const TargetingAutomationSchema = z.object({
   advantage_audience: z.union([z.literal(0), z.literal(1)]).optional().default(1),
 });
 
-// Targeting schema (v25.0+)
+// Targeting schema (v24.0 2026)
 export const TargetingSchema = z.object({
   geo_locations: z.object({
     countries: z.array(z.string()).optional(),
@@ -194,7 +194,7 @@ export const TargetingSchema = z.object({
   facebook_positions: z.array(z.string()).optional(),
   instagram_positions: z.array(z.string()).optional(),
   threads_positions: z.array(z.string()).optional(),
-  // v25.0+ Advantage+ Audience
+  // v24.0 2026 Advantage+ Audience
   targeting_automation: TargetingAutomationSchema.optional(),
 });
 
@@ -207,7 +207,7 @@ export const CreateAdSchema = z.object({
   page_id: z.string().optional(),
 });
 
-// Create Ad Set request schema (v25.0+)
+// Create Ad Set request schema (v24.0 2026)
 export const CreateAdSetSchema = z.object({
   name: z.string().min(1, 'Ad set name is required').max(255, 'Ad set name must be 255 characters or less'),
   campaign_id: z.string().min(1, 'Campaign ID is required'),
@@ -218,9 +218,13 @@ export const CreateAdSetSchema = z.object({
   bid_amount: z.number().optional(),
   advantage_audience: z.boolean().optional(),
   advantage_placements: z.boolean().optional(),
+  // Attribution Spec (v24.0 2026): Updated windows per Jan 12, 2026 changes
+  // View-through deprecated: 7-day and 28-day view windows removed
+  // Only 1-day view-through remains allowed
   attribution_spec: z.array(z.object({
     event_type: z.enum(['CLICK_THROUGH', 'VIEW_THROUGH']),
     window_days: z.union([z.literal(1), z.literal(7), z.literal(28)]),
+    weight: z.number().optional().default(100),
   })).optional(),
   daily_budget: z.number().positive().optional(),
   lifetime_budget: z.number().positive().optional(),
@@ -233,12 +237,30 @@ export const CreateAdSetSchema = z.object({
     pixel_id: z.string().optional(),
     application_id: z.string().optional(),
   }).optional(),
+  // v24.0 2026 Required Parameters
+  is_adset_budget_sharing_enabled: z.boolean().optional(),
+  placement_soft_opt_out: z.boolean().optional(),
 }).refine(
   (data) => data.daily_budget || data.lifetime_budget,
   { message: 'Either daily_budget or lifetime_budget is required' }
+).refine(
+  (data) => {
+    // Validate attribution_spec for 2026 standards: view-through limited to 1 day
+    if (!data.attribution_spec) return true;
+    for (const spec of data.attribution_spec) {
+      if (spec.event_type === 'VIEW_THROUGH' && spec.window_days !== 1) {
+        return false;
+      }
+    }
+    return true;
+  },
+  {
+    message: 'View-through attribution is strictly limited to 1 day as of 2026 (v24.0 2026 standards). 7-day and 28-day view windows are deprecated.',
+    path: ['attribution_spec'],
+  }
 );
 
-// Create Campaign request schema (v25.0+)
+// Create Campaign request schema (v24.0 2026)
 export const CreateCampaignSchema = z.object({
   name: z.string().min(1, 'Campaign name is required').max(255, 'Campaign name must be 255 characters or less'),
   objective: CampaignObjectiveSchema,

@@ -80,13 +80,37 @@ async def create_advantage_plus_campaign(
 ):
     """
     POST /api/v1/meta-ads/campaigns/advantage-plus
-    Create a new Advantage+ Campaign (v25.0+)
+    Create a new Advantage+ Campaign (v24.0 2026 standards)
     """
     try:
         user_id, workspace_id = await get_user_context(request)
         credentials = await get_verified_credentials(workspace_id, user_id)
         
         service = get_meta_ads_service()
+        
+        # Convert datetime to ISO format strings if provided (v24.0 2026 standards)
+        start_time_str = None
+        end_time_str = None
+        if body.start_time:
+            if isinstance(body.start_time, datetime):
+                # Ensure timezone-aware datetime (default to UTC if naive)
+                if body.start_time.tzinfo is None:
+                    start_time_str = body.start_time.replace(tzinfo=timezone.utc).isoformat()
+                else:
+                    start_time_str = body.start_time.isoformat()
+            else:
+                start_time_str = str(body.start_time)
+        
+        if body.end_time:
+            if isinstance(body.end_time, datetime):
+                # Ensure timezone-aware datetime (default to UTC if naive)
+                if body.end_time.tzinfo is None:
+                    end_time_str = body.end_time.replace(tzinfo=timezone.utc).isoformat()
+                else:
+                    end_time_str = body.end_time.isoformat()
+            else:
+                end_time_str = str(body.end_time)
+        
         result = await service.create_advantage_plus_campaign(
             account_id=credentials["account_id"],
             access_token=credentials["access_token"],
@@ -96,7 +120,14 @@ async def create_advantage_plus_campaign(
             special_ad_categories=body.special_ad_categories,
             daily_budget=body.daily_budget,
             lifetime_budget=body.lifetime_budget,
-            bid_strategy=body.bid_strategy.value if body.bid_strategy else None
+            bid_strategy=body.bid_strategy.value if body.bid_strategy else None,
+            bid_amount=body.bid_amount,
+            roas_average_floor=body.roas_average_floor,
+            geo_locations=body.geo_locations.model_dump() if body.geo_locations else None,
+            promoted_object=body.promoted_object.model_dump() if body.promoted_object else None,
+            start_time=start_time_str,
+            end_time=end_time_str,
+            skip_adset=body.skip_adset
         )
         
         if not result.get("success"):
@@ -115,10 +146,15 @@ async def validate_advantage_config(
     request: Request,
     body: ValidateAdvantageConfigRequest
 ):
-    """Validate Advantage+ eligibility"""
+    """Validate Advantage+ eligibility (v24.0 2026 standards)"""
     try:
         service = get_meta_ads_service()
-        result = service.validate_advantage_config(body.model_dump())
+        # Convert Pydantic model to dict, handling enum values
+        config_dict = body.model_dump(mode='python')
+        # Ensure objective is a string value if it's an enum
+        if 'objective' in config_dict and hasattr(config_dict['objective'], 'value'):
+            config_dict['objective'] = config_dict['objective'].value
+        result = service.validate_advantage_config(config=config_dict)
         return JSONResponse(content=result)
     except Exception as e:
         logger.error(f"Error validating Advantage+ config: {e}")

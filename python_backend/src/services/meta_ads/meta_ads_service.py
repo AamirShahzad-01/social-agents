@@ -2,8 +2,8 @@
 Meta Ads Service
 Production Meta Business SDK wrapper for campaign, ad set, and ad management.
 
-Uses official Meta Business SDK for v25.0+ API operations.
-STRICT v25.0+ COMPLIANCE - No deprecated patterns (smart_promotion_type, etc.)
+Uses official Meta Business SDK for v24.0 API operations (2026 standards).
+STRICT v24.0 2026 COMPLIANCE - No deprecated patterns (smart_promotion_type, etc.)
 
 Handles:
 - Campaign CRUD operations (including Advantage+ campaigns)
@@ -22,10 +22,10 @@ from .meta_sdk_client import create_meta_sdk_client, MetaSDKError
 
 logger = logging.getLogger(__name__)
 
-# Meta API Configuration - v24.0 (supports v25.0 features)
+# Meta API Configuration - v24.0 (2026 standards)
 META_API_VERSION = "v24.0"
 
-# Objective mapping - strictly OUTCOME-based (API v25.0++)
+# Objective mapping - strictly OUTCOME-based (v24.0 2026 standards)
 # Legacy objectives (LINK_CLICKS, TRAFFIC, etc.) are purged for 2026 compliance.
 OBJECTIVE_MAPPING: Dict[str, str] = {
     "OUTCOME_TRAFFIC": "OUTCOME_TRAFFIC",
@@ -36,7 +36,7 @@ OBJECTIVE_MAPPING: Dict[str, str] = {
     "OUTCOME_APP_PROMOTION": "OUTCOME_APP_PROMOTION",
 }
 
-# Valid optimization goals per objective - v25.0+ ODAX
+# Valid optimization goals per objective - v24.0 2026 ODAX
 OBJECTIVE_VALID_GOALS: Dict[str, List[str]] = {
     "OUTCOME_AWARENESS": ["REACH", "IMPRESSIONS", "AD_RECALL_LIFT"],
     "OUTCOME_TRAFFIC": ["LINK_CLICKS", "LANDING_PAGE_VIEWS", "REACH", "IMPRESSIONS"],
@@ -87,7 +87,7 @@ class MetaAdsService:
         return create_meta_sdk_client(access_token)
     
     def _normalize_objective(self, objective: str) -> str:
-        """Normalize objective to v25.0+ OUTCOME-based format"""
+        """Normalize objective to v24.0 2026 OUTCOME-based format"""
         return OBJECTIVE_MAPPING.get(objective.upper(), objective)
     
     # ========================================================================
@@ -120,75 +120,7 @@ class MetaAdsService:
     
 
     
-    async def create_advantage_plus_campaign(
-        self,
-        account_id: str,
-        access_token: str,
-        name: str,
-        objective: str,
-        status: str,
-        special_ad_categories: List[str] = [],
-        daily_budget: Optional[int] = None,
-        lifetime_budget: Optional[int] = None,
-        bid_strategy: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Create Advantage+ Campaign (v25.0+)"""
-        try:
-            client = self._get_sdk_client(access_token)
-            
-            result = await client.create_advantage_plus_campaign(
-                ad_account_id=account_id,
-                name=name,
-                objective=objective,
-                status=status,
-                special_ad_categories=special_ad_categories,
-                daily_budget=daily_budget,
-                lifetime_budget=lifetime_budget,
-                bid_strategy=bid_strategy
-            )
-            
-            return {
-                "success": True,
-                "campaign": result,
-                "advantage_state_info": result.get("advantage_state_info"),
-                "error": None
-            }
-        except MetaSDKError as e:
-            logger.error(f"SDK error creating Advantage+ campaign: {e.message}")
-            return {"success": False, "error": e.message}
-        except Exception as e:
-            logger.error(f"Error creating Advantage+ campaign: {e}")
-            return {"success": False, "error": str(e)}
 
-    def validate_advantage_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Validate config for Advantage+ eligibility (v25.0+)
-        Checks if the configuration meets the 3-lever requirement.
-        """
-        requirements = {
-            "advantage_budget_state": config.get("has_campaign_budget", False),
-            "advantage_audience_state": config.get("has_advantage_audience", True),
-            "advantage_placement_state": not config.get("has_placement_exclusions", False)
-        }
-        
-        is_eligible = all(requirements.values())
-        
-        expected_state = "DISABLED"
-        if is_eligible:
-            obj = config.get("objective", "OUTCOME_SALES")
-            if obj == "OUTCOME_SALES":
-                expected_state = "ADVANTAGE_PLUS_SALES"
-            elif obj == "OUTCOME_APP_PROMOTION":
-                expected_state = "ADVANTAGE_PLUS_APP"
-            elif obj == "OUTCOME_LEADS":
-                expected_state = "ADVANTAGE_PLUS_LEADS"
-                
-        return {
-            "is_eligible": is_eligible,
-            "expected_advantage_state": expected_state,
-            "requirements_met": requirements,
-            "recommendations": [] if is_eligible else ["Enable all Advantage+ levers"]
-        }
 
     async def update_campaign(
         self,
@@ -196,15 +128,32 @@ class MetaAdsService:
         access_token: str,
         **updates
     ) -> Dict[str, Any]:
-        """Update a campaign using SDK"""
+        """
+        Update a campaign using SDK.
+        
+        Note: Budgets should be provided in cents. If provided as dollars, they will be converted.
+        """
         try:
             client = self._get_sdk_client(access_token)
+            
+            # Convert budget to cents if provided (assuming values < 10000 are in dollars)
+            daily_budget = updates.get("daily_budget")
+            lifetime_budget = updates.get("lifetime_budget")
+            
+            if daily_budget:
+                # If budget is less than 10000, assume it's in dollars and convert
+                daily_budget = int(daily_budget * 100) if daily_budget < 10000 else int(daily_budget)
+            
+            if lifetime_budget:
+                # If budget is less than 10000, assume it's in dollars and convert
+                lifetime_budget = int(lifetime_budget * 100) if lifetime_budget < 10000 else int(lifetime_budget)
+            
             result = await client.update_campaign(
                 campaign_id=campaign_id,
                 name=updates.get("name"),
                 status=updates.get("status"),
-                daily_budget=int(updates["daily_budget"] * 100) if updates.get("daily_budget") else None,
-                lifetime_budget=int(updates["lifetime_budget"] * 100) if updates.get("lifetime_budget") else None
+                daily_budget=daily_budget,
+                lifetime_budget=lifetime_budget
             )
             
             return {"success": True, "data": result, "error": None}
@@ -286,26 +235,49 @@ class MetaAdsService:
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
         bid_amount: Optional[float] = None,
-        # v25.0+ 2026 default: Enable Advantage+ Audience
+        # v24.0 2026 default: Enable Advantage+ Audience
         advantage_audience: bool = True,
-        # v25.0+ 2026 Required Parameters (Jan 6, 2026+)
+        # v24.0 2026 Required Parameters (2026 standards)
         is_adset_budget_sharing_enabled: Optional[bool] = None,
         placement_soft_opt_out: Optional[bool] = None,
         promoted_object: Optional[Dict[str, Any]] = None,
         destination_type: Optional[str] = None,
+        attribution_spec: Optional[List[Dict[str, Any]]] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """
-        Create a new ad set using SDK - v25.0+ 2026 Compliant.
+        Create a new ad set using SDK - v24.0 2026 Compliant.
         
-        v25.0+ 2026 COMPLIANCE (Effective Jan 6, 2026):
-        - advantage_audience defaults to True per Meta API v25.0+
+        v24.0 2026 COMPLIANCE (2026 standards):
+        - advantage_audience defaults to True per Meta API v24.0 2026
         - is_adset_budget_sharing_enabled: Share up to 20% budget between ad sets
         - placement_soft_opt_out: Allow 5% spend on excluded placements (Sales/Leads only)
         - targeting_automation.advantage_audience = 1 for Advantage+ Audience
         - Detailed targeting becomes advisory (signals) when Advantage+ Audience enabled
+        - attribution_spec: Updated windows per Jan 12, 2026 - view-through limited to 1 day only
         """
         try:
+            # Adjust attribution_spec based on optimization_goal (v24.0 2026)
+            # Some optimization goals have restricted attribution window combinations
+            if attribution_spec:
+                # Optimization goals that only support (1, 0) - click-through: 1 day, view-through: 0 (disabled)
+                RESTRICTED_ATTRIBUTION_GOALS = ["LANDING_PAGE_VIEWS"]
+                
+                if optimization_goal in RESTRICTED_ATTRIBUTION_GOALS:
+                    # For restricted goals, only allow click-through: 1 day, no view-through
+                    attribution_spec = [
+                        {"event_type": "CLICK_THROUGH", "window_days": 1}
+                    ]
+                    logger.info(f"Attribution spec adjusted for {optimization_goal}: only click-through 1-day allowed")
+                else:
+                    # Validate attribution_spec for 2026 standards (view-through limited to 1 day)
+                    for spec in attribution_spec:
+                        if spec.get("event_type") == "VIEW_THROUGH" and spec.get("window_days", 0) > 1:
+                            raise ValueError(
+                                "View-through attribution is strictly limited to 1 day as of 2026 (v24.0 2026 standards). "
+                                "7-day and 28-day view windows are deprecated."
+                            )
+            
             # Convert budgets to cents
             if daily_budget is not None:
                 daily_budget = int(daily_budget) if isinstance(daily_budget, (int, float)) else daily_budget
@@ -320,7 +292,7 @@ class MetaAdsService:
                     "age_max": 65
                 }
             
-            # v25.0+ 2026: Inject targeting_automation for Advantage+ Audience
+            # v24.0 2026: Inject targeting_automation for Advantage+ Audience
             if advantage_audience:
                 targeting["targeting_automation"] = {"advantage_audience": 1}
                 logger.info(f"Advantage+ Audience enabled for adset {name}")
@@ -343,12 +315,14 @@ class MetaAdsService:
                 lifetime_budget=lifetime_budget,
                 start_time=start_time,
                 end_time=end_time,
+                # bid_amount from service is in dollars, convert to cents for SDK (v24.0 2026)
                 bid_amount=int(bid_amount * 100) if bid_amount else None,
-                # v25.0+ 2026 Required Parameters
+                # v24.0 2026 Required Parameters
                 is_adset_budget_sharing_enabled=is_adset_budget_sharing_enabled,
                 placement_soft_opt_out=placement_soft_opt_out,
                 promoted_object=promoted_object,
-                destination_type=destination_type
+                destination_type=destination_type,
+                attribution_spec=attribution_spec
             )
             
             return {
@@ -357,6 +331,7 @@ class MetaAdsService:
                 "advantage_audience_enabled": advantage_audience,
                 "is_adset_budget_sharing_enabled": is_adset_budget_sharing_enabled,
                 "placement_soft_opt_out": placement_soft_opt_out,
+                "attribution_spec": attribution_spec,
                 "error": None
             }
             
@@ -374,41 +349,67 @@ class MetaAdsService:
         **updates
     ) -> Dict[str, Any]:
         """
-        Update an ad set using SDK - v25.0+ 2026 Compliant.
+        Update an ad set using SDK - v24.0 2026 Compliant.
         
-        v25.0+ 2026 Parameters:
+        v24.0 2026 Parameters:
         - is_adset_budget_sharing_enabled: Share up to 20% budget between ad sets
         - placement_soft_opt_out: Allow 5% spend on excluded placements
+        - attribution_spec: Updated windows per Jan 12, 2026 - view-through limited to 1 day only
         """
         try:
-            # v25.0+ 2026: Advantage+ Audience injection
-            if updates.get("advantage_audience") is not None and updates["advantage_audience"]:
+            # Validate attribution_spec for 2026 standards if provided
+            attribution_spec = updates.get("attribution_spec")
+            if attribution_spec:
+                for spec in attribution_spec:
+                    if isinstance(spec, dict):
+                        if spec.get("event_type") == "VIEW_THROUGH" and spec.get("window_days", 0) > 1:
+                            raise ValueError(
+                                "View-through attribution is strictly limited to 1 day as of 2026 (v24.0 2026 standards). "
+                                "7-day and 28-day view windows are deprecated."
+                            )
+            
+            # v24.0 2026: Advantage+ Audience injection
+            if updates.get("advantage_audience") is not None:
                 targeting = updates.get("targeting") or {}
+                if not isinstance(targeting, dict):
+                    targeting = {}
                 if "targeting_automation" not in targeting:
                     targeting["targeting_automation"] = {}
-                targeting["targeting_automation"]["advantage_audience"] = 1
+                if updates["advantage_audience"]:
+                    targeting["targeting_automation"]["advantage_audience"] = 1
+                else:
+                    targeting["targeting_automation"]["advantage_audience"] = 0
                 updates["targeting"] = targeting
 
             client = self._get_sdk_client(access_token)
             
-            # v25.0+ 2026 compliant update with all new parameters
+            # Handle budget conversion (already in cents from endpoint)
+            daily_budget = updates.get("daily_budget")
+            lifetime_budget = updates.get("lifetime_budget")
+            
+            # v24.0 2026 compliant update with all new parameters
             result = await client.update_adset(
                 adset_id=adset_id,
                 name=updates.get("name"),
                 status=updates.get("status"),
-                daily_budget=int(updates["daily_budget"] * 100) if updates.get("daily_budget") else None,
-                lifetime_budget=int(updates["lifetime_budget"] * 100) if updates.get("lifetime_budget") else None,
+                daily_budget=daily_budget,
+                lifetime_budget=lifetime_budget,
                 targeting=updates.get("targeting"),
-                # v25.0+ 2026 Required Parameters
+                start_time=updates.get("start_time"),
+                end_time=updates.get("end_time"),
+                # v24.0 2026 Required Parameters
                 is_adset_budget_sharing_enabled=updates.get("is_adset_budget_sharing_enabled"),
                 placement_soft_opt_out=updates.get("placement_soft_opt_out"),
-                bid_amount=int(updates["bid_amount"] * 100) if updates.get("bid_amount") else None
+                bid_amount=int(updates["bid_amount"] * 100) if updates.get("bid_amount") else None,
+                attribution_spec=attribution_spec
             )
             
             return {"success": True, "data": result, "error": None}
             
         except MetaSDKError as e:
             return {"success": False, "data": None, "error": e.message}
+        except ValueError as e:
+            return {"success": False, "data": None, "error": str(e)}
         except Exception as e:
             return {"success": False, "data": None, "error": str(e)}
     
@@ -739,8 +740,8 @@ class MetaAdsService:
         """
         Create a lookalike audience based on a source custom audience.
         
-        Per Meta API v25.0 docs:
-        - lookalike_spec is MANDATORY from January 6, 2026
+        Per Meta API v24.0 2026 docs:
+        - lookalike_spec is MANDATORY (2026 standards)
         - type: 'similarity' (top 1%) or 'custom_ratio' (for value-based)
         - ratio: 0.01 to 0.20 (1% to 20%)
         - Minimum source audience size: 100 people
@@ -1283,22 +1284,6 @@ class MetaAdsService:
     # A/B TESTING SERVICE METHODS
     # =========================================================================
     
-    async def get_ab_tests(
-        self,
-        account_id: str,
-        access_token: str
-    ) -> Dict[str, Any]:
-        """Get all A/B tests for an account."""
-        try:
-            client = create_meta_sdk_client(access_token)
-            clean_account_id = account_id.replace("act_", "")
-            return await client.get_ab_tests(clean_account_id)
-        except MetaSDKError as e:
-            logger.error(f"SDK error fetching A/B tests: {e.message}")
-            return {"success": False, "error": e.message}
-        except Exception as e:
-            logger.error(f"Error fetching A/B tests: {e}")
-            return {"success": False, "error": str(e)}
     
     # =========================================================================
     # AUTOMATION RULES SERVICE METHODS
@@ -1386,7 +1371,7 @@ class MetaAdsService:
             return {"success": False, "error": str(e)}
     
     # ========================================================================
-    # INSIGHTS API - v25.0+ COMPLIANT
+    # INSIGHTS API - v24.0 2026 COMPLIANT
     # ========================================================================
     
     async def fetch_insights(
@@ -1401,7 +1386,7 @@ class MetaAdsService:
         object_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Fetch insights at account, campaign, adset, or ad level (v25.0+).
+        Fetch insights at account, campaign, adset, or ad level (v24.0 2026).
         
         Args:
             account_id: Ad account ID
@@ -1470,7 +1455,7 @@ class MetaAdsService:
             return {"success": False, "data": [], "error": str(e)}
     
     # ========================================================================
-    # ADVANTAGE+ CAMPAIGNS - v25.0+ STRICT COMPLIANCE
+    # ADVANTAGE+ CAMPAIGNS - v24.0 2026 COMPLIANCE
     # ========================================================================
     
     async def create_advantage_plus_campaign(
@@ -1489,109 +1474,312 @@ class MetaAdsService:
         status: str = "PAUSED",
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
-        special_ad_categories: Optional[List[str]] = None
+        special_ad_categories: Optional[List[str]] = None,
+        skip_adset: bool = False
     ) -> Dict[str, Any]:
         """
-        Create Advantage+ Campaign using v25.0+ API.
+        Create Advantage+ Campaign using v24.0 API (2026 standards).
         
-        v25.0+ Compliance:
+        v24.0 2026 Compliance:
         - NO smart_promotion_type (deprecated)
         - NO existing_customer_budget_percentage (deprecated)
         - Campaign achieves Advantage+ status via three automation levers:
           1. Advantage+ Campaign Budget (budget at campaign level)
           2. Advantage+ Audience (targeting_automation.advantage_audience = 1)
-          3. Advantage+ Placements (no exclusions)
+          3. Advantage+ Placements (no placement exclusions)
+        
+        Args:
+            account_id: Ad account ID (with or without 'act_' prefix)
+            access_token: Meta access token
+            name: Campaign name (max 400 characters)
+            objective: Campaign objective (OUTCOME_SALES, OUTCOME_LEADS, OUTCOME_APP_PROMOTION, etc.)
+            daily_budget: Daily budget in cents (required if lifetime_budget not set)
+            lifetime_budget: Lifetime budget in cents (requires end_time)
+            bid_strategy: Bid strategy at campaign level
+            bid_amount: Bid amount in cents (required for COST_CAP, LOWEST_COST_WITH_BID_CAP)
+            roas_average_floor: Minimum ROAS floor (required for LOWEST_COST_WITH_MIN_ROAS)
+            geo_locations: Geographic targeting dict with countries list
+            promoted_object: Promoted object dict (required for conversion tracking)
+            status: Campaign status (PAUSED, ACTIVE)
+            start_time: Campaign start time (ISO format string or Unix timestamp)
+            end_time: Campaign end time (ISO format string or Unix timestamp, required for lifetime_budget)
+            special_ad_categories: List of special ad categories (empty for full Advantage+)
+            skip_adset: If True, only create campaign without default ad set
+        
+        Returns:
+            Dict with success status, campaign_id, adset_id, and advantage_state_info
         """
         try:
             from facebook_business.adobjects.adaccount import AdAccount
             from facebook_business.adobjects.campaign import Campaign
             from facebook_business.adobjects.adset import AdSet
+            from facebook_business.exceptions import FacebookRequestError
+            
+            # Validate required parameters (v24.0 2026 standards)
+            if not daily_budget and not lifetime_budget:
+                return {"success": False, "error": "Either daily_budget or lifetime_budget must be provided for Advantage+ Campaign Budget"}
+            
+            if lifetime_budget and not end_time:
+                return {"success": False, "error": "end_time is required when lifetime_budget is set"}
+            
+            # Validate bid_strategy requirements (v24.0 2026)
+            if bid_strategy in ["COST_CAP", "LOWEST_COST_WITH_BID_CAP"] and not bid_amount:
+                return {"success": False, "error": f"bid_amount is required for bid_strategy: {bid_strategy}"}
+            
+            if bid_strategy == "LOWEST_COST_WITH_MIN_ROAS" and not roas_average_floor:
+                return {"success": False, "error": "roas_average_floor is required for LOWEST_COST_WITH_MIN_ROAS bid_strategy"}
             
             client = self._get_sdk_client(access_token)
             clean_account_id = account_id.replace("act_", "")
             
-            # Step 1: Create Campaign with campaign-level budget (Advantage+ Budget)
+            # Helper function to convert datetime to Unix timestamp for Meta API (v24.0 2026)
+            def convert_to_timestamp(time_str):
+                """Convert ISO format string to Unix timestamp for Meta API"""
+                if not time_str:
+                    return None
+                try:
+                    from datetime import datetime as dt_parser
+                    # Handle ISO format with timezone
+                    if isinstance(time_str, str) and 'T' in time_str:
+                        # Remove 'Z' suffix and replace with +00:00 if needed
+                        time_str_clean = time_str.replace('Z', '+00:00')
+                        # Parse ISO format
+                        dt = dt_parser.fromisoformat(time_str_clean)
+                        return int(dt.timestamp())
+                    elif isinstance(time_str, (int, float)):
+                        # Already a timestamp
+                        return int(time_str)
+                    else:
+                        # Return as-is if cannot parse
+                        return time_str
+                except (ValueError, AttributeError, TypeError) as e:
+                    logger.warning(f"Could not parse time string {time_str}: {e}. Passing as-is.")
+                    return time_str
+            
+            # Step 1: Create Campaign with campaign-level budget (Advantage+ Budget - Lever 1)
             campaign_params = {
-                "name": name,
-                "objective": objective,  # OUTCOME_SALES, OUTCOME_APP_PROMOTION, OUTCOME_LEADS
-                "status": status,
-                "special_ad_categories": special_ad_categories or [],
-                "bid_strategy": bid_strategy,
-            }
-            
-            # Campaign-level budget (REQUIRED for Advantage+ Campaign Budget)
-            if daily_budget:
-                campaign_params["daily_budget"] = daily_budget
-            if lifetime_budget:
-                campaign_params["lifetime_budget"] = lifetime_budget
-            if start_time:
-                campaign_params["start_time"] = start_time
-            if end_time:
-                campaign_params["end_time"] = end_time
-            
-            ad_account = AdAccount(f"act_{clean_account_id}")
-            campaign = ad_account.create_campaign(params=campaign_params)
-            campaign_id = campaign.get("id")
-            
-            # Step 2: Create Ad Set with Advantage+ Audience and Placements
-            adset_params = {
-                "campaign_id": campaign_id,
-                "name": f"{name} - Ad Set",
-                "status": status,
-                "billing_event": "IMPRESSIONS",  # Required for Advantage+
-                # Use LINK_CLICKS by default (doesn't require pixel)
-                # OFFSITE_CONVERSIONS requires promoted_object with pixel_id
-                "optimization_goal": "LINK_CLICKS" if not promoted_object else "OFFSITE_CONVERSIONS",
-                # Advantage+ Audience: targeting_automation.advantage_audience = 1
-                "targeting": {
-                    "geo_locations": geo_locations or {"countries": ["US"]},
-                    "targeting_automation": {"advantage_audience": 1}
-                },
-            }
-            
-            # Promoted object for conversion tracking (required for OFFSITE_CONVERSIONS)
-            if promoted_object:
-                adset_params["promoted_object"] = promoted_object
-            
-            # Bid controls (ad set level for some strategies)
-            if bid_amount and bid_strategy in ["COST_CAP", "LOWEST_COST_WITH_BID_CAP"]:
-                adset_params["bid_amount"] = bid_amount
-            if roas_average_floor and bid_strategy == "LOWEST_COST_WITH_MIN_ROAS":
-                adset_params["bid_constraints"] = {"roas_average_floor": int(roas_average_floor * 10000)}
-            
-            adset = ad_account.create_ad_set(params=adset_params)
-            adset_id = adset.get("id")
-            
-            # Step 3: Get advantage_state_info to verify Advantage+ status
-            campaign_obj = Campaign(campaign_id)
-            campaign_info = campaign_obj.api_get(fields=[
-                "id", "name", "objective", "status", 
-                "daily_budget", "lifetime_budget",
-                "advantage_state_info"
-            ])
-            
-            advantage_state_info = campaign_info.get("advantage_state_info", {})
-            
-            return {
-                "success": True,
-                "campaign_id": campaign_id,
-                "adset_id": adset_id,
                 "name": name,
                 "objective": objective,
                 "status": status,
-                "advantage_state_info": {
-                    "advantage_state": advantage_state_info.get("advantage_state", "DISABLED"),
-                    "advantage_budget_state": advantage_state_info.get("advantage_budget_state", "DISABLED"),
-                    "advantage_audience_state": advantage_state_info.get("advantage_audience_state", "DISABLED"),
-                    "advantage_placement_state": advantage_state_info.get("advantage_placement_state", "DISABLED"),
-                }
+                "special_ad_categories": special_ad_categories or [],
             }
+            
+            # Campaign-level budget (REQUIRED for Advantage+ Campaign Budget - Lever 1)
+            if daily_budget:
+                campaign_params["daily_budget"] = int(daily_budget)
+            if lifetime_budget:
+                campaign_params["lifetime_budget"] = int(lifetime_budget)
+            
+            # Schedule (convert ISO to Unix timestamp for Meta API)
+            if start_time:
+                campaign_params["start_time"] = convert_to_timestamp(start_time)
+            if end_time:
+                campaign_params["end_time"] = convert_to_timestamp(end_time)
+            
+            # Bid strategy at campaign level (v24.0 2026)
+            if bid_strategy:
+                campaign_params["bid_strategy"] = bid_strategy
+            
+            ad_account = AdAccount(f"act_{clean_account_id}")
+            
+            try:
+                campaign_result = ad_account.create_campaign(params=campaign_params)
+                campaign_id = campaign_result.get("id")
+            except FacebookRequestError as e:
+                error_msg = e.api_error_message() or str(e)
+                logger.error(f"Meta API error creating campaign: {error_msg}")
+                return {"success": False, "error": f"Failed to create campaign: {error_msg}"}
+            
+            if not campaign_id:
+                return {"success": False, "error": "Failed to create campaign: No campaign ID returned"}
+            
+            adset_id = None
+            if not skip_adset:
+                # Step 2: Create Ad Set with Advantage+ Audience enabled (Lever 2)
+                # Build targeting with Advantage+ Audience
+                if not geo_locations:
+                    logger.warning(f"No geo_locations provided for campaign {name}, using default: US")
+                    geo_locations = {"countries": ["US"]}
+                
+                targeting = {
+                    "geo_locations": geo_locations,
+                    "targeting_automation": {"advantage_audience": 1}  # Enable Advantage+ Audience (Lever 2)
+                }
+                # No placement exclusions = Advantage+ Placements (Lever 3)
+                
+                # Determine optimization goal based on objective (v24.0 2026 mapping)
+                # Use OBJECTIVE_VALID_GOALS to get valid goals for the objective
+                valid_goals = OBJECTIVE_VALID_GOALS.get(objective, ["LINK_CLICKS"])
+                
+                # Select appropriate optimization goal based on objective and promoted_object
+                optimization_goal = valid_goals[0]  # Default to first valid goal
+                
+                if objective == "OUTCOME_SALES":
+                    # Prefer OFFSITE_CONVERSIONS if promoted_object is provided, otherwise LINK_CLICKS
+                    if promoted_object and "OFFSITE_CONVERSIONS" in valid_goals:
+                        optimization_goal = "OFFSITE_CONVERSIONS"
+                    elif "LINK_CLICKS" in valid_goals:
+                        optimization_goal = "LINK_CLICKS"
+                    else:
+                        optimization_goal = valid_goals[0]
+                elif objective == "OUTCOME_LEADS":
+                    # Prefer LEAD_GENERATION for leads objective
+                    if "LEAD_GENERATION" in valid_goals:
+                        optimization_goal = "LEAD_GENERATION"
+                    elif "QUALITY_LEAD" in valid_goals:
+                        optimization_goal = "QUALITY_LEAD"
+                    else:
+                        optimization_goal = valid_goals[0]
+                elif objective == "OUTCOME_APP_PROMOTION":
+                    # Prefer APP_INSTALLS for app promotion
+                    if "APP_INSTALLS" in valid_goals:
+                        optimization_goal = "APP_INSTALLS"
+                    else:
+                        optimization_goal = valid_goals[0]
+                elif objective == "OUTCOME_ENGAGEMENT":
+                    # Prefer POST_ENGAGEMENT for engagement objective
+                    if "POST_ENGAGEMENT" in valid_goals:
+                        optimization_goal = "POST_ENGAGEMENT"
+                    else:
+                        optimization_goal = valid_goals[0]
+                elif objective == "OUTCOME_AWARENESS":
+                    # Prefer REACH for awareness objective
+                    if "REACH" in valid_goals:
+                        optimization_goal = "REACH"
+                    elif "IMPRESSIONS" in valid_goals:
+                        optimization_goal = "IMPRESSIONS"
+                    else:
+                        optimization_goal = valid_goals[0]
+                elif objective == "OUTCOME_TRAFFIC":
+                    # Prefer LANDING_PAGE_VIEWS for traffic, fallback to LINK_CLICKS
+                    if "LANDING_PAGE_VIEWS" in valid_goals:
+                        optimization_goal = "LANDING_PAGE_VIEWS"
+                    elif "LINK_CLICKS" in valid_goals:
+                        optimization_goal = "LINK_CLICKS"
+                    else:
+                        optimization_goal = valid_goals[0]
+                
+                adset_params = {
+                    "name": f"{name} - Ad Set",
+                    "campaign_id": campaign_id,
+                    "optimization_goal": optimization_goal,
+                    "billing_event": "IMPRESSIONS",  # Required for Advantage+ (v24.0 2026)
+                    "targeting": targeting,
+                    "status": status
+                }
+                
+                # Add promoted_object if provided (required for conversion tracking)
+                if promoted_object:
+                    adset_params["promoted_object"] = promoted_object
+                
+                # Bid controls at ad set level (v24.0 2026)
+                if bid_amount and bid_strategy in ["COST_CAP", "LOWEST_COST_WITH_BID_CAP"]:
+                    adset_params["bid_amount"] = int(bid_amount)
+                
+                if roas_average_floor and bid_strategy == "LOWEST_COST_WITH_MIN_ROAS":
+                    # ROAS floor is in basis points (10000 = 100%, 20000 = 200%)
+                    adset_params["bid_constraints"] = {"roas_average_floor": int(roas_average_floor * 10000)}
+                
+                # v24.0 2026 Required Parameters for Ad Sets
+                # Ad Set Budget Sharing: Allow up to 20% budget sharing between ad sets for better optimization
+                # For Advantage+ campaigns, enable this for optimal performance (2026 standards)
+                adset_params["is_adset_budget_sharing_enabled"] = True
+                
+                # Placement Soft Opt Out: Allow 5% spend on excluded placements
+                # For Advantage+ Placements (Lever 3), NO placement exclusions are set
+                # This parameter only applies if placements are excluded, so it's not relevant here
+                # However, Meta API may require this parameter, so set to False for strict Advantage+ compliance
+                # Note: Since no placement exclusions are set, this parameter doesn't affect Advantage+ status
+                # Setting to False ensures strict compliance with Advantage+ Placements requirement (Lever 3)
+                adset_params["placement_soft_opt_out"] = False
+                
+                # Attribution Spec (v24.0 2026): Updated windows per Jan 12, 2026 changes
+                # - View-through deprecated: 7-day and 28-day view windows removed (Jan 12, 2026)
+                # - Only 1-day view-through remains allowed
+                # - Click-through still supports 1, 7, 28 days
+                # Default attribution for Advantage+ campaigns: 1-day click, 7-day click, 1-day view
+                attribution_spec = [
+                    {"event_type": "CLICK_THROUGH", "window_days": 1},
+                    {"event_type": "CLICK_THROUGH", "window_days": 7},
+                    {"event_type": "VIEW_THROUGH", "window_days": 1}  # Only 1-day view allowed per 2026 standards
+                ]
+                adset_params["attribution_spec"] = attribution_spec
+                
+                # Schedule for ad set (convert to timestamp)
+                if start_time:
+                    adset_params["start_time"] = convert_to_timestamp(start_time)
+                if end_time:
+                    adset_params["end_time"] = convert_to_timestamp(end_time)
+                
+                try:
+                    adset_result = ad_account.create_ad_set(params=adset_params)
+                    adset_id = adset_result.get("id")
+                    if not adset_id:
+                        logger.warning(f"Ad set created but no ID returned for campaign {campaign_id}")
+                except FacebookRequestError as e:
+                    error_msg = e.api_error_message() or str(e)
+                    logger.error(f"Meta API error creating ad set: {error_msg}")
+                    # Campaign was created successfully, but ad set failed - return partial success
+                    return {
+                        "success": True,
+                        "campaign_id": campaign_id,
+                        "adset_id": None,
+                        "name": name,
+                        "objective": objective,
+                        "status": status,
+                        "warning": f"Campaign created but ad set creation failed: {error_msg}",
+                        "advantage_state_info": {
+                            "advantage_state": "DISABLED",
+                            "advantage_budget_state": "ENABLED",
+                            "advantage_audience_state": "DISABLED",
+                            "advantage_placement_state": "ENABLED",
+                        }
+                    }
+            
+            # Step 3: Get advantage_state_info to verify Advantage+ status (v24.0 2026)
+            try:
+                campaign_obj = Campaign(campaign_id)
+                campaign_info = campaign_obj.api_get(fields=[
+                    "id", "name", "objective", "status", 
+                    "daily_budget", "lifetime_budget",
+                    "advantage_state_info"
+                ])
+                
+                advantage_state_info = campaign_info.get("advantage_state_info", {})
+                
+                return {
+                    "success": True,
+                    "campaign_id": campaign_id,
+                    "adset_id": adset_id,
+                    "name": name,
+                    "objective": objective,
+                    "status": status,
+                    "advantage_state_info": {
+                        "advantage_state": advantage_state_info.get("advantage_state", "DISABLED"),
+                        "advantage_budget_state": advantage_state_info.get("advantage_budget_state", "DISABLED"),
+                        "advantage_audience_state": advantage_state_info.get("advantage_audience_state", "DISABLED"),
+                        "advantage_placement_state": advantage_state_info.get("advantage_placement_state", "DISABLED"),
+                    }
+                }
+            except FacebookRequestError as e:
+                # Campaign created but couldn't fetch advantage state
+                logger.warning(f"Could not fetch advantage_state_info for campaign {campaign_id}: {e}")
+                return {
+                    "success": True,
+                    "campaign_id": campaign_id,
+                    "adset_id": adset_id,
+                    "name": name,
+                    "objective": objective,
+                    "status": status,
+                    "warning": "Campaign created but advantage_state_info could not be retrieved",
+                    "advantage_state_info": None
+                }
             
         except MetaSDKError as e:
             logger.error(f"SDK error creating Advantage+ campaign: {e.message}")
             return {"success": False, "error": e.message}
         except Exception as e:
-            logger.error(f"Error creating Advantage+ campaign: {e}")
+            logger.error(f"Error creating Advantage+ campaign: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
     
     async def get_campaign_advantage_state(
@@ -1600,14 +1788,14 @@ class MetaAdsService:
         access_token: str
     ) -> Dict[str, Any]:
         """
-        Get the Advantage+ state of a campaign (v25.0+).
+        Get the Advantage+ state of a campaign using v24.0 API.
         
         Returns advantage_state_info showing which automation levers are enabled.
         """
         try:
             from facebook_business.adobjects.campaign import Campaign
             
-            self._get_sdk_client(access_token)
+            client = self._get_sdk_client(access_token)
             
             campaign = Campaign(campaign_id)
             campaign_info = campaign.api_get(fields=[
@@ -1639,17 +1827,44 @@ class MetaAdsService:
     
     def validate_advantage_config(
         self,
-        objective: str,
-        has_campaign_budget: bool = True,
-        has_advantage_audience: bool = True,
-        has_placement_exclusions: bool = False,
+        config: Optional[Dict[str, Any]] = None,
+        objective: Optional[str] = None,
+        has_campaign_budget: Optional[bool] = None,
+        has_advantage_audience: Optional[bool] = None,
+        has_placement_exclusions: Optional[bool] = None,
         special_ad_categories: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        Validate if configuration qualifies for Advantage+ status (v25.0+).
+        Validate if configuration qualifies for Advantage+ status (v24.0 2026).
         
-        Returns expected advantage_state based on the three automation levers.
+        Can accept either a config dict or individual parameters.
+        
+        Args:
+            config: Dictionary with configuration (overrides individual params if provided)
+            objective: Campaign objective (OUTCOME_SALES, OUTCOME_LEADS, etc.)
+            has_campaign_budget: Whether budget is set at campaign level
+            has_advantage_audience: Whether Advantage+ Audience is enabled
+            has_placement_exclusions: Whether placement exclusions are set
+            special_ad_categories: List of special ad categories
+        
+        Returns:
+            Dict with is_eligible, expected_advantage_state, requirements_met, and recommendations
         """
+        # Extract values from config dict if provided
+        if config and isinstance(config, dict):
+            objective = config.get("objective", objective)
+            has_campaign_budget = config.get("has_campaign_budget", has_campaign_budget)
+            has_advantage_audience = config.get("has_advantage_audience", has_advantage_audience)
+            has_placement_exclusions = config.get("has_placement_exclusions", has_placement_exclusions)
+            special_ad_categories = config.get("special_ad_categories", special_ad_categories)
+        
+        # Default values if not provided
+        objective = objective or "OUTCOME_SALES"
+        has_campaign_budget = has_campaign_budget if has_campaign_budget is not None else True
+        has_advantage_audience = has_advantage_audience if has_advantage_audience is not None else True
+        has_placement_exclusions = has_placement_exclusions if has_placement_exclusions is not None else False
+        special_ad_categories = special_ad_categories or []
+        
         # Determine expected state based on levers
         advantage_budget_state = "ENABLED" if has_campaign_budget else "DISABLED"
         advantage_audience_state = "ENABLED" if has_advantage_audience else "DISABLED"
@@ -1694,210 +1909,8 @@ class MetaAdsService:
             },
             "recommendations": recommendations
         }
-    
-    async def fetch_ab_tests(
-        self,
-        business_id: str,
-        access_token: str
-    ) -> Dict[str, Any]:
-        """Fetch A/B tests (ad studies) for a business using SDK"""
-        try:
-            client = create_meta_sdk_client(access_token)
-            ab_tests = await client.get_ad_studies(business_id)
-            
-            return {"ab_tests": ab_tests, "error": None}
-            
-        except MetaSDKError as e:
-            return {"ab_tests": [], "error": e.message}
-        except Exception as e:
-            return {"ab_tests": [], "error": str(e)}
-    
-    async def create_ab_test(
-        self,
-        business_id: str,
-        access_token: str,
-        name: str,
-        cells: List[Dict[str, Any]],
-        start_time: str = None,
-        end_time: str = None,
-        study_type: str = "SPLIT_TEST",
-        description: Optional[str] = None,
-        confidence_level: Optional[float] = 0.9,
-        observation_end_time: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Create A/B test (split test) using SDK"""
-        try:
-            client = create_meta_sdk_client(access_token)
-            result = await client.create_ab_test(
-                account_id=business_id,  # SDK uses account_id parameter
-                name=name,
-                test_type=study_type,
-                cells=cells,
-                description=description,
-                start_time=int(start_time) if start_time and str(start_time).isdigit() else None,
-                end_time=int(end_time) if end_time and str(end_time).isdigit() else None,
-                business_id=business_id
-            )
-            
-            if result.get("success"):
-                return {
-                    "success": True,
-                    "ab_test": result,
-                    "id": result.get("test_id"),
-                    "error": None
-                }
-            else:
-                return {"success": False, "ab_test": None, "error": result.get("error")}
-            
-        except MetaSDKError as e:
-            logger.error(f"SDK error creating A/B test: {e.message}")
-            return {"success": False, "ab_test": None, "error": e.message}
-        except Exception as e:
-            logger.error(f"Error creating A/B test: {e}")
-            return {"success": False, "ab_test": None, "error": str(e)}
-    
-    async def fetch_ab_test_details(
-        self,
-        test_id: str,
-        access_token: str
-    ) -> Dict[str, Any]:
-        """Fetch details of a specific A/B test"""
-        try:
-            client = create_meta_sdk_client(access_token)
-            test_details = await client.get_ad_study_details(test_id)
-            
-            return {"ab_test": test_details, "error": None}
-            
-        except MetaSDKError as e:
-            return {"ab_test": None, "error": e.message}
-        except Exception as e:
-            return {"ab_test": None, "error": str(e)}
 
-    async def fetch_ab_test_insights(
-        self,
-        test_id: str,
-        access_token: str,
-        date_preset: str = "last_7d"
-    ) -> Dict[str, Any]:
-        """Fetch performance insights for an A/B test"""
-        try:
-            client = create_meta_sdk_client(access_token)
-            insights = await client.get_ad_study_insights(test_id, date_preset)
-            
-            # Calculate winner if we have enough data
-            winner = None
-            statistical_significance = 0
-            cells_insights = insights.get("cells", []) if insights else []
-            
-            if len(cells_insights) >= 2:
-                # Find cell with best performance (lowest cost_per_result)
-                sorted_cells = sorted(cells_insights, key=lambda x: x.get("cost_per_result", float('inf')))
-                if sorted_cells[0].get("cost_per_result", 0) > 0:
-                    winner = sorted_cells[0].get("name")
-                    # Simple significance calculation
-                    if len(sorted_cells) > 1 and sorted_cells[1].get("cost_per_result", 0) > 0:
-                        improvement = (sorted_cells[1]["cost_per_result"] - sorted_cells[0]["cost_per_result"]) / sorted_cells[1]["cost_per_result"]
-                        statistical_significance = min(improvement * 100 * 10, 99)  # Rough estimate
-            
-            return {
-                "insights": cells_insights,
-                "winner": winner,
-                "statistical_significance": statistical_significance,
-                "error": None
-            }
-            
-        except MetaSDKError as e:
-            return {"insights": [], "winner": None, "error": e.message}
-        except Exception as e:
-            return {"insights": [], "winner": None, "error": str(e)}
-    
-    async def update_ab_test_status(
-        self,
-        test_id: str,
-        access_token: str,
-        status: str
-    ) -> Dict[str, Any]:
-        """Update A/B test status (pause/resume)"""
-        try:
-            client = create_meta_sdk_client(access_token)
-            
-            # Map status values to Meta API expected values
-            # Meta API expects: OFF, ON, DRAFT, DEPRECATED_PENDING_REVIEW
-            status_mapping = {
-                'ACTIVE': 'ON',
-                'PAUSED': 'OFF',
-                'ON': 'ON',
-                'OFF': 'OFF',
-            }
-            api_status = status_mapping.get(status.upper(), status) if status else None
-            
-            result = await client.update_ad_study(test_id, status=api_status)
-            
-            return {"success": True, "error": None}
-            
-        except MetaSDKError as e:
-            return {"success": False, "error": e.message}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-    
-    async def cancel_ab_test(
-        self,
-        test_id: str,
-        access_token: str
-    ) -> Dict[str, Any]:
-        """Cancel/delete an A/B test"""
-        try:
-            client = create_meta_sdk_client(access_token)
-            result = await client.delete_ad_study(test_id)
-            
-            return {"success": True, "error": None}
-            
-        except MetaSDKError as e:
-            return {"success": False, "error": e.message}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-    
-    async def duplicate_ab_test(
-        self,
-        test_id: str,
-        access_token: str,
-        new_name: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Duplicate an A/B test"""
-        try:
-            client = create_meta_sdk_client(access_token)
-            
-            # Get original test details
-            original = await client.get_ad_study_details(test_id)
-            
-            if not original:
-                return {"success": False, "error": "Original test not found"}
-            
-            # Create new test with same settings
-            result = await client.create_ab_test(
-                account_id=original.get("business_id", ""),
-                name=new_name or f"{original.get('name', 'Test')} (Copy)",
-                test_type=original.get("type", "SPLIT_TEST"),
-                cells=original.get("cells", []),
-                start_time=original.get("start_time"),
-                end_time=original.get("end_time"),
-                description=original.get("description"),
-                business_id=original.get("business_id", "")
-            )
-            
-            return {
-                "success": True,
-                "id": result.get("id") or result.get("test_id"),
-                "ab_test": result,
-                "error": None
-            }
-            
-        except MetaSDKError as e:
-            return {"success": False, "ab_test": None, "error": e.message}
-        except Exception as e:
-            return {"success": False, "ab_test": None, "error": str(e)}
-
-
+   
 # Singleton instance
 _meta_ads_service: Optional[MetaAdsService] = None
 
@@ -1908,3 +1921,4 @@ def get_meta_ads_service() -> MetaAdsService:
     if _meta_ads_service is None:
         _meta_ads_service = MetaAdsService()
     return _meta_ads_service
+    

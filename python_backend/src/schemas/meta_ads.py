@@ -1,8 +1,8 @@
 """
 Meta Ads Pydantic Schemas
-Production-ready request/response validation for Meta Marketing API v25.0+
+Production-ready request/response validation for Meta Marketing API v24.0 (2026 standards)
 
-STRICT v25.0+ COMPLIANCE - All deprecated v25.0+ patterns removed.
+STRICT v24.0 2026 COMPLIANCE - All deprecated patterns removed.
 Based on official Meta Marketing API documentation.
 """
 from enum import Enum
@@ -12,14 +12,14 @@ from pydantic import BaseModel, Field, field_validator
 
 
 # ============================================================================
-# ENUMS - Meta Marketing API v25.0+
+# ENUMS - Meta Marketing API v24.0 2026
 # ============================================================================
 
 class CampaignObjective(str, Enum):
     """
-    Meta Ads Campaign Objectives - API v25.0+ OUTCOME-based (ODAX)
+    Meta Ads Campaign Objectives - API v24.0 2026 OUTCOME-based (ODAX)
     
-    These are the 6 simplified campaign objectives as of v25.0+:
+    These are the 6 simplified campaign objectives (v24.0 2026 standards):
     - OUTCOME_AWARENESS: Reach people likely to remember your ad
     - OUTCOME_TRAFFIC: Send people to a destination
     - OUTCOME_ENGAGEMENT: Find people to interact with your business
@@ -69,8 +69,7 @@ class AdStatus(str, Enum):
 
 class BidStrategy(str, Enum):
     """
-    Bid strategy options - v25.0+
-    Bid strategy options - v25.0+
+    Bid strategy options - v24.0 2026 standards
     """
     LOWEST_COST_WITHOUT_CAP = "LOWEST_COST_WITHOUT_CAP"
     LOWEST_COST_WITH_BID_CAP = "LOWEST_COST_WITH_BID_CAP"
@@ -80,7 +79,7 @@ class BidStrategy(str, Enum):
 
 class OptimizationGoal(str, Enum):
     """
-    Optimization goal options - API v25.0+
+    Optimization goal options - API v24.0 2026
     Mapped by campaign objective and destination type
     """
     # Awareness goals
@@ -122,7 +121,7 @@ class OptimizationGoal(str, Enum):
 
 class BillingEvent(str, Enum):
     """
-    Billing event options - v25.0+
+    Billing event options - v24.0 2026
     Note: Some events are only available for specific optimization goals
     """
     IMPRESSIONS = "IMPRESSIONS"
@@ -136,7 +135,7 @@ class BillingEvent(str, Enum):
 
 class DestinationType(str, Enum):
     """
-    Destination type for ad sets - v25.0+
+    Destination type for ad sets - v24.0 2026
     Determines where ads will send people
     """
     WEBSITE = "WEBSITE"
@@ -168,7 +167,7 @@ class SpecialAdCategory(str, Enum):
 
 
 class CallToActionType(str, Enum):
-    """Call to action types - v25.0+"""
+    """Call to action types - v24.0 2026"""
     # Primary CTAs
     LEARN_MORE = "LEARN_MORE"
     SHOP_NOW = "SHOP_NOW"
@@ -190,7 +189,7 @@ class CallToActionType(str, Enum):
     DONATE_NOW = "DONATE_NOW"
     INSTALL_APP = "INSTALL_APP"
     USE_APP = "USE_APP"
-    # Additional v25.0+ CTAs
+    # Additional v24.0 2026 CTAs
     BOOK_NOW = "BOOK_NOW"
     PLAY_GAME = "PLAY_GAME"
     LISTEN_NOW = "LISTEN_NOW"
@@ -224,7 +223,7 @@ class DraftStatus(str, Enum):
 
 class LookalikeType(str, Enum):
     """
-    Lookalike audience type - v25.0+
+    Lookalike audience type - v24.0 2026
     Required in lookalike_spec from January 6, 2026
     """
     SIMILARITY = "similarity"
@@ -251,7 +250,7 @@ class AudienceSubtype(str, Enum):
 
 class PlacementSoftOptOut(str, Enum):
     """
-    Placement soft opt out options - v25.0+ NEW
+    Placement soft opt out options - v24.0 2026 (2026 standards)
     Allows up to 5% budget on excluded placements for better performance
     Available for OUTCOME_SALES and OUTCOME_LEADS objectives
     """
@@ -261,7 +260,7 @@ class PlacementSoftOptOut(str, Enum):
 
 class MediaTypeAutomation(str, Enum):
     """
-    Media type automation for Advantage+ Catalog Ads - v25.0+
+    Media type automation for Advantage+ Catalog Ads - v24.0 2026
     Defaults to OPT_IN from September 2025
     """
     OPT_IN = "OPT_IN"
@@ -275,7 +274,7 @@ class BuyingType(str, Enum):
 
 
 # ============================================================================
-# TARGETING SCHEMAS - v25.0+
+# TARGETING SCHEMAS - v24.0 2026
 # ============================================================================
 
 class GeoLocations(BaseModel):
@@ -315,7 +314,7 @@ class FlexibleSpec(BaseModel):
 
 class TargetingSpec(BaseModel):
     """
-    Complete targeting specification - v25.0+
+    Complete targeting specification - v24.0 2026
     Supports all Meta targeting options
     """
     geo_locations: Optional[GeoLocations] = None
@@ -360,7 +359,7 @@ class TargetingSpec(BaseModel):
 
 class PromotedObject(BaseModel):
     """
-    Promoted object for conversion tracking - v25.0+
+    Promoted object for conversion tracking - v24.0 2026
     Required for iOS 14+ campaigns and conversion optimization
     """
     page_id: Optional[str] = None
@@ -392,17 +391,17 @@ class AttributionSpec(BaseModel):
         # Only 1-day view-through is allowed.
         # Click-through still supports 1, 7, 28.
         if info.data.get('event_type') == 'VIEW_THROUGH' and v > 1:
-            raise ValueError('View-through attribution is strictly limited to 1 day as of 2026 (v25.0+)')
+            raise ValueError('View-through attribution is strictly limited to 1 day as of 2026 (v24.0 2026 standards)')
         return v
 
 
 # ============================================================================
-# LOOKALIKE AUDIENCE SPECS - v25.0+ (Mandatory from Jan 2026)
+# LOOKALIKE AUDIENCE SPECS - v24.0 2026 (Mandatory per 2026 standards)
 # ============================================================================
 
 class LookalikeSpec(BaseModel):
     """
-    Lookalike audience specification - v25.0+ MANDATORY from Jan 6, 2026
+    Lookalike audience specification - v24.0 2026 MANDATORY per 2026 standards
     
     All fields are required for creating new lookalike audiences.
     """
@@ -421,7 +420,7 @@ class LookalikeSpec(BaseModel):
 
 
 # ============================================================================
-# CAMPAIGN SCHEMAS - v25.0+
+# CAMPAIGN SCHEMAS - v24.0 2026
 # ============================================================================
 
 
@@ -437,7 +436,7 @@ class UpdateCampaignRequest(BaseModel):
 
 
 class CampaignInsights(BaseModel):
-    """Campaign performance insights - v25.0+ metrics"""
+    """Campaign performance insights - v24.0 2026 metrics"""
     impressions: Optional[int] = 0
     reach: Optional[int] = 0
     clicks: Optional[int] = 0
@@ -449,13 +448,13 @@ class CampaignInsights(BaseModel):
     conversions: Optional[int] = None
     cost_per_conversion: Optional[float] = None
     roas: Optional[float] = None  # Return on Ad Spend
-    # New v25.0+ metrics
+    # New v24.0 2026 metrics
     instagram_profile_visits: Optional[int] = None
 
 
 class AdvantageStateInfo(BaseModel):
     """
-    Read-only Advantage+ state information (v25.0+)
+    Read-only Advantage+ state information (v24.0 2026)
     
     A campaign achieves Advantage+ status when ALL three levers are ENABLED:
     - advantage_budget_state: Campaign-level budget is set
@@ -474,7 +473,7 @@ class AdvantageStateInfo(BaseModel):
 
 
 class CampaignResponse(BaseModel):
-    """Campaign response model - v25.0+"""
+    """Campaign response model - v24.0 2026"""
     id: str
     name: str
     objective: str
@@ -491,12 +490,12 @@ class CampaignResponse(BaseModel):
     start_time: Optional[str] = None
     stop_time: Optional[str] = None
     insights: Optional[CampaignInsights] = None
-    # v25.0+ Advantage+ state information
+    # v24.0 2026 Advantage+ state information
     advantage_state_info: Optional[AdvantageStateInfo] = None
 
 
 # ============================================================================
-# AD SET SCHEMAS - v25.0+
+# AD SET SCHEMAS - v24.0 2026
 # ============================================================================
 
 class AdSetSchedule(BaseModel):
@@ -509,9 +508,9 @@ class AdSetSchedule(BaseModel):
 
 class CreateAdSetRequest(BaseModel):
     """
-    Request to create an ad set - v25.0+
+    Request to create an ad set - v24.0 2026
     
-    New v25.0+ fields:
+    New v24.0 2026 fields:
     - is_adset_budget_sharing_enabled: Share up to 20% budget with other ad sets
     - placement_soft_opt_out: Allow 5% spend on excluded placements
     """
@@ -525,7 +524,7 @@ class CreateAdSetRequest(BaseModel):
     
     # Bidding
     bid_strategy: Optional[BidStrategy] = None
-    bid_amount: Optional[float] = None  # In cents
+    bid_amount: Optional[float] = None  # In dollars (converted to cents by service layer)
     
     # Budget
     budget_type: Optional[str] = "daily"
@@ -533,7 +532,7 @@ class CreateAdSetRequest(BaseModel):
     daily_min_spend_target: Optional[float] = None
     daily_spend_cap: Optional[float] = None
     
-    # v25.0+ NEW: Ad Set Budget Sharing
+    # v24.0 2026 NEW: Ad Set Budget Sharing
     is_adset_budget_sharing_enabled: Optional[bool] = None
     
     # Schedule
@@ -544,7 +543,7 @@ class CreateAdSetRequest(BaseModel):
     # Targeting
     targeting: Optional[TargetingSpec] = None
     
-    # v25.0+ Advantage+ Audience - defaults to True per Meta API v25.0+
+    # v24.0 2026 Advantage+ Audience - defaults to True per Meta API v24.0 2026
     # When enabled, detailed targeting becomes advisory (signals)
     advantage_audience: Optional[bool] = True
     
@@ -552,7 +551,7 @@ class CreateAdSetRequest(BaseModel):
     destination_type: Optional[DestinationType] = None
     promoted_object: Optional[PromotedObject] = None
     
-    # v25.0+ NEW: Placement soft opt out
+    # v24.0 2026 NEW: Placement soft opt out
     placement_soft_opt_out: Optional[bool] = None
     
     # Attribution
@@ -563,22 +562,26 @@ class CreateAdSetRequest(BaseModel):
 
 
 class UpdateAdSetRequest(BaseModel):
-    """Request to update an ad set"""
+    """Request to update an ad set - v24.0 2026"""
     name: Optional[str] = Field(None, max_length=255)
     status: Optional[AdSetStatus] = None
     budget_amount: Optional[float] = None
-    bid_amount: Optional[float] = None
+    budget_type: Optional[str] = None  # 'daily' or 'lifetime'
+    bid_amount: Optional[float] = None  # In dollars (converted to cents by service layer)
     targeting: Optional[TargetingSpec] = None
+    start_time: Optional[str] = None
     end_time: Optional[str] = None
     daily_spend_cap: Optional[float] = None
     
-    # v25.0+ Updates
+    # v24.0 2026 Updates
     advantage_audience: Optional[bool] = None
     is_adset_budget_sharing_enabled: Optional[bool] = None
+    placement_soft_opt_out: Optional[bool] = None
+    attribution_spec: Optional[List[AttributionSpec]] = None
 
 
 class AdSetResponse(BaseModel):
-    """Ad set response model - v25.0+"""
+    """Ad set response model - v24.0 2026"""
     id: str
     name: str
     campaign_id: str
@@ -602,7 +605,7 @@ class AdSetResponse(BaseModel):
 
 
 # ============================================================================
-# AD CREATIVE SCHEMAS - v25.0+
+# AD CREATIVE SCHEMAS - v24.0 2026
 # ============================================================================
 
 class LinkData(BaseModel):
@@ -635,7 +638,7 @@ class PhotoData(BaseModel):
 
 class ObjectStorySpec(BaseModel):
     """
-    Object story specification for ad creatives - v25.0+
+    Object story specification for ad creatives - v24.0 2026
     Creates an unpublished page post for the ad
     """
     page_id: str
@@ -659,9 +662,9 @@ class CarouselItem(BaseModel):
 
 class AdCreative(BaseModel):
     """
-    Ad creative specification - v25.0+
+    Ad creative specification - v24.0 2026
     
-    Note: For v25.0+, prefer using object_story_spec for new creatives
+    Note: For v24.0 2026, prefer using object_story_spec for new creatives
     """
     title: Optional[str] = Field(None, max_length=40)
     body: Optional[str] = Field(None, max_length=125)
@@ -678,16 +681,16 @@ class AdCreative(BaseModel):
     # Carousel
     carousel_items: Optional[List[CarouselItem]] = None
     
-    # Object Story Spec (preferred for v25.0+)
+    # Object Story Spec (preferred for v24.0 2026)
     object_story_spec: Optional[ObjectStorySpec] = None
     
-    # v25.0+: Media type automation for Advantage+ Catalog Ads
+    # v24.0 2026: Media type automation for Advantage+ Catalog Ads
     media_type_automation: Optional[MediaTypeAutomation] = None
     
-    # v25.0+ Advantage+ Creative (Standard Enhancements)
+    # v24.0 2026 Advantage+ Creative (Standard Enhancements)
     advantage_plus_creative: Optional[bool] = True
     
-    # v25.0+: Granular AI Enhancement Levers (degrees_of_freedom_spec)
+    # v24.0 2026: Granular AI Enhancement Levers (degrees_of_freedom_spec)
     # Dictionary containing creative_features_spec with supported fields:
     # Core Features (pre-2026):
     #   - standard_enhancements: Bundle of basic AI optimizations
@@ -696,7 +699,7 @@ class AdCreative(BaseModel):
     #   - text_optimizations: AI-powered text optimization
     #   - image_templates: Apply templates to images for better placement fit
     #   - adapt_to_placement: 9:16 image display in Stories/Reels
-    # New 2026 Features (v25.0):
+    # New 2026 Features (v24.0 2026):
     #   - inline_comment: Display relevant comments below ad for social proof
     #   - expand_image: AI-powered image expansion for better placement coverage
     #   - dynamic_media: Display catalog videos alongside images (e-commerce)
@@ -704,13 +707,13 @@ class AdCreative(BaseModel):
     #   - description_automation: Automated description generation
     degrees_of_freedom_spec: Optional[Dict[str, Any]] = None
     
-    # v25.0+: Ad Disclaimer (Legal/Political Disclosure)
+    # v24.0 2026: Ad Disclaimer (Legal/Political Disclosure)
     ad_disclaimer_spec: Optional[Dict[str, Any]] = None
     
-    # v25.0+: Gen AI Disclosure (Required for AI-generated content)
+    # v24.0 2026: Gen AI Disclosure (Required for AI-generated content)
     gen_ai_disclosure: Optional[bool] = False
     
-    # v25.0+: Format Automation for Catalog Ads
+    # v24.0 2026: Format Automation for Catalog Ads
     format_automation: Optional[bool] = False
     product_set_id: Optional[str] = None
     
@@ -743,7 +746,7 @@ class UpdateAdRequest(BaseModel):
 
 
 class AdResponse(BaseModel):
-    """Ad response model - v25.0+"""
+    """Ad response model - v24.0 2026"""
     id: str
     name: str
     adset_id: str
@@ -803,11 +806,11 @@ class AdDraftResponse(BaseModel):
 
 
 # ============================================================================
-# AUDIENCE SCHEMAS - v25.0+
+# AUDIENCE SCHEMAS - v24.0 2026
 # ============================================================================
 
 class CreateCustomAudienceRequest(BaseModel):
-    """Request to create a custom audience - v25.0+"""
+    """Request to create a custom audience - v24.0 2026"""
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     subtype: AudienceSubtype = AudienceSubtype.CUSTOM
@@ -823,7 +826,7 @@ class CreateCustomAudienceRequest(BaseModel):
 
 class CreateLookalikeRequest(BaseModel):
     """
-    Request to create a lookalike audience - v25.0+
+    Request to create a lookalike audience - v24.0 2026
     
     IMPORTANT: From January 6, 2026, lookalike_spec is MANDATORY
     """
@@ -857,7 +860,7 @@ class AudienceListResponse(BaseModel):
 
 
 # ============================================================================
-# STATUS & RESPONSE SCHEMAS - v25.0+
+# STATUS & RESPONSE SCHEMAS - v24.0 2026
 # ============================================================================
 
 class AdAccountInfo(BaseModel):
@@ -954,7 +957,7 @@ class ErrorResponse(BaseModel):
 
 
 # ============================================================================
-# INSIGHTS SCHEMAS - v25.0+
+# INSIGHTS SCHEMAS - v24.0 2026
 # ============================================================================
 
 class DatePreset(str, Enum):
@@ -981,7 +984,7 @@ class DatePreset(str, Enum):
 
 
 class InsightsRequest(BaseModel):
-    """Request for insights data - v25.0+ compliant"""
+    """Request for insights data - v24.0 2026 compliant"""
     date_preset: Optional[DatePreset] = DatePreset.LAST_7D
     time_range: Optional[Dict[str, str]] = None  # {'since': 'YYYY-MM-DD', 'until': 'YYYY-MM-DD'}
     level: Optional[str] = "account"  # account, campaign, adset, ad
@@ -1005,7 +1008,7 @@ class ActionType(BaseModel):
 
 
 class InsightData(BaseModel):
-    """Individual insight data row - v25.0+"""
+    """Individual insight data row - v24.0 2026"""
     date_start: Optional[str] = None
     date_stop: Optional[str] = None
     impressions: Optional[str] = None
@@ -1029,7 +1032,7 @@ class InsightData(BaseModel):
 
 
 class InsightsResponse(BaseModel):
-    """Insights response - v25.0+"""
+    """Insights response - v24.0 2026"""
     success: bool = True
     data: List[Dict[str, Any]] = []
     paging: Optional[Dict[str, Any]] = None

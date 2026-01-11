@@ -26,7 +26,7 @@ async def get_analytics(
     """
     GET /api/v1/meta-ads/analytics
     
-    Get analytics insights - v25.0
+    Get analytics insights - v24.0 2026
     """
     try:
         user_id, workspace_id = await get_user_context(request)
@@ -58,7 +58,7 @@ async def get_analytics_breakdown(
     """
     GET /api/v1/meta-ads/analytics/breakdown
     
-    Get analytics with demographic/placement breakdowns - v25.0
+    Get analytics with demographic/placement breakdowns - v24.0 2026
     """
     try:
         user_id, workspace_id = await get_user_context(request)
@@ -93,7 +93,7 @@ async def get_campaign_insights(
     """
     GET /api/v1/meta-ads/insights/{campaign_id}
     
-    Get insights for a specific campaign - v25.0
+    Get insights for a specific campaign - v24.0 2026
     """
     try:
         user_id, workspace_id = await get_user_context(request)
@@ -173,7 +173,7 @@ async def get_account_insights(
     """
     GET /api/v1/meta-ads/insights/account
     
-    Get account-level performance insights (v25.0+).
+    Get account-level performance insights (v24.0 2026).
     """
     try:
         user_id, workspace_id = await get_user_context(request)
@@ -217,7 +217,7 @@ async def get_campaign_insights_v2(
     """
     GET /api/v1/meta-ads/insights/campaigns/{campaign_id}
     
-    Get campaign-level insights (v25.0+).
+    Get campaign-level insights (v24.0 2026).
     """
     try:
         user_id, workspace_id = await get_user_context(request)
@@ -255,7 +255,7 @@ async def get_adset_insights(
     """
     GET /api/v1/meta-ads/insights/adsets/{adset_id}
     
-    Get ad set-level insights (v25.0+).
+    Get ad set-level insights (v24.0 2026).
     """
     try:
         user_id, workspace_id = await get_user_context(request)
@@ -293,7 +293,7 @@ async def get_ad_insights(
     """
     GET /api/v1/meta-ads/insights/ads/{ad_id}
     
-    Get ad-level insights (v25.0+).
+    Get ad-level insights (v24.0 2026).
     """
     try:
         user_id, workspace_id = await get_user_context(request)

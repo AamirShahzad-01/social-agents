@@ -90,7 +90,7 @@ export default function CampaignManager({ campaigns = [], adSets = [], ads = [],
   const [showAdvantageWizard, setShowAdvantageWizard] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
 
-  // Sync with external showCreate prop - opens Advantage+ wizard (v25.0+)
+  // Sync with external showCreate prop - opens Advantage+ wizard (v24.0 2026)
   React.useEffect(() => {
     if (showCreate !== undefined) {
       setShowAdvantageWizard(showCreate);
@@ -491,7 +491,7 @@ export default function CampaignManager({ campaigns = [], adSets = [], ads = [],
         />
       )}
 
-      {/* Advantage+ Campaign Wizard (v25.0+ Unified Experience) */}
+      {/* Advantage+ Campaign Wizard (v24.0 2026 Unified Experience) */}
       {showAdvantageWizard && (
         <AdvantagePlusWizard
           onClose={() => handleWizardChange(false)}
@@ -587,7 +587,7 @@ function CampaignRow({
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium group-hover:text-primary transition-colors truncate">{campaign.name}</p>
-                  {/* v25.0+ Advantage+ Badge */}
+                  {/* v24.0 2026 Advantage+ Badge */}
                   {campaign.advantage_state_info && campaign.advantage_state_info.advantage_state !== 'DISABLED' && (
                     <AdvantageStateIndicator advantageState={campaign.advantage_state_info} size="sm" />
                   )}
@@ -1019,7 +1019,7 @@ function CampaignDetailView({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold">{campaign.name}</h2>
-                {/* v25.0+ Advantage+ Badge */}
+                {/* v24.0 2026 Advantage+ Badge */}
                 {campaign.advantage_state_info && campaign.advantage_state_info.advantage_state !== 'DISABLED' && (
                   <AdvantageStateIndicator advantageState={campaign.advantage_state_info} size="md" />
                 )}
@@ -1039,7 +1039,7 @@ function CampaignDetailView({
         </Button>
       </div>
 
-      {/* v25.0+ Advantage+ State Card - Show detailed automation lever status */}
+      {/* v24.0 2026 Advantage+ State Card - Show detailed automation lever status */}
       {campaign.advantage_state_info && (
         <Card className="border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20">
           <CardContent className="p-4">

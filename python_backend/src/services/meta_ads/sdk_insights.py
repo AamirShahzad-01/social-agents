@@ -43,7 +43,7 @@ VIDEO_INSIGHTS_FIELDS = [
     'video_p100_watched_actions'
 ]
 
-# Available breakdowns (v25.0+)
+# Available breakdowns (v24.0 2026)
 AVAILABLE_BREAKDOWNS = [
     'age',                  # Age ranges (18-24, 25-34, etc.)
     'gender',               # Male, Female, Unknown
@@ -148,7 +148,7 @@ class InsightsService:
         """
         Get insights with breakdown for an ad account.
         
-        Breakdowns available (v25.0+):
+        Breakdowns available (v24.0 2026):
         - age: Age ranges (18-24, 25-34, etc.)
         - gender: Male, Female, Unknown
         - age,gender: Combined age and gender breakdown
@@ -283,7 +283,7 @@ class InsightsService:
         breakdowns: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        Get campaign-level insights (v25.0+).
+        Get campaign-level insights (v24.0 2026).
         
         Args:
             campaign_id: Campaign ID
@@ -347,7 +347,7 @@ class InsightsService:
         breakdowns: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        Get ad set-level insights (v25.0+).
+        Get ad set-level insights (v24.0 2026).
         
         Args:
             adset_id: Ad Set ID
@@ -411,7 +411,7 @@ class InsightsService:
         breakdowns: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        Get ad-level insights (v25.0+).
+        Get ad-level insights (v24.0 2026).
         
         Args:
             ad_id: Ad ID

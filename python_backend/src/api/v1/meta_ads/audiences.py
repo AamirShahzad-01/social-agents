@@ -380,7 +380,7 @@ async def create_lookalike_audience(request: Request):
     """
     POST /api/v1/meta-ads/audiences/lookalike
     
-    Create a lookalike audience - v25.0
+    Create a lookalike audience - v24.0 2026
     """
     try:
         user_id, workspace_id = await get_user_context(request)
