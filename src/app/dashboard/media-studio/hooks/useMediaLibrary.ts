@@ -173,15 +173,16 @@ export function useMediaLibrary() {
 
       console.log('Sending to backend:', { workspaceId, userId: user?.id });
 
+      // Transform camelCase keys to snake_case for the database
       const result = await post<{ data: { id: string } }>('/media-studio/library', {
         workspaceId,
         mediaItem: {
           type: options.type,
           source: options.source,
           url: finalUrl,
-          thumbnailUrl: options.thumbnailUrl,
+          thumbnail_url: options.thumbnailUrl, // mapped
           prompt: options.prompt,
-          revisedPrompt: options.revisedPrompt,
+          revised_prompt: options.revisedPrompt, // mapped
           model: options.model,
           config: { ...options.config, ...additionalMetadata },
           metadata: { ...options.metadata, ...additionalMetadata },
@@ -190,9 +191,14 @@ export function useMediaLibrary() {
         },
       });
 
-      return result.data?.id || null;
+      if (!result.data?.id) {
+        throw new Error('Backend failed to return an ID for the new media item');
+      }
+
+      return result.data.id;
     } catch (error) {
-      return null;
+      console.error('Error in saveMedia:', error);
+      throw error; // Let the caller handle it or show a toast
     }
   }, [workspaceId, uploadToCloudinary, user?.id]);
 

@@ -20,9 +20,10 @@ interface AudioNameDialogProps {
     onOpenChange: (open: boolean) => void;
     onSubmit: (name: string) => void;
     defaultName?: string;
+    isSaving?: boolean;
 }
 
-export function AudioNameDialog({ open, onOpenChange, onSubmit, defaultName }: AudioNameDialogProps) {
+export function AudioNameDialog({ open, onOpenChange, onSubmit, defaultName, isSaving }: AudioNameDialogProps) {
     const { register, handleSubmit, formState: { errors }, reset } = useForm<AudioNameFormValues>({
         resolver: zodResolver(audioNameSchema),
         defaultValues: {
@@ -39,7 +40,7 @@ export function AudioNameDialog({ open, onOpenChange, onSubmit, defaultName }: A
 
     const onFormSubmit = (data: AudioNameFormValues) => {
         onSubmit(data.name);
-        onOpenChange(false);
+        // onOpenChange(false); // Let the parent controller close it after success
     }
 
     return (
@@ -68,7 +69,9 @@ export function AudioNameDialog({ open, onOpenChange, onSubmit, defaultName }: A
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="submit">Save to Library</Button>
+                        <Button type="submit" disabled={isSaving}>
+                            {isSaving ? "Saving..." : "Save to Library"}
+                        </Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

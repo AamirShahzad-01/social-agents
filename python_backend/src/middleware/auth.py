@@ -84,6 +84,8 @@ PUBLIC_PATHS = [
     "/api/v1/content/",  # Content Strategist - uses thread_id for access
     "/api/v1/canva/",  # Canva API uses user_id for access control
     "/api/v1/comments/",  # Comments API uses workspace_id for access control
+    "/api/v1/improve/",  # AI Improvement utility endpoints (content/prompts)
+    "/api/v1/media/",  # AI Generative endpoints
 ]
 
 OPTIONAL_AUTH_PATHS = [

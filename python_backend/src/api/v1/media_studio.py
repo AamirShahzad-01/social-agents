@@ -6,7 +6,7 @@ Uses Cloudinary for media storage and CDN delivery.
 """
 
 from typing import Optional, Literal
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from fastapi import APIRouter, HTTPException, Depends, Request
@@ -1181,8 +1181,19 @@ async def create_media_item(payload: CreateMediaItemRequest, request: Request):
         if user_id:
             media_item["user_id"] = user_id
             
-        media_item["created_at"] = datetime.now().isoformat()
-        media_item["updated_at"] = datetime.now().isoformat()
+        # Ensure UTC timestamps
+        now = datetime.now(timezone.utc).isoformat()
+        media_item["created_at"] = now
+        media_item["updated_at"] = now
+        
+        # Robustness: Map camelCase to snake_case if frontend missed it
+        mappings = {
+            "thumbnailUrl": "thumbnail_url",
+            "revisedPrompt": "revised_prompt",
+        }
+        for camel, snake in mappings.items():
+            if camel in media_item and snake not in media_item:
+                media_item[snake] = media_item.pop(camel)
         
         logger.info(f"Creating media item: {media_item}")
         

@@ -110,7 +110,8 @@ export function AudioGenerator() {
     const [isPlaying, setIsPlaying] = useState(false);
     const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
-    // Dialog state
+    // Dialog and saving state
+    const [isSaving, setIsSaving] = useState(false);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [pendingAudio, setPendingAudio] = useState<{ audioBase64: string, type: AudioTab, prompt?: string } | null>(null);
 
@@ -178,11 +179,12 @@ export function AudioGenerator() {
     const handleSaveAudio = useCallback(async (name: string) => {
         if (!pendingAudio) return;
 
-        const { audioBase64, type, prompt } = pendingAudio;
+        const { audioBase64, type, prompt: originalPrompt } = pendingAudio;
         const audioUrl = `data:audio/mpeg;base64,${audioBase64}`;
 
+        setIsSaving(true);
         try {
-            await saveGeneratedMedia({
+            const mediaId = await saveGeneratedMedia({
                 type: 'audio',
                 source: 'generated',
                 url: audioUrl,
@@ -190,16 +192,34 @@ export function AudioGenerator() {
                 model: 'eleven_turbo_v2_5',
                 config: {
                     audioTab: type,
-                    originalPrompt: prompt // Store original prompt in config
+                    originalPrompt: originalPrompt // Store original prompt in config
                 },
                 tags: ['audio', type]
             });
-            fetchLibraryAudio();
-            setPendingAudio(null);
+
+            if (mediaId) {
+                // Update local state immediately for instant feedback
+                const newAudio: MediaItem = {
+                    id: mediaId,
+                    type: 'audio',
+                    url: audioUrl,
+                    prompt: name,
+                    config: {
+                        audioTab: type,
+                    },
+                    createdAt: Date.now(),
+                };
+
+                setLibraryAudio(prev => [newAudio, ...prev]);
+                setPendingAudio(null);
+                setDialogOpen(false);
+            }
         } catch (err) {
             console.error('Failed to save audio:', err);
+        } finally {
+            setIsSaving(false);
         }
-    }, [pendingAudio, saveGeneratedMedia, fetchLibraryAudio]);
+    }, [pendingAudio, saveGeneratedMedia, workspaceId]);
 
     // Play/Pause audio
     const togglePlayback = useCallback(() => {
@@ -445,6 +465,7 @@ export function AudioGenerator() {
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
                 onSubmit={handleSaveAudio}
+                isSaving={isSaving}
                 defaultName={pendingAudio?.prompt || `Generated ${pendingAudio?.type || 'Audio'}`}
             />
         </div >
