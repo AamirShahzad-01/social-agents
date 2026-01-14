@@ -62,6 +62,7 @@ async def init_checkpointer():
                 conninfo=db_uri,
                 max_size=10,
                 min_size=1,
+                open=False,  # Prevents deprecated auto-open in constructor
                 kwargs={
                     "autocommit": True,
                     "prepare_threshold": 0,

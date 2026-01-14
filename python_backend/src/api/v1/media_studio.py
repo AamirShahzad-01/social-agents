@@ -14,12 +14,9 @@ from pydantic import BaseModel, Field
 
 from src.services.media_studio import ImageService, AudioService
 from src.services.media_studio.video import (
-    VideoTrimmer,
-    SpeedService,
     TextOverlayService,
     TransitionService,
     TransitionType,
-    VideoResizer,
     VideoMerger,
 )
 from src.services.supabase_service import get_supabase_admin_client, verify_jwt  # For database operations only
@@ -56,26 +53,7 @@ class ImageResizeResponse(BaseModel):
     media_item: Optional[dict] = Field(None, alias="mediaItem")
 
 
-class VideoResizeRequest(BaseModel):
-    """Request to resize a video for a platform"""
-    workspace_id: str = Field(..., alias="workspaceId")
-    video_url: str = Field(..., alias="videoUrl")
-    platform: Optional[str] = None
-    custom_width: Optional[int] = Field(None, alias="customWidth")
-    custom_height: Optional[int] = Field(None, alias="customHeight")
-    
-    class Config:
-        populate_by_name = True
 
-
-class VideoResizeResponse(BaseModel):
-    """Response from video resize operation"""
-    success: bool
-    url: str
-    platform: str
-    dimensions: dict
-    duration: float
-    media_item: Optional[dict] = Field(None, alias="mediaItem")
 
 
 class MergeConfig(BaseModel):
@@ -128,47 +106,7 @@ class AudioProcessResponse(BaseModel):
 
 # ================== NEW VIDEO EDITING SCHEMAS ==================
 
-class VideoTrimRequest(BaseModel):
-    """Request to trim a video"""
-    workspace_id: str = Field(..., alias="workspaceId")
-    video_url: str = Field(..., alias="videoUrl")
-    start_time: float = Field(..., alias="startTime", ge=0)
-    end_time: float = Field(..., alias="endTime", gt=0)
-    reencode: bool = False
-    
-    class Config:
-        populate_by_name = True
 
-
-class VideoTrimResponse(BaseModel):
-    """Response from video trim operation"""
-    success: bool
-    url: str
-    duration: float
-    start_time: float = Field(..., alias="startTime")
-    end_time: float = Field(..., alias="endTime")
-    media_item: Optional[dict] = Field(None, alias="mediaItem")
-
-
-class VideoSpeedRequest(BaseModel):
-    """Request to change video speed"""
-    workspace_id: str = Field(..., alias="workspaceId")
-    video_url: str = Field(..., alias="videoUrl")
-    speed: float = Field(..., ge=0.25, le=4.0)
-    maintain_pitch: bool = Field(True, alias="maintainPitch")
-    
-    class Config:
-        populate_by_name = True
-
-
-class VideoSpeedResponse(BaseModel):
-    """Response from video speed change operation"""
-    success: bool
-    url: str
-    original_duration: float = Field(..., alias="originalDuration")
-    new_duration: float = Field(..., alias="newDuration")
-    speed_factor: float = Field(..., alias="speedFactor")
-    media_item: Optional[dict] = Field(None, alias="mediaItem")
 
 
 class TextOverlayRequest(BaseModel):
@@ -413,111 +351,6 @@ async def resize_image(request: ImageResizeRequest):
 
 # ================== VIDEO ENDPOINTS ==================
 
-@router.get("/resize-video")
-async def get_video_presets():
-    """Get available video resize platform presets"""
-    return {"presets": VideoResizer.get_presets()}
-
-
-@router.post("/resize-video", response_model=VideoResizeResponse)
-async def resize_video(request: VideoResizeRequest):
-    """Resize video for a specific platform or custom dimensions"""
-    # Validate input first (before try block)
-    if not request.platform and not (request.custom_width and request.custom_height):
-        raise HTTPException(
-            status_code=400,
-            detail="Either platform or custom dimensions required"
-        )
-    
-    try:
-        result, platform_name = await VideoResizer.resize_for_platform(
-            video_url=request.video_url,
-            platform=request.platform,
-            custom_width=request.custom_width,
-            custom_height=request.custom_height
-        )
-        
-        # Upload to Cloudinary
-        cloudinary = CloudinaryService()
-        
-        timestamp = int(datetime.now().timestamp() * 1000)
-        platform_slug = request.platform or "custom"
-        public_id = f"resized/resized-video-{platform_slug}-{timestamp}"
-        
-        upload_result = cloudinary.upload_video_bytes(
-            video_bytes=result.buffer,
-            public_id=public_id,
-            folder="media-studio",
-            tags=[f"workspace:{request.workspace_id}", "resized", platform_slug]
-        )
-        
-        # Get Cloudinary URL
-        public_url = upload_result.get("secure_url")
-        if not public_url:
-            raise ValueError("Failed to get Cloudinary URL")
-        
-        media_item = {
-            "type": "video",
-            "source": "edited",
-            "url": public_url,
-            "prompt": f"Resized for {platform_name}",
-            "model": "video-resize",
-            "config": {
-                "sourceVideo": request.video_url,
-                "platform": platform_slug,
-                "targetWidth": result.width,
-                "targetHeight": result.height,
-                "duration": result.duration,
-                "resizedAt": datetime.now().isoformat(),
-                "cloudinaryPublicId": upload_result.get("public_id"),
-            },
-            "metadata": {
-                "source": "video-editor",
-                "platform": platform_name,
-                "dimensions": f"{result.width}x{result.height}",
-                "width": result.width,
-                "height": result.height,
-                "duration": result.duration,
-                "cloudinaryPublicId": upload_result.get("public_id"),
-                "cloudinaryFormat": upload_result.get("format"),
-            },
-            "tags": ["resized", "video-editor", platform_slug],
-        }
-        
-        # Save to library database
-        saved_item = await save_to_library(request.workspace_id, media_item)
-        
-        return VideoResizeResponse(
-            success=True,
-            url=public_url,
-            platform=platform_name,
-            dimensions={"width": result.width, "height": result.height},
-            duration=result.duration,
-            media_item=saved_item
-        )
-        
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        error_message = str(e)
-        user_message = "Failed to resize video"
-        error_code = "RESIZE_ERROR"
-        
-        if "timed out" in error_message.lower():
-            user_message = "Video processing timed out. Try with a shorter video."
-            error_code = "TIMEOUT"
-        elif "download" in error_message.lower():
-            user_message = "Could not download the video. Please check the URL."
-            error_code = "DOWNLOAD_FAILED"
-        elif "ffmpeg" in error_message.lower():
-            user_message = "Video processing failed. The file may be corrupted or unsupported."
-            error_code = "PROCESSING_ERROR"
-        
-        raise HTTPException(
-            status_code=500,
-            detail={"error": user_message, "code": error_code}
-        )
-
 
 @router.post("/merge-videos", response_model=VideoMergeResponse)
 async def merge_videos(request: VideoMergeRequest):
@@ -721,158 +554,11 @@ async def get_available_transitions():
     return {"transitions": TransitionService.get_available_transitions()}
 
 
-@router.get("/speed-presets")
-async def get_speed_presets():
-    """Get available speed presets"""
-    return {"presets": SpeedService.get_presets()}
-
-
 @router.get("/text-positions")
 async def get_text_positions():
     """Get available text overlay positions"""
     return {"positions": TextOverlayService.get_positions()}
 
-
-@router.post("/trim-video", response_model=VideoTrimResponse)
-async def trim_video(request: VideoTrimRequest):
-    """Trim video to specific start and end times"""
-    try:
-        result = await VideoTrimmer.trim_video(
-            video_url=request.video_url,
-            start_time=request.start_time,
-            end_time=request.end_time,
-            reencode=request.reencode
-        )
-        
-        # Upload to Cloudinary
-        cloudinary = CloudinaryService()
-        
-        timestamp = int(datetime.now().timestamp() * 1000)
-        public_id = f"trimmed/trimmed-video-{timestamp}"
-        
-        upload_result = cloudinary.upload_video_bytes(
-            video_bytes=result.buffer,
-            public_id=public_id,
-            folder="media-studio",
-            tags=[f"workspace:{request.workspace_id}", "trimmed", "video-editor"]
-        )
-        
-        public_url = upload_result.get("secure_url")
-        if not public_url:
-            raise ValueError("Failed to get Cloudinary URL")
-        
-        media_item = {
-            "type": "video",
-            "source": "edited",
-            "url": public_url,
-            "prompt": f"Trimmed video ({result.duration:.1f}s)",
-            "model": "video-trim",
-            "config": {
-                "sourceVideo": request.video_url,
-                "startTime": result.start_time,
-                "endTime": result.end_time,
-                "duration": result.duration,
-                "reencoded": request.reencode,
-                "trimmedAt": datetime.now().isoformat(),
-            },
-            "metadata": {
-                "duration": result.duration,
-                "startTime": result.start_time,
-                "endTime": result.end_time,
-            },
-            "tags": ["trimmed", "video-editor", "edited"],
-        }
-        
-        # Save to library database
-        saved_item = await save_to_library(request.workspace_id, media_item)
-        
-        return VideoTrimResponse(
-            success=True,
-            url=public_url,
-            duration=result.duration,
-            start_time=result.start_time,
-            end_time=result.end_time,
-            media_item=saved_item
-        )
-        
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail={"error": str(e), "code": "TRIM_ERROR"}
-        )
-
-
-@router.post("/change-speed", response_model=VideoSpeedResponse)
-async def change_video_speed(request: VideoSpeedRequest):
-    """Change video playback speed"""
-    try:
-        result = await SpeedService.change_speed(
-            video_url=request.video_url,
-            speed_factor=request.speed,
-            maintain_pitch=request.maintain_pitch
-        )
-        
-        # Upload to Cloudinary
-        cloudinary = CloudinaryService()
-        
-        timestamp = int(datetime.now().timestamp() * 1000)
-        speed_label = f"{request.speed}x".replace(".", "_")
-        public_id = f"speed/speed-{speed_label}-{timestamp}"
-        
-        upload_result = cloudinary.upload_video_bytes(
-            video_bytes=result.buffer,
-            public_id=public_id,
-            folder="media-studio",
-            tags=[f"workspace:{request.workspace_id}", "speed-adjusted", "video-editor"]
-        )
-        
-        public_url = upload_result.get("secure_url")
-        if not public_url:
-            raise ValueError("Failed to get Cloudinary URL")
-        
-        media_item = {
-            "type": "video",
-            "source": "edited",
-            "url": public_url,
-            "prompt": f"Speed adjusted: {request.speed}x",
-            "model": "video-speed",
-            "config": {
-                "sourceVideo": request.video_url,
-                "speedFactor": result.speed_factor,
-                "originalDuration": result.original_duration,
-                "newDuration": result.new_duration,
-                "maintainPitch": request.maintain_pitch,
-                "processedAt": datetime.now().isoformat(),
-            },
-            "metadata": {
-                "duration": result.new_duration,
-                "originalDuration": result.original_duration,
-                "speedFactor": result.speed_factor,
-            },
-            "tags": ["speed-adjusted", "video-editor", "edited"],
-        }
-        
-        # Save to library database
-        saved_item = await save_to_library(request.workspace_id, media_item)
-        
-        return VideoSpeedResponse(
-            success=True,
-            url=public_url,
-            original_duration=result.original_duration,
-            new_duration=result.new_duration,
-            speed_factor=result.speed_factor,
-            media_item=saved_item
-        )
-        
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail={"error": str(e), "code": "SPEED_ERROR"}
-        )
 
 
 @router.post("/add-text", response_model=TextOverlayResponse)
@@ -1021,65 +707,6 @@ async def add_title_card(request: TitleCardRequest):
         raise HTTPException(
             status_code=500,
             detail={"error": str(e), "code": "TITLE_CARD_ERROR"}
-        )
-
-
-@router.post("/reverse-video", response_model=VideoSpeedResponse)
-async def reverse_video(request: VideoSpeedRequest):
-    """Reverse video playback"""
-    try:
-        result = await SpeedService.reverse_video(
-            video_url=request.video_url,
-            reverse_audio=True
-        )
-        
-        # Upload to Cloudinary
-        cloudinary = CloudinaryService()
-        
-        timestamp = int(datetime.now().timestamp() * 1000)
-        public_id = f"reversed/reversed-video-{timestamp}"
-        
-        upload_result = cloudinary.upload_video_bytes(
-            video_bytes=result.buffer,
-            public_id=public_id,
-            folder="media-studio",
-            tags=[f"workspace:{request.workspace_id}", "reversed", "video-editor"]
-        )
-        
-        public_url = upload_result.get("secure_url")
-        if not public_url:
-            raise ValueError("Failed to get Cloudinary URL")
-        
-        media_item = {
-            "type": "video",
-            "source": "edited",
-            "url": public_url,
-            "prompt": "Reversed video",
-            "model": "video-reverse",
-            "config": {
-                "sourceVideo": request.video_url,
-                "reversed": True,
-                "processedAt": datetime.now().isoformat(),
-            },
-            "metadata": {
-                "duration": result.new_duration,
-            },
-            "tags": ["reversed", "video-editor", "edited"],
-        }
-        
-        return VideoSpeedResponse(
-            success=True,
-            url=public_url,
-            original_duration=result.original_duration,
-            new_duration=result.new_duration,
-            speed_factor=-1.0,
-            media_item=media_item
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail={"error": str(e), "code": "REVERSE_ERROR"}
         )
 
 
@@ -1299,24 +926,11 @@ async def get_media_studio_info():
                 "GET": "Get available image platform presets",
                 "POST": "Resize an image for a platform"
             },
-            "resize-video": {
-                "GET": "Get available video platform presets",
-                "POST": "Resize a video for a platform"
-            },
             "merge-videos": {
                 "POST": "Merge multiple videos into one"
             },
             "process-audio": {
                 "POST": "Process video audio (add music, adjust volume)"
-            },
-            "trim-video": {
-                "POST": "Trim video to specific start/end times"
-            },
-            "change-speed": {
-                "POST": "Change video playback speed (0.25x - 4x)"
-            },
-            "reverse-video": {
-                "POST": "Reverse video playback"
             },
             "add-text": {
                 "POST": "Add text overlay to video"
@@ -1326,9 +940,6 @@ async def get_media_studio_info():
             },
             "transitions": {
                 "GET": "Get available video transition effects"
-            },
-            "speed-presets": {
-                "GET": "Get available speed presets"
             },
             "text-positions": {
                 "GET": "Get available text overlay positions"
@@ -1341,16 +952,12 @@ async def get_media_studio_info():
             }
         },
         "platform_presets": {
-            "image": len(ImageService.get_presets()),
-            "video": len(VideoResizer.get_presets())
+            "image": len(ImageService.get_presets())
         },
         "features": {
-            "trim": True,
-            "speed_control": True,
             "transitions": True,
             "text_overlay": True,
-            "title_cards": True,
-            "reverse": True
+            "title_cards": True
         }
     }
 

@@ -90,11 +90,11 @@ export const CenteredInputLayout: React.FC<CenteredInputLayoutProps> = ({
             <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center space-y-6">
                 {/* Canva-style Greeting Message with Gradient Text */}
                 <div className="text-center space-y-3">
-                    <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center mx-auto bg-white/60 backdrop-blur-sm border border-white/40 shadow-lg">
-                        <Image src={logoImage} alt="Content OS" width={48} height={48} className="object-cover" />
+                    <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center mx-auto bg-white/60 backdrop-blur-sm border border-white/40 shadow-lg">
+                        <Image src={logoImage} alt="Content OS" width={36} height={36} className="object-cover" />
                     </div>
-                    <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-[#00c4cc] via-[#8b3dff] to-[#b388ff] bg-clip-text text-transparent">
-                        How can I help you today?
+                    <h1 className="text-3xl md:text-4xl font-semibold italic bg-gradient-to-r from-[#5B3FFF] via-[#8B6DFF] to-[#B8A3FF] bg-clip-text text-transparent">
+                        What will you design today?
                     </h1>
                 </div>
 
@@ -252,7 +252,7 @@ export const CenteredInputLayout: React.FC<CenteredInputLayoutProps> = ({
                     </form>
 
                     {/* Model Selector - Cleaner Canva style */}
-                    <div className="mt-3 flex justify-center">
+                    <div className="mt-3 flex justify-end">
                         <div className="relative" ref={modelMenuRef}>
                             <button
                                 type="button"

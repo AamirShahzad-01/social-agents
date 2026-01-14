@@ -8,11 +8,8 @@ from .audio_service import AudioService
 
 # New modular video services (replaced old VideoService)
 from .video import (
-    VideoTrimmer,
-    SpeedService,
     TextOverlayService,
     TransitionService,
-    VideoResizer,
     VideoMerger,
 )
 
@@ -20,11 +17,8 @@ __all__ = [
     "ImageService",
     "AudioService",
     # Video editing services
-    "VideoTrimmer",
-    "SpeedService",
     "TextOverlayService",
     "TransitionService",
-    "VideoResizer",
     "VideoMerger",
 ]
 

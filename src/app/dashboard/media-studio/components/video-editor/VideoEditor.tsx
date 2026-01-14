@@ -2,33 +2,24 @@
 
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import {
-  Film,
   Music,
   Merge,
-  Crop,
   Image as ImageIcon,
-  Scissors,
-  Gauge,
   Type,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import toast from 'react-hot-toast';
 import { VideoItem } from './types';
 import { VideoMerger } from './VideoMerger';
 import { AudioMixer } from './AudioMixer';
-import { VideoResizer } from './VideoResizer';
 import { ImageResizer } from './ImageResizer';
-import { VideoTrimmer } from './VideoTrimmer';
-import { SpeedController } from './SpeedController';
 import { TextOverlay } from './TextOverlay';
 
 interface VideoEditorProps {
   onVideoProcessed?: (videoUrl: string) => void;
 }
 
-type TabValue = 'merge' | 'trim' | 'speed' | 'text' | 'audio' | 'resize' | 'image';
+type TabValue = 'merge' | 'text' | 'audio' | 'image';
 
 export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
   const { workspaceId } = useAuth();
@@ -81,11 +72,8 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
 
   const tabs = [
     { id: 'merge' as const, label: 'Merge', icon: Merge, color: 'teal' },
-    { id: 'trim' as const, label: 'Trim', icon: Scissors, color: 'teal' },
-    { id: 'speed' as const, label: 'Speed', icon: Gauge, color: 'blue' },
     { id: 'text' as const, label: 'Text', icon: Type, color: 'purple' },
     { id: 'audio' as const, label: 'Audio', icon: Music, color: 'purple' },
-    { id: 'resize' as const, label: 'Resize', icon: Crop, color: 'blue' },
     { id: 'image' as const, label: 'Image', icon: ImageIcon, color: 'teal' },
   ];
 
@@ -94,7 +82,7 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
         {/* Tab Navigation - Compact Style */}
         <div className="bg-card border rounded-md p-0.5 shadow-sm">
-          <TabsList className="grid w-full grid-cols-7 bg-transparent gap-0.5 h-auto">
+          <TabsList className="grid w-full grid-cols-4 bg-transparent gap-0.5 h-auto">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
 
@@ -157,22 +145,6 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
           />
         </TabsContent>
 
-        <TabsContent value="trim" className="mt-2">
-          <VideoTrimmer
-            libraryVideos={libraryVideos}
-            isLoadingLibrary={isLoadingLibrary}
-            onTrimComplete={handleProcessComplete}
-          />
-        </TabsContent>
-
-        <TabsContent value="speed" className="mt-2">
-          <SpeedController
-            libraryVideos={libraryVideos}
-            isLoadingLibrary={isLoadingLibrary}
-            onSpeedComplete={handleProcessComplete}
-          />
-        </TabsContent>
-
         <TabsContent value="text" className="mt-2">
           <TextOverlay
             libraryVideos={libraryVideos}
@@ -186,14 +158,6 @@ export function VideoEditor({ onVideoProcessed }: VideoEditorProps) {
             libraryVideos={libraryVideos}
             isLoadingLibrary={isLoadingLibrary}
             onProcessComplete={handleProcessComplete}
-          />
-        </TabsContent>
-
-        <TabsContent value="resize" className="mt-2">
-          <VideoResizer
-            libraryVideos={libraryVideos}
-            isLoadingLibrary={isLoadingLibrary}
-            onResizeComplete={handleProcessComplete}
           />
         </TabsContent>
 
