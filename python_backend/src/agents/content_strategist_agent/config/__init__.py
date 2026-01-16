@@ -14,8 +14,21 @@ SUBAGENTS_YAML_PATH = AGENT_DIR / "subagents.yaml"
 SKILLS_DIR = AGENT_DIR / "skills"
 
 # Model configuration
-DEFAULT_MODEL = "gemini-2.0-flash"
+# Use provider prefix to ensure correct provider (google_genai uses API key, not GCP credentials)
+# Reference: https://reference.langchain.com/python/langchain/models/#langchain.chat_models.init_chat_model
+DEFAULT_MODEL = "google_genai:gemini-2.5-pro"
 DEFAULT_TEMPERATURE = 0.7
+
+# Thinking configuration (Gemini 2.5)
+# Reference: https://python.langchain.com/docs/integrations/chat/google_generative_ai/#thinking-support
+INCLUDE_THOUGHTS = True  # Enable thought output in responses
+DEFAULT_THINKING_BUDGET = 1024  # Token budget for thinking (Gemini 2.5)
+# thinking_budget options:
+#   0 = Disable thinking
+#   -1 = Dynamic thinking (model decides)
+#   128-24576 = Token budget range
+MIN_THINKING_BUDGET = 0
+MAX_THINKING_BUDGET = 24576
 
 
 def get_memory_files() -> list:
@@ -35,6 +48,11 @@ __all__ = [
     "SKILLS_DIR",
     "DEFAULT_MODEL",
     "DEFAULT_TEMPERATURE",
+    "INCLUDE_THOUGHTS",
+    "DEFAULT_THINKING_BUDGET",
+    "MIN_THINKING_BUDGET",
+    "MAX_THINKING_BUDGET",
     "get_memory_files",
     "get_skills_dirs",
 ]
+

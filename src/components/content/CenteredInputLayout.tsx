@@ -1,5 +1,5 @@
 import React, { FormEvent, useState, useRef, useEffect } from 'react';
-import { Bot, PlusCircle, Mic, MicOff, Send, X, FileText, Paperclip, Sparkles, Lightbulb, BookOpen, ChevronRight, History, PanelLeftClose, Image as ImageIcon, ChevronDown, Check, AlertCircle } from 'lucide-react';
+import { Bot, PlusCircle, Mic, MicOff, Send, X, FileText, Paperclip, Sparkles, Lightbulb, BookOpen, ChevronRight, History, PanelLeftClose, Image as ImageIcon, ChevronDown, Check, AlertCircle, Brain } from 'lucide-react';
 import { AI_MODELS, DEFAULT_AI_MODEL_ID } from '@/constants/aiModels';
 import Image from 'next/image';
 
@@ -30,6 +30,8 @@ interface CenteredInputLayoutProps {
     setIsHistoryVisible: (value: boolean) => void;
     selectedModelId: string;
     setSelectedModelId: (modelId: string) => void;
+    enableReasoning: boolean;
+    setEnableReasoning: (enabled: boolean) => void;
 }
 
 export const CenteredInputLayout: React.FC<CenteredInputLayoutProps> = ({
@@ -53,6 +55,8 @@ export const CenteredInputLayout: React.FC<CenteredInputLayoutProps> = ({
     setIsHistoryVisible,
     selectedModelId,
     setSelectedModelId,
+    enableReasoning,
+    setEnableReasoning,
 }) => {
     const [localShowMenu, setLocalShowMenu] = useState(false);
     const [showModelDropdown, setShowModelDropdown] = useState(false);
@@ -293,6 +297,20 @@ export const CenteredInputLayout: React.FC<CenteredInputLayoutProps> = ({
                                 </div>
                             )}
                         </div>
+
+                        {/* Reasoning Toggle */}
+                        <button
+                            type="button"
+                            onClick={() => setEnableReasoning(!enableReasoning)}
+                            disabled={isLoading || isCreatingNewChat}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed ${enableReasoning
+                                ? 'text-[#8b3dff] bg-purple-50 hover:bg-purple-100'
+                                : 'text-gray-500 hover:text-gray-700 hover:bg-white/60'}`}
+                            title={enableReasoning ? "Reasoning enabled" : "Reasoning disabled"}
+                        >
+                            <Brain className="w-3.5 h-3.5" />
+                            <span>Thinking</span>
+                        </button>
                     </div>
                 </div>
             </div>

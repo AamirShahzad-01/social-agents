@@ -21,6 +21,7 @@ class ChatStrategistRequest(BaseModel):
     threadId: str = Field(default="", description="Thread ID for conversation")
     workspaceId: Optional[str] = Field(default=None, description="Workspace ID for calendar tools")
     modelId: Optional[str] = Field(default=None, description="Model ID to use")
+    enableReasoning: bool = Field(default=True, description="Enable thinking/reasoning for supported models")
     contentBlocks: Optional[List[ContentBlock]] = Field(default=None, description="Multimodal content")
 
 

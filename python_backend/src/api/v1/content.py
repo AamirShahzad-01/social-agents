@@ -49,6 +49,7 @@ async def chat_strategist(request_body: ChatStrategistRequest):
     
     async def generate_stream() -> AsyncGenerator[str, None]:
         full_response = ""
+        full_thinking = ""
         
         async for chunk in content_strategist_chat(request_body):
             step = chunk.get("step", "")
@@ -58,11 +59,18 @@ async def chat_strategist(request_body: ChatStrategistRequest):
                 yield f"data: {json.dumps({'type': 'error', 'message': content})}\n\n"
                 return
             
-            if content:
+            # Handle thinking/reasoning stream
+            if step == "thinking" and content:
+                full_thinking = content
+                yield f"data: {json.dumps({'type': 'thinking', 'content': content})}\n\n"
+            
+            # Handle regular content stream
+            elif step == "streaming" and content:
                 full_response = content
                 yield f"data: {json.dumps({'type': 'update', 'step': step, 'content': content})}\n\n"
         
-        yield f"data: {json.dumps({'type': 'done', 'response': full_response})}\n\n"
+        # Include thinking in final response for persistence
+        yield f"data: {json.dumps({'type': 'done', 'response': full_response, 'thinking': full_thinking})}\n\n"
     
     return StreamingResponse(
         generate_stream(),

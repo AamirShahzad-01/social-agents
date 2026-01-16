@@ -17,6 +17,9 @@ export interface Message {
     attachments?: AttachedFile[];
     isStreaming?: boolean;
     suggestions?: string[];
+    // Thinking/reasoning (Gemini 2.5)
+    thinking?: string;
+    isThinking?: boolean;
     // Media generation
     generatedImage?: string;
     generatedVideo?: string;
@@ -24,6 +27,8 @@ export interface Message {
     // Post creation (legacy)
     postData?: any;
     parameters?: any;
+    // Voice generated content
+    isVoiceGenerated?: boolean;
 }
 
 export interface CarouselSlide {

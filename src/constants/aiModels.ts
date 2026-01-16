@@ -5,7 +5,7 @@
  * These match the backend dynamicModel.utils.ts configuration.
  */
 
-export type ModelProvider = 'openai' | 'anthropic' | 'google-genai' | 'groq' | 'deepseek';
+export type ModelProvider = 'openai' | 'anthropic' | 'google_genai' | 'groq' | 'deepseek';
 
 export interface AIModelOption {
   id: string;
@@ -61,23 +61,23 @@ export const AI_MODELS: AIModelOption[] = [
 
   // Google Models
   {
-    id: 'google-genai:gemini-3-pro-preview',
+    id: 'google_genai:gemini-3-pro-preview',
     name: 'Gemini 3 Pro',
-    provider: 'google-genai',
+    provider: 'google_genai',
     providerLabel: 'Google',
     description: 'Most powerful Gemini',
   },
   {
-    id: 'google-genai:gemini-3-flash-preview',
+    id: 'google_genai:gemini-3-flash-preview',
     name: 'Gemini 3 Flash Preview',
-    provider: 'google-genai',
+    provider: 'google_genai',
     providerLabel: 'Google',
     description: 'Best price-performance',
   },
   {
-    id: 'google-genai:gemini-2.5-pro',
+    id: 'google_genai:gemini-2.5-pro',
     name: 'Gemini 2.5 Pro',
-    provider: 'google-genai',
+    provider: 'google_genai',
     providerLabel: 'Google',
     description: 'Advanced reasoning (Default)',
   },
@@ -102,7 +102,7 @@ export const AI_MODELS: AIModelOption[] = [
 /**
  * Default model ID for content improvement
  */
-export const DEFAULT_AI_MODEL_ID = 'google-genai:gemini-3-flash-preview';
+export const DEFAULT_AI_MODEL_ID = 'google_genai:gemini-3-flash-preview';
 
 /**
  * Get model by ID

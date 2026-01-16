@@ -16,6 +16,7 @@ import { Loader2, Copy, Check, Sparkles, User } from 'lucide-react';
 import { Message } from '../types';
 import { MarkdownText } from '../utils/MarkdownText';
 import { AttachmentsPreview } from './MultimodalPreview';
+import { ThinkingDisplay } from './ThinkingDisplay';
 
 interface MessageBubbleProps {
     msg: Message;
@@ -137,6 +138,14 @@ const AIMessage: React.FC<{
                             </div>
                         </div>
                     </div>
+                )}
+
+                {/* Thinking/Reasoning Display (Gemini 2.5) */}
+                {msg.thinking && (
+                    <ThinkingDisplay
+                        thinking={msg.thinking}
+                        isThinking={msg.isThinking}
+                    />
                 )}
 
                 {/* Message content with markdown - render during both streaming and complete */}

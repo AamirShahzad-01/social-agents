@@ -1,5 +1,5 @@
 import React, { FormEvent, RefObject, useState, useEffect, useRef } from 'react';
-import { Send, PlusCircle, X, FileText, Image, File, ChevronDown, Check, Sparkles, AlertCircle } from 'lucide-react';
+import { Send, PlusCircle, X, FileText, Image, File, ChevronDown, Check, Sparkles, AlertCircle, Brain } from 'lucide-react';
 import { AttachedFile } from '../types';
 import { AI_MODELS, DEFAULT_AI_MODEL_ID, getModelDisplayName } from '@/constants/aiModels';
 
@@ -26,6 +26,8 @@ interface ChatInputProps {
     handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => void;
     selectedModelId: string;
     setSelectedModelId: (modelId: string) => void;
+    enableReasoning: boolean;
+    setEnableReasoning: (enabled: boolean) => void;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -46,7 +48,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     inputRef,
     handleFileUpload,
     selectedModelId,
-    setSelectedModelId
+    setSelectedModelId,
+    enableReasoning,
+    setEnableReasoning
 }) => {
     const [localShowMenu, setLocalShowMenu] = useState(false);
     const [showModelDropdown, setShowModelDropdown] = useState(false);
@@ -233,7 +237,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                         </div>
                     </form>
 
-                    <div className="mt-2 flex justify-end">
+                    <div className="mt-2 flex justify-end gap-2">
                         <div className="relative" ref={modelMenuRef}>
                             <button
                                 type="button"
@@ -274,6 +278,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                                 </div>
                             )}
                         </div>
+
+                        {/* Reasoning Toggle */}
+                        <button
+                            type="button"
+                            onClick={() => setEnableReasoning(!enableReasoning)}
+                            disabled={isLoading || isCreatingNewChat}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-md transition-colors text-xs disabled:opacity-50 disabled:cursor-not-allowed ${enableReasoning
+                                ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                            title={enableReasoning ? "Reasoning enabled" : "Reasoning disabled"}
+                        >
+                            <Brain className="w-3.5 h-3.5" />
+                            <span>Thinking</span>
+                        </button>
                     </div>
                 </div>
             </div>

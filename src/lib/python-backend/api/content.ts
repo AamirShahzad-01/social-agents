@@ -13,15 +13,18 @@ export interface ChatRequest {
     threadId: string;
     workspaceId?: string;
     modelId?: string;
+    /** Enable thinking/reasoning for supported models (default: true) */
+    enableReasoning?: boolean;
     /** Content blocks for multimodal input (images, PDFs) */
     contentBlocks?: ContentBlock[];
 }
 
 export interface StreamEvent {
-    type: 'update' | 'done' | 'error';
+    type: 'update' | 'done' | 'error' | 'thinking';
     step?: string;
     content?: string;
     response?: string;
+    thinking?: string;  // Thinking/reasoning content from model
     message?: string;
 }
 
@@ -30,17 +33,20 @@ export interface StreamEvent {
  * 
  * Opens SSE connection and streams response.
  * Supports multimodal input via contentBlocks.
+ * Supports thinking/reasoning streaming from Gemini 2.5.
  * 
  * @param request - Chat request with message, threadId, and optional contentBlocks
  * @param onUpdate - Callback for each content update
- * @param onComplete - Callback when stream completes
+ * @param onComplete - Callback when stream completes (response, thinking)
  * @param onError - Callback for errors
+ * @param onThinking - Optional callback for thinking/reasoning updates
  */
 export async function chatStrategist(
     request: ChatRequest,
     onUpdate: (content: string) => void,
-    onComplete: (response: string) => void,
-    onError: (error: Error) => void
+    onComplete: (response: string, thinking?: string) => void,
+    onError: (error: Error) => void,
+    onThinking?: (thinking: string) => void
 ): Promise<void> {
     const url = getEndpointUrl(ENDPOINTS.content.chat);
 
@@ -66,6 +72,7 @@ export async function chatStrategist(
         const decoder = new TextDecoder();
         let buffer = '';
         let fullResponse = '';
+        let fullThinking = '';
 
         while (true) {
             const { done, value } = await reader.read();
@@ -85,13 +92,22 @@ export async function chatStrategist(
                         console.log('[Stream] Received:', jsonStr);
                         const data: StreamEvent = JSON.parse(jsonStr);
 
-                        if (data.type === 'update' && data.content) {
+                        // Handle thinking/reasoning stream
+                        if (data.type === 'thinking' && data.content) {
+                            fullThinking = data.content;
+                            console.log('[Stream] Thinking:', data.content.substring(0, 100) + '...');
+                            if (onThinking) {
+                                onThinking(data.content);
+                            }
+                        }
+                        // Handle regular content stream
+                        else if (data.type === 'update' && data.content) {
                             fullResponse = data.content;
                             console.log('[Stream] Update:', data.content.substring(0, 100) + '...');
                             onUpdate(data.content);
                         } else if (data.type === 'done') {
                             console.log('[Stream] Done:', data.response?.substring(0, 100) || fullResponse.substring(0, 100) + '...');
-                            onComplete(data.response || fullResponse);
+                            onComplete(data.response || fullResponse, data.thinking || fullThinking);
                             return;
                         } else if (data.type === 'error') {
                             console.error('[Stream] Error:', data.message);
@@ -104,7 +120,7 @@ export async function chatStrategist(
             }
         }
 
-        onComplete(fullResponse);
+        onComplete(fullResponse, fullThinking);
 
     } catch (error) {
         onError(error instanceof Error ? error : new Error(String(error)));

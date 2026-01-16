@@ -14,6 +14,7 @@ export interface SendMessageParams {
     workspaceId?: string;
     contentBlocks?: ContentBlock[];
     modelId?: string;
+    enableReasoning?: boolean;
 }
 
 export interface MessageResult {
@@ -28,13 +29,14 @@ export interface MessageResult {
  * Supports multimodal input via contentBlocks.
  */
 export async function sendMessage(params: SendMessageParams): Promise<MessageResult> {
-    const { message, threadId, workspaceId, contentBlocks, modelId } = params;
+    const { message, threadId, workspaceId, contentBlocks, modelId, enableReasoning } = params;
 
     const request: ChatRequest = {
         message,
         threadId: threadId || createThreadId(),
         workspaceId,
         modelId,
+        enableReasoning,
         contentBlocks,
     };
 
@@ -61,24 +63,34 @@ export async function sendMessage(params: SendMessageParams): Promise<MessageRes
 
 /**
  * Send message with streaming callbacks
+ * 
+ * Supports thinking/reasoning streaming from Gemini 2.5.
+ * 
+ * @param params - Message parameters
+ * @param onUpdate - Callback for content updates
+ * @param onComplete - Callback when complete (response, thinking)
+ * @param onError - Callback for errors
+ * @param onThinking - Optional callback for thinking/reasoning updates
  */
 export async function sendMessageStream(
     params: SendMessageParams,
     onUpdate: (content: string) => void,
-    onComplete: (response: string) => void,
-    onError: (error: Error) => void
+    onComplete: (response: string, thinking?: string) => void,
+    onError: (error: Error) => void,
+    onThinking?: (thinking: string) => void
 ): Promise<void> {
-    const { message, threadId, workspaceId, contentBlocks, modelId } = params;
+    const { message, threadId, workspaceId, contentBlocks, modelId, enableReasoning } = params;
 
     const request: ChatRequest = {
         message,
         threadId: threadId || createThreadId(),
         workspaceId,
         modelId,
+        enableReasoning,
         contentBlocks,
     };
 
-    return chatStrategist(request, onUpdate, onComplete, onError);
+    return chatStrategist(request, onUpdate, onComplete, onError, onThinking);
 }
 
 /**

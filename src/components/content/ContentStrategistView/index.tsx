@@ -56,6 +56,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
     const inputRef = useRef<HTMLInputElement>(null);
     const [isHistoryVisible, setIsHistoryVisible] = useState(false);
     const [selectedModelId, setSelectedModelId] = useState(DEFAULT_AI_MODEL_ID);
+    const [enableReasoning, setEnableReasoning] = useState(true);  // Reasoning toggle
     const voiceButtonRef = useRef<VoiceButtonRef>(null);
 
     // Use refs to prevent unnecessary re-runs of effects when auth context updates
@@ -243,6 +244,8 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
             role: 'model',
             content: '',
             isStreaming: true,
+            thinking: '',
+            isThinking: false,
         }]);
 
         try {
@@ -253,20 +256,27 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
                     workspaceId: workspaceId ?? undefined,
                     contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
                     modelId: selectedModelId,
+                    enableReasoning,
                 },
-                // onUpdate - called for each chunk
+                // onUpdate - called for each content chunk
                 (content: string) => {
                     setMessages(prev => prev.map((msg, idx) =>
                         idx === aiMessageIndex + 1
-                            ? { ...msg, content, isStreaming: true }
+                            ? { ...msg, content, isStreaming: true, isThinking: false }
                             : msg
                     ));
                 },
-                // onComplete - called when done
-                (response: string) => {
+                // onComplete - called when done (response, thinking)
+                (response: string, thinking?: string) => {
                     setMessages(prev => prev.map((msg, idx) =>
                         idx === aiMessageIndex + 1
-                            ? { ...msg, content: response, isStreaming: false }
+                            ? {
+                                ...msg,
+                                content: response,
+                                isStreaming: false,
+                                thinking: thinking || msg.thinking,
+                                isThinking: false
+                            }
                             : msg
                     ));
 
@@ -288,6 +298,14 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
                             : msg
                     ));
                     setError(formatErrorMessage(error));
+                },
+                // onThinking - called for each thinking chunk
+                (thinking: string) => {
+                    setMessages(prev => prev.map((msg, idx) =>
+                        idx === aiMessageIndex + 1
+                            ? { ...msg, thinking, isThinking: true }
+                            : msg
+                    ));
                 }
             );
         } catch (err: any) {
@@ -461,6 +479,8 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
                         setIsHistoryVisible={setIsHistoryVisible}
                         selectedModelId={selectedModelId}
                         setSelectedModelId={setSelectedModelId}
+                        enableReasoning={enableReasoning}
+                        setEnableReasoning={setEnableReasoning}
                     />
                 ) : (
                     <>
@@ -529,6 +549,8 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
                                     handleFileUpload={handleFileUpload}
                                     selectedModelId={selectedModelId}
                                     setSelectedModelId={setSelectedModelId}
+                                    enableReasoning={enableReasoning}
+                                    setEnableReasoning={setEnableReasoning}
                                 />
                             </Suspense>
                         )}
