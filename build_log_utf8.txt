@@ -1,0 +1,48 @@
+﻿
+> social-media-os@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.0 (Turbopack)
+- Environments: .env
+- Experiments (use with caution):
+  ┬╖ optimizePackageImports
+  ┬╖ proxyClientMaxBodySize: "500mb"
+  ┬╖ serverActions
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 28.4s
+  Running TypeScript ...
+node.exe : Failed to compile.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" 
+"C:\Users\aamir\AppData\Roaming\ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Failed to c 
+   ompile.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+./src/components/content/ContentStrategistView/components
+/MessageBubble.tsx:82:45
+Type error: Argument of type 'string | any[]' is not 
+assignable to parameter of type 'string'.
+  Type 'any[]' is not assignable to type 'string'.
+
+[0m [90m 80 |[39m     [36mconst[39m handleCopy 
+[33m=[39m [36masync[39m () [33m=>[39m {
+ [90m 81 |[39m         [36mif[39m 
+([33m![39mmsg[33m.[39mcontent) 
+[36mreturn[39m[33m;[39m
+[31m[1m>[22m[39m[90m 82 |[39m         
+[36mawait[39m navigator[33m.[39mclipboard[33m.[39mw
+riteText(msg[33m.[39mcontent)[33m;[39m
+ [90m    |[39m                                         
+    [31m[1m^[22m[39m
+ [90m 83 |[39m         
+setCopied([36mtrue[39m)[33m;[39m
+ [90m 84 |[39m         setTimeout(() [33m=>[39m 
+setCopied([36mfalse[39m)[33m,[39m 
+[35m2000[39m)[33m;[39m
+ [90m 85 |[39m     }[33m;[39m[0m
+Next.js build worker exited with code: 1 and signal: null

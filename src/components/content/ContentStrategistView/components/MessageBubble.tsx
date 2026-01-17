@@ -78,7 +78,7 @@ const AIMessage: React.FC<{
     const [copied, setCopied] = useState(false);
 
     const handleCopy = async () => {
-        if (!msg.content) return;
+        if (!msg.content || typeof msg.content !== 'string') return;
         await navigator.clipboard.writeText(msg.content);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -151,7 +151,7 @@ const AIMessage: React.FC<{
                 {/* Message content with markdown - render during both streaming and complete */}
                 {msg.content && (
                     <div className="text-[15px] leading-[1.7]">
-                        <MarkdownText>{msg.content}</MarkdownText>
+                        <MarkdownText>{typeof msg.content === 'string' ? msg.content : ''}</MarkdownText>
                         {/* Typing cursor for streaming */}
                         {msg.isStreaming && (
                             <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5 align-middle" />
