@@ -61,8 +61,8 @@ export interface ContentBlock {
 export interface Message {
     id?: string;
     type?: 'human' | 'ai' | 'tool';
-    role: 'user' | 'model' | 'system';
-    content: string;
+    role: 'user' | 'assistant' | 'model' | 'system' | 'tool';
+    content: string | any[];
     attachments?: AttachedFile[];
     isStreaming?: boolean;
     suggestions?: string[];
@@ -78,6 +78,7 @@ export interface Message {
     postData?: unknown;
     parameters?: unknown;
     isVoiceGenerated?: boolean;
+    activity?: string;
 }
 
 /**
@@ -102,7 +103,7 @@ export interface ThreadInfo {
  * Streaming event types from deep-agents backend
  */
 export interface StreamEvent {
-    step: 'thinking' | 'streaming' | 'tool_call' | 'tool_result' | 'sub_agent' | 'done' | 'error' | 'interrupt';
+    step: 'thinking' | 'streaming' | 'tool_call' | 'tool_result' | 'sub_agent' | 'done' | 'error' | 'interrupt' | 'sync';
     content?: string;
     id?: string;
     name?: string;
@@ -110,6 +111,8 @@ export interface StreamEvent {
     result?: string;
     status?: string;
     interrupt_data?: ToolApprovalInterruptData;
+    todos?: TodoItem[];
+    files?: Record<string, string>;
 }
 
 /**

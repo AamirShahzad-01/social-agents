@@ -1,266 +1,225 @@
-/**
- * ToolCallBox - Enhanced collapsible tool call visualization
- * Reference: https://github.com/langchain-ai/deep-agents-ui
- */
-'use client';
+"use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from "react";
 import {
     ChevronDown,
-    ChevronRight,
-    Wrench,
-    Check,
-    Loader2,
+    ChevronUp,
+    Terminal,
     AlertCircle,
-    Clock,
-    Copy,
-    Database,
-    Code,
-    Search,
-    FileText,
-    Globe,
-    Image as ImageIcon,
-    Terminal
-} from 'lucide-react';
-import { ToolCall } from '../types';
+    Loader2,
+    CircleCheckBigIcon,
+    StopCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ToolCall, ActionRequest, ReviewConfig } from "../types";
+import { cn } from "@/lib/utils";
+// import { LoadExternalComponent } from "@langchain/langgraph-sdk/react-ui"; // Not available in current setup
+import { ToolApprovalInterrupt } from "./ToolApprovalInterrupt";
 
 interface ToolCallBoxProps {
     toolCall: ToolCall;
-    isExpanded?: boolean;
+    uiComponent?: any;
+    stream?: any;
+    graphId?: string;
+    actionRequest?: ActionRequest;
+    reviewConfig?: ReviewConfig;
+    onResume?: (value: any) => void;
+    isLoading?: boolean;
 }
 
-// Tool icon mapping
-const TOOL_ICONS: Record<string, React.ElementType> = {
-    'database': Database,
-    'query': Database,
-    'sql': Database,
-    'code': Code,
-    'execute': Terminal,
-    'run': Terminal,
-    'search': Search,
-    'find': Search,
-    'file': FileText,
-    'read': FileText,
-    'write': FileText,
-    'web': Globe,
-    'fetch': Globe,
-    'http': Globe,
-    'image': ImageIcon,
-    'generate': Wrench,
-    'default': Wrench,
-};
+export const ToolCallBox = React.memo<ToolCallBoxProps>(
+    ({
+        toolCall,
+        uiComponent,
+        stream,
+        graphId,
+        actionRequest,
+        reviewConfig,
+        onResume,
+        isLoading,
+    }) => {
+        const [isExpanded, setIsExpanded] = useState(
+            () => !!uiComponent || !!actionRequest
+        );
+        const [expandedArgs, setExpandedArgs] = useState<Record<string, boolean>>(
+            {}
+        );
 
-function getToolIcon(name: string): React.ElementType {
-    const lowerName = name.toLowerCase();
-    for (const [key, icon] of Object.entries(TOOL_ICONS)) {
-        if (lowerName.includes(key)) {
-            return icon;
-        }
-    }
-    return TOOL_ICONS.default;
-}
+        const { name, args, result, status } = useMemo(() => {
+            return {
+                name: toolCall.name || "Unknown Tool",
+                args: toolCall.args || {},
+                result: toolCall.result,
+                status: toolCall.status || "completed",
+            };
+        }, [toolCall]);
 
-export function ToolCallBox({ toolCall, isExpanded: initialExpanded = false }: ToolCallBoxProps) {
-    const [isExpanded, setIsExpanded] = useState(initialExpanded);
-    const [copiedArgs, setCopiedArgs] = useState(false);
-    const [copiedResult, setCopiedResult] = useState(false);
+        const statusIcon = useMemo(() => {
+            switch (status) {
+                case "completed":
+                    return <CircleCheckBigIcon size={14} className="text-success" />;
+                case "error":
+                    return (
+                        <AlertCircle
+                            size={14}
+                            className="text-destructive"
+                        />
+                    );
+                case "pending":
+                    return (
+                        <Loader2
+                            size={14}
+                            className="animate-spin"
+                        />
+                    );
+                case "interrupted":
+                    return (
+                        <StopCircle
+                            size={14}
+                            className="text-orange-500"
+                        />
+                    );
+                default:
+                    return (
+                        <Terminal
+                            size={14}
+                            className="text-muted-foreground"
+                        />
+                    );
+            }
+        }, [status]);
 
-    const ToolIcon = useMemo(() => getToolIcon(toolCall.name), [toolCall.name]);
+        const toggleExpanded = useCallback(() => {
+            setIsExpanded((prev) => !prev);
+        }, []);
 
-    const getStatusConfig = () => {
-        switch (toolCall.status) {
-            case 'completed':
-                return {
-                    icon: <Check className="w-4 h-4" />,
-                    bgColor: 'bg-green-100 dark:bg-green-900/30',
-                    textColor: 'text-green-600 dark:text-green-400',
-                    borderColor: 'border-green-200 dark:border-green-800',
-                    label: 'Completed'
-                };
-            case 'pending':
-                return {
-                    icon: <Loader2 className="w-4 h-4 animate-spin" />,
-                    bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-                    textColor: 'text-blue-600 dark:text-blue-400',
-                    borderColor: 'border-blue-200 dark:border-blue-800',
-                    label: 'Running'
-                };
-            case 'error':
-                return {
-                    icon: <AlertCircle className="w-4 h-4" />,
-                    bgColor: 'bg-red-100 dark:bg-red-900/30',
-                    textColor: 'text-red-600 dark:text-red-400',
-                    borderColor: 'border-red-200 dark:border-red-800',
-                    label: 'Error'
-                };
-            case 'interrupted':
-                return {
-                    icon: <AlertCircle className="w-4 h-4" />,
-                    bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
-                    textColor: 'text-yellow-600 dark:text-yellow-400',
-                    borderColor: 'border-yellow-200 dark:border-yellow-800',
-                    label: 'Interrupted'
-                };
-            default:
-                return {
-                    icon: <Clock className="w-4 h-4" />,
-                    bgColor: 'bg-gray-100 dark:bg-gray-800',
-                    textColor: 'text-gray-600 dark:text-gray-400',
-                    borderColor: 'border-gray-200 dark:border-gray-700',
-                    label: 'Pending'
-                };
-        }
-    };
+        const toggleArgExpanded = useCallback((argKey: string) => {
+            setExpandedArgs((prev) => ({
+                ...prev,
+                [argKey]: !prev[argKey],
+            }));
+        }, []);
 
-    const status = getStatusConfig();
+        const hasContent = result || Object.keys(args).length > 0;
 
-    const formatToolName = (name: string) => {
-        return name
-            .replace(/_/g, ' ')
-            .replace(/([A-Z])/g, ' $1')
-            .trim()
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join(' ');
-    };
-
-    const formatValue = (value: unknown): string => {
-        if (typeof value === 'string') {
-            return value;
-        }
-        try {
-            return JSON.stringify(value, null, 2);
-        } catch {
-            return String(value);
-        }
-    };
-
-    const handleCopy = async (text: string, type: 'args' | 'result') => {
-        await navigator.clipboard.writeText(text);
-        if (type === 'args') {
-            setCopiedArgs(true);
-            setTimeout(() => setCopiedArgs(false), 2000);
-        } else {
-            setCopiedResult(true);
-            setTimeout(() => setCopiedResult(false), 2000);
-        }
-    };
-
-    const argsString = useMemo(() => {
-        if (!toolCall.args || Object.keys(toolCall.args).length === 0) return null;
-        return formatValue(toolCall.args);
-    }, [toolCall.args]);
-
-    const resultString = useMemo(() => {
-        if (!toolCall.result) return null;
-        // Truncate long results
-        const formatted = formatValue(toolCall.result);
-        if (formatted.length > 2000) {
-            return formatted.substring(0, 2000) + '\n... (truncated)';
-        }
-        return formatted;
-    }, [toolCall.result]);
-
-    return (
-        <div className={`border ${status.borderColor} rounded-lg overflow-hidden my-2 ${status.bgColor}`}>
-            {/* Header */}
-            <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="w-full flex items-center gap-3 p-3 text-left hover:opacity-80 transition-opacity"
-            >
-                {isExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
-                ) : (
-                    <ChevronRight className="w-4 h-4 text-gray-500 shrink-0" />
+        return (
+            <div
+                className={cn(
+                    "w-full overflow-hidden rounded-lg border-none shadow-none outline-none transition-colors duration-200 hover:bg-accent",
+                    isExpanded && hasContent && "bg-accent"
                 )}
+            >
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleExpanded}
+                    className={cn(
+                        "flex w-full items-center justify-between gap-2 border-none px-2 py-2 text-left shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-default"
+                    )}
+                    disabled={!hasContent}
+                >
+                    <div className="flex w-full items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            {statusIcon}
+                            <span className="text-[15px] font-medium tracking-[-0.6px] text-foreground">
+                                {name}
+                            </span>
+                        </div>
+                        {hasContent &&
+                            (isExpanded ? (
+                                <ChevronUp
+                                    size={14}
+                                    className="shrink-0 text-muted-foreground"
+                                />
+                            ) : (
+                                <ChevronDown
+                                    size={14}
+                                    className="shrink-0 text-muted-foreground"
+                                />
+                            ))}
+                    </div>
+                </Button>
 
-                <div className="p-1.5 rounded-md bg-purple-100 dark:bg-purple-900/50">
-                    <ToolIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                </div>
-
-                <span className="font-medium text-sm flex-1 text-gray-900 dark:text-white">
-                    {formatToolName(toolCall.name)}
-                </span>
-
-                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${status.textColor}`}>
-                    {status.icon}
-                    <span className="hidden sm:inline">{status.label}</span>
-                </div>
-            </button>
-
-            {/* Expanded content */}
-            {isExpanded && (
-                <div className="border-t border-gray-200 dark:border-gray-700">
-                    {/* Arguments */}
-                    {argsString && (
-                        <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-                            <div className="flex items-center justify-between mb-2">
-                                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Arguments
-                                </h4>
-                                <button
-                                    onClick={() => handleCopy(argsString, 'args')}
-                                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-                                >
-                                    {copiedArgs ? (
-                                        <>
-                                            <Check size={12} />
-                                            Copied
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Copy size={12} />
-                                            Copy
-                                        </>
-                                    )}
-                                </button>
+                {isExpanded && hasContent && (
+                    <div className="px-4 pb-4">
+                        {uiComponent && stream && graphId ? (
+                            <div className="mt-4">
+                                {/* GenUI component loading logic would go here */}
+                                <div className="text-xs text-muted-foreground">GenUI not supported in this environment</div>
                             </div>
-                            <pre className="text-xs bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto font-mono">
-                                <code>{argsString}</code>
-                            </pre>
-                        </div>
-                    )}
-
-                    {/* Result */}
-                    {resultString && (
-                        <div className="p-3">
-                            <div className="flex items-center justify-between mb-2">
-                                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Result
-                                </h4>
-                                <button
-                                    onClick={() => handleCopy(resultString, 'result')}
-                                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-                                >
-                                    {copiedResult ? (
-                                        <>
-                                            <Check size={12} />
-                                            Copied
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Copy size={12} />
-                                            Copy
-                                        </>
-                                    )}
-                                </button>
+                        ) : actionRequest && onResume ? (
+                            // Show tool approval UI when there's an action request but no GenUI
+                            <div className="mt-4">
+                                <ToolApprovalInterrupt
+                                    actionRequest={actionRequest}
+                                    reviewConfig={reviewConfig}
+                                    onResume={onResume}
+                                    isLoading={isLoading}
+                                />
                             </div>
-                            <pre className="text-xs bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto max-h-60 overflow-y-auto font-mono">
-                                <code>{resultString}</code>
-                            </pre>
-                        </div>
-                    )}
+                        ) : (
+                            <>
+                                {Object.keys(args).length > 0 && (
+                                    <div className="mt-4">
+                                        <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                            Arguments
+                                        </h4>
+                                        <div className="space-y-2">
+                                            {Object.entries(args).map(([key, value]) => (
+                                                <div
+                                                    key={key}
+                                                    className="rounded-sm border border-border"
+                                                >
+                                                    <button
+                                                        onClick={() => toggleArgExpanded(key)}
+                                                        className="flex w-full items-center justify-between bg-muted/30 p-2 text-left text-xs font-medium transition-colors hover:bg-muted/50"
+                                                    >
+                                                        <span className="font-mono">{key}</span>
+                                                        {expandedArgs[key] ? (
+                                                            <ChevronUp
+                                                                size={12}
+                                                                className="text-muted-foreground"
+                                                            />
+                                                        ) : (
+                                                            <ChevronDown
+                                                                size={12}
+                                                                className="text-muted-foreground"
+                                                            />
+                                                        )}
+                                                    </button>
+                                                    {expandedArgs[key] && (
+                                                        <div className="border-t border-border bg-muted/20 p-2">
+                                                            <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-all font-mono text-xs leading-6 text-foreground">
+                                                                {typeof value === "string"
+                                                                    ? value
+                                                                    : JSON.stringify(value, null, 2)}
+                                                            </pre>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {result && (
+                                    <div className="mt-4">
+                                        <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                            Result
+                                        </h4>
+                                        <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-all rounded-sm border border-border bg-muted/40 p-2 font-mono text-xs leading-7 text-foreground">
+                                            {typeof result === "string"
+                                                ? result
+                                                : JSON.stringify(result, null, 2)}
+                                        </pre>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    }
+);
 
-                    {/* Empty state */}
-                    {!argsString && !resultString && (
-                        <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                            No details available
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
-
-export default ToolCallBox;
+ToolCallBox.displayName = "ToolCallBox";

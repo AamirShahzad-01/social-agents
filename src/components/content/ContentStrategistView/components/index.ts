@@ -10,6 +10,7 @@ export { LoadingSkeleton } from './LoadingSkeleton';
 export { ChatInterface } from './ChatInterface';
 export { ChatMessage } from './ChatMessage';
 export { MarkdownContent } from './MarkdownContent';
+export { ThinkingDisplay } from './ThinkingDisplay';
 
 // Tool and agent components
 export { ToolCallBox } from './ToolCallBox';

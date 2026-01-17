@@ -7,7 +7,7 @@ export default function CreatePage() {
     const { addPost } = useDashboard();
 
     return (
-        <div className="absolute inset-0 -m-6">
+        <div className="absolute inset-0 p-0">
             <ContentStrategistView onPostCreated={addPost} />
         </div>
     );

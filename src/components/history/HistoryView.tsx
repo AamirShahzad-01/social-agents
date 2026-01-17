@@ -275,7 +275,7 @@ const PublishedView: React.FC<PublishedViewProps> = ({ posts = [], onUpdatePost,
                     </div>
                 ) : (
                     <div className={viewMode === 'grid'
-                        ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5"
+                        ? "columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4"
                         : "flex flex-col gap-1.5"
                     }>
                         {postsForPublishing.map(post => (

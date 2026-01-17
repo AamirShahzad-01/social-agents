@@ -205,14 +205,23 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
     return (
         <>
             <div
-                className="group relative aspect-square bg-muted rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ease-out cursor-pointer border border-border/50"
+                className="group relative bg-muted rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ease-out cursor-pointer border border-border/50 break-inside-avoid mb-4 inline-block w-full align-top"
                 onClick={() => setIsPreviewOpen(true)}
             >
                 {/* Media Content */}
                 {videoUrl ? (
-                    <video src={videoUrl} className="w-full h-full object-cover" muted playsInline />
+                    <video
+                        src={videoUrl}
+                        className="w-full h-auto min-h-[220px] max-h-[440px] object-cover"
+                        muted
+                        playsInline
+                    />
                 ) : mediaUrl ? (
-                    <img src={mediaUrl} alt="Post" className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110" />
+                    <img
+                        src={mediaUrl}
+                        alt="Post"
+                        className="w-full h-auto object-contain transition-transform duration-500 ease-out group-hover:scale-[1.02]"
+                    />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center bg-muted">
                         <ImageIcon className="w-8 h-8 text-muted-foreground/50" />

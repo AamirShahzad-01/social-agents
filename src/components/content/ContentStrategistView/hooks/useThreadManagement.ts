@@ -1,12 +1,16 @@
 import { useState, useCallback } from 'react';
 import { ThreadService, ChatMessage, ContentThread } from '@/services/database/threadService.client';
+import { useContentStrategistStore } from '@/stores/contentStrategistStore';
 import { Message } from '../types';
 
 export const useThreadManagement = () => {
     const [activeThreadId, setActiveThreadId] = useState<string | 'new'>('new');
     const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
-    const [langThreadId, setLangThreadId] = useState<string>(() => crypto.randomUUID());
     const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
+    
+    // Use Zustand store for langThreadId - initialized in store, persists across component remounts
+    const langThreadId = useContentStrategistStore(state => state.langThreadId);
+    const setLangThreadId = useContentStrategistStore(state => state.setLangThreadId);
 
     const startNewChat = useCallback(async () => {
         try {
@@ -79,7 +83,12 @@ export const useThreadManagement = () => {
 
         try {
             const lastMessage = messages[messages.length - 1];
-            const preview = lastMessage?.content.substring(0, 100) || '';
+            const contentStr = typeof lastMessage?.content === 'string' 
+                ? lastMessage.content 
+                : Array.isArray(lastMessage?.content) 
+                    ? lastMessage.content.join('') 
+                    : '';
+            const preview = contentStr.substring(0, 100) || '';
 
             await ThreadService.updateThreadMetadata(threadId, workspaceId, {
                 preview,

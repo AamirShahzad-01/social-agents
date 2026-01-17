@@ -28,6 +28,8 @@ export function useChat(options: UseChatOptions) {
     const setMessages = useContentStrategistStore(state => state.setMessages);
     const addMessage = useContentStrategistStore(state => state.addMessage);
     const setError = useContentStrategistStore(state => state.setError);
+    const setTodoState = useContentStrategistStore(state => state.setTodoState);
+    const setFileState = useContentStrategistStore(state => state.setFileState);
 
     const abortControllerRef = useRef<AbortController | null>(null);
     const isSubmittingRef = useRef(false);
@@ -53,9 +55,11 @@ export function useChat(options: UseChatOptions) {
 
         let currentThreadId = threadId;
         if (!currentThreadId) {
-            currentThreadId = `thread-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+            currentThreadId = crypto.randomUUID();
+            console.log('[useChat] Created new thread ID:', currentThreadId);
             onThreadCreated?.(currentThreadId);
         }
+        console.log('[useChat] Using thread ID:', currentThreadId);
 
         const userMessage: Message = {
             role: 'user',
@@ -214,6 +218,22 @@ export function useChat(options: UseChatOptions) {
                                 }
                                 return updated;
                             });
+                        } else if (step === 'activity') {
+                            // Update message with current activity status
+                            setMessages(prev => {
+                                const updated = [...prev];
+                                const lastIdx = updated.length - 1;
+                                if (lastIdx >= 0 && updated[lastIdx].role === 'model') {
+                                    updated[lastIdx] = {
+                                        ...updated[lastIdx],
+                                        activity: data.message,
+                                    };
+                                }
+                                return updated;
+                            });
+                        } else if (step === 'sync') {
+                            if (data.todos) setTodoState(data.todos);
+                            if (data.files) setFileState(data.files);
                         } else if (step === 'done') {
                             finalResponse = data.content || data.response || finalResponse;
                             finalThinking = data.thinking || finalThinking;
@@ -227,6 +247,7 @@ export function useChat(options: UseChatOptions) {
                                         thinking: finalThinking,
                                         isStreaming: false,
                                         isThinking: false,
+                                        activity: undefined, // Clear activity on done
                                     };
                                 }
                                 return updated;

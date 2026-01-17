@@ -5,49 +5,21 @@
  */
 
 import { create } from 'zustand';
+import {
+    Message,
+    TodoItem,
+    ToolCall,
+    SubAgent,
+    AttachedFile
+} from '@/components/content/ContentStrategistView/types';
 
-interface AttachedFile {
-    type: 'image' | 'file';
-    name: string;
-    url: string;
-    size?: number;
-}
-
-interface ToolCall {
-    id: string;
-    name: string;
-    args: Record<string, unknown>;
-    status?: 'pending' | 'completed' | 'error' | 'interrupted';
-    result?: string;
-}
-
-interface SubAgent {
-    id: string;
-    name: string;
-    subAgentName: string;
-    input: Record<string, unknown>;
-    output?: Record<string, unknown>;
-    status: 'pending' | 'active' | 'completed' | 'error';
-}
-
-interface Message {
-    role: 'user' | 'model' | 'system';
-    content: string;
-    attachments?: AttachedFile[];
-    isStreaming?: boolean;
-    suggestions?: string[];
-    thinking?: string;
-    isThinking?: boolean;
-    tool_calls?: ToolCall[];
-    sub_agents?: SubAgent[];
-    files?: Array<{ path: string; name: string; type: string }>;
-    generatedImage?: string;
-    generatedVideo?: string;
-    isGeneratingMedia?: boolean;
-    postData?: unknown;
-    parameters?: unknown;
-    isVoiceGenerated?: boolean;
-}
+// Generate initial thread ID for session persistence
+const generateThreadId = () => {
+    if (typeof window !== 'undefined') {
+        return crypto.randomUUID();
+    }
+    return null;
+};
 
 interface ContentStrategistState {
     messages: Message[];
@@ -56,6 +28,8 @@ interface ContentStrategistState {
     activeThreadId: string | null;
     langThreadId: string | null;
     isVoiceActive: boolean;
+    todos: TodoItem[];
+    files: Record<string, string>;
 
     setMessages: (messages: Message[] | ((prev: Message[]) => Message[])) => void;
     addMessage: (message: Message) => void;
@@ -64,6 +38,8 @@ interface ContentStrategistState {
     setActiveThreadId: (id: string | null) => void;
     setLangThreadId: (id: string | null) => void;
     setIsVoiceActive: (active: boolean) => void;
+    setTodoState: (todos: TodoItem[]) => void;
+    setFileState: (files: Record<string, string>) => void;
     clearChat: () => void;
 }
 
@@ -72,8 +48,10 @@ export const useContentStrategistStore = create<ContentStrategistState>((set) =>
     hasUserSentMessage: false,
     error: null,
     activeThreadId: null,
-    langThreadId: null,
+    langThreadId: generateThreadId(),
     isVoiceActive: false,
+    todos: [],
+    files: {},
 
     setMessages: (messages) =>
         set((state) => ({
@@ -91,5 +69,7 @@ export const useContentStrategistStore = create<ContentStrategistState>((set) =>
     setActiveThreadId: (id) => set({ activeThreadId: id }),
     setLangThreadId: (id) => set({ langThreadId: id }),
     setIsVoiceActive: (active) => set({ isVoiceActive: active }),
-    clearChat: () => set({ messages: [], hasUserSentMessage: false, error: null }),
+    setTodoState: (todos) => set({ todos }),
+    setFileState: (files) => set({ files }),
+    clearChat: () => set({ messages: [], hasUserSentMessage: false, error: null, todos: [], files: {} }),
 }));

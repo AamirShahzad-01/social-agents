@@ -1,18 +1,21 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, FileText, CheckCircle2, Circle, Clock, Folder, File } from 'lucide-react';
-
-interface TodoItem {
-    id: string;
-    content: string;
-    status: 'pending' | 'in_progress' | 'completed';
-}
-
-interface FileItem {
-    path: string;
-    content: string;
-}
+import React, { useMemo, useRef, useEffect, useState } from "react";
+import { Fragment } from "react";
+import {
+    CheckCircle2,
+    Circle,
+    Clock,
+    FileText,
+    ChevronDown,
+    ChevronUp,
+    Search,
+    ExternalLink
+} from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import type { TodoItem } from "../types";
 
 interface TasksFilesSidebarProps {
     todos?: TodoItem[];
@@ -21,154 +24,207 @@ interface TasksFilesSidebarProps {
     isCollapsed?: boolean;
 }
 
-/**
- * TasksFilesSidebar - Right sidebar showing tasks and files
- * Reference: https://github.com/langchain-ai/deep-agents-ui
- */
+const getStatusIcon = (status: TodoItem["status"]) => {
+    switch (status) {
+        case "completed":
+            return <CheckCircle2 size={16} className="text-success" />;
+        case "in_progress":
+            return <Clock size={16} className="text-warning animate-pulse" />;
+        default:
+            return <Circle size={16} className="text-muted-foreground" />;
+    }
+};
+
+const getStatusBadge = (status: TodoItem["status"]) => {
+    switch (status) {
+        case "completed":
+            return <Badge variant="secondary" className="bg-success/10 text-success border-success/20">Done</Badge>;
+        case "in_progress":
+            return <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/20">Active</Badge>;
+        default:
+            return <Badge variant="outline">Pending</Badge>;
+    }
+};
+
 export const TasksFilesSidebar: React.FC<TasksFilesSidebarProps> = ({
     todos = [],
     files = {},
     onFileClick,
     isCollapsed = false,
 }) => {
-    const [tasksExpanded, setTasksExpanded] = useState(true);
-    const [filesExpanded, setFilesExpanded] = useState(true);
+    const [tasksExpanded, setTasksExpanded] = useState(false);
+    const [filesExpanded, setFilesExpanded] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
 
-    const fileList = Object.entries(files);
+    const prevTodosCount = useRef(todos.length);
+    const prevFilesCount = useRef(Object.keys(files).length);
 
-    const getStatusIcon = (status: TodoItem['status']) => {
-        switch (status) {
-            case 'completed':
-                return <CheckCircle2 size={14} className="text-green-500" />;
-            case 'in_progress':
-                return <Clock size={14} className="text-blue-500" />;
-            case 'pending':
-            default:
-                return <Circle size={14} className="text-muted-foreground" />;
+    useEffect(() => {
+        if (prevTodosCount.current === 0 && todos.length > 0) {
+            setTasksExpanded(true);
         }
-    };
+        prevTodosCount.current = todos.length;
+    }, [todos.length]);
 
-    const getStatusBadge = (status: TodoItem['status']) => {
-        const labels = {
-            pending: 'Pending',
-            in_progress: 'In Progress',
-            completed: 'Completed',
-        };
-        const colors = {
-            pending: 'bg-muted text-muted-foreground',
-            in_progress: 'bg-blue-500/20 text-blue-600',
-            completed: 'bg-green-500/20 text-green-600',
-        };
-        return (
-            <span className={`text-xs px-2 py-0.5 rounded-full ${colors[status]}`}>
-                {labels[status]}
-            </span>
-        );
-    };
+    const filesCount = Object.keys(files).length;
+    useEffect(() => {
+        if (prevFilesCount.current === 0 && filesCount > 0) {
+            setFilesExpanded(true);
+        }
+        prevFilesCount.current = filesCount;
+    }, [filesCount]);
 
-    if (isCollapsed) {
-        return (
-            <div className="w-12 border-l border-border bg-muted/30 flex flex-col items-center py-4 gap-4">
-                <button className="p-2 hover:bg-muted rounded" title="Tasks">
-                    <CheckCircle2 size={18} className="text-muted-foreground" />
-                </button>
-                <button className="p-2 hover:bg-muted rounded" title="Files">
-                    <Folder size={18} className="text-muted-foreground" />
-                </button>
-            </div>
-        );
-    }
+    if (isCollapsed) return null;
+
+    const filteredFiles = Object.keys(files).filter(path =>
+        path.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const groupedTodos = useMemo(() => {
+        return {
+            pending: todos.filter((t) => t.status === "pending"),
+            in_progress: todos.filter((t) => t.status === "in_progress"),
+            completed: todos.filter((t) => t.status === "completed"),
+        };
+    }, [todos]);
+
+    const groupedLabels: Record<keyof typeof groupedTodos, string> = {
+        pending: "Pending",
+        in_progress: "In Progress",
+        completed: "Completed",
+    };
 
     return (
-        <div className="w-72 border-l border-border bg-muted/30 flex flex-col overflow-hidden">
-            {/* Tasks Section */}
-            <div className="border-b border-border">
-                <button
-                    onClick={() => setTasksExpanded(!tasksExpanded)}
-                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
-                >
-                    <div className="flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-muted-foreground" />
-                        <span className="font-medium text-sm">Tasks</span>
-                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                            {todos.length}
-                        </span>
-                    </div>
-                    {tasksExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
+        <div className="w-80 border-l border-border bg-muted/30 flex flex-col h-full overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b border-border bg-background">
+                <h2 className="text-sm font-semibold flex items-center gap-2">
+                    <Search size={14} className="text-muted-foreground" />
+                    Project State
+                </h2>
+            </div>
 
-                {tasksExpanded && (
-                    <div className="px-2 pb-2 max-h-60 overflow-y-auto">
-                        {todos.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-4">
-                                No tasks yet
-                            </p>
-                        ) : (
-                            <div className="space-y-1">
-                                {todos.map((todo) => (
-                                    <div
-                                        key={todo.id}
-                                        className="flex items-start gap-2 p-2 rounded hover:bg-muted/50 transition-colors"
-                                    >
-                                        {getStatusIcon(todo.status)}
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs text-foreground truncate">
-                                                {todo.content}
-                                            </p>
-                                        </div>
+            <ScrollArea className="flex-1">
+                <div className="p-2 space-y-4">
+                    {/* Tasks Section */}
+                    <div className="space-y-1">
+                        <button
+                            onClick={() => setTasksExpanded(!tasksExpanded)}
+                            className="w-full flex items-center justify-between p-2 hover:bg-muted rounded-md transition-colors"
+                        >
+                            <div className="flex items-center gap-2">
+                                <CheckCircle2 size={16} className="text-primary" />
+                                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Tasks</span>
+                                <Badge variant="secondary" className="text-[10px] h-4 px-1">{todos.length}</Badge>
+                            </div>
+                            {tasksExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+
+                        {tasksExpanded && (
+                            <div className="space-y-3 pl-2">
+                                {todos.length === 0 ? (
+                                    <p className="text-[11px] text-muted-foreground p-3 text-center bg-muted/20 rounded-md italic">
+                                        No tasks created yet
+                                    </p>
+                                ) : (
+                                    Object.entries(groupedTodos)
+                                        .filter(([_, group]) => group.length > 0)
+                                        .map(([status, group]) => (
+                                            <div key={status} className="space-y-1">
+                                                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                                    {groupedLabels[status as keyof typeof groupedTodos]}
+                                                </h3>
+                                                <div className="grid grid-cols-[auto_1fr] gap-3 rounded-sm p-1 pl-0 text-xs">
+                                                    {group.map((todo, index) => (
+                                                        <Fragment key={`${status}_${todo.id ?? todo.content}_${index}`}>
+                                                            {getStatusIcon(todo.status)}
+                                                            <span className="break-words leading-relaxed text-foreground">
+                                                                {todo.content}
+                                                            </span>
+                                                        </Fragment>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="h-px bg-border mx-2" />
+
+                    {/* Files Section */}
+                    <div className="space-y-1">
+                        <button
+                            onClick={() => setFilesExpanded(!filesExpanded)}
+                            className="w-full flex items-center justify-between p-2 hover:bg-muted rounded-md transition-colors"
+                        >
+                            <div className="flex items-center gap-2">
+                                <FileText size={16} className="text-primary" />
+                                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Files</span>
+                                <Badge variant="secondary" className="text-[10px] h-4 px-1">{Object.keys(files).length}</Badge>
+                            </div>
+                            {filesExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+
+                        {filesExpanded && (
+                            <div className="space-y-1 pl-2">
+                                <div className="px-2 pb-2">
+                                    <div className="relative">
+                                        <Search className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search files..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full bg-background border border-border rounded-md py-1.5 pl-7 pr-3 text-[11px] outline-none focus:ring-1 focus:ring-primary/20"
+                                        />
                                     </div>
-                                ))}
+                                </div>
+
+                                {filteredFiles.length === 0 ? (
+                                    <p className="text-[11px] text-muted-foreground p-3 text-center bg-muted/20 rounded-md italic">
+                                        No files found
+                                    </p>
+                                ) : (
+                                    filteredFiles.map((path) => (
+                                        <button
+                                            key={path}
+                                            onClick={() => onFileClick?.(path)}
+                                            className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-background border border-transparent hover:border-border transition-all group text-left"
+                                        >
+                                            <FileText size={14} className="text-muted-foreground shrink-0" />
+                                            <span className="text-xs text-foreground truncate flex-1">{path}</span>
+                                            <ExternalLink size={12} className="opacity-0 group-hover:opacity-40 shrink-0" />
+                                        </button>
+                                    ))
+                                )}
                             </div>
                         )}
                     </div>
-                )}
-            </div>
-
-            {/* Files Section */}
-            <div className="flex-1 overflow-hidden flex flex-col">
-                <button
-                    onClick={() => setFilesExpanded(!filesExpanded)}
-                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
-                >
-                    <div className="flex items-center gap-2">
-                        <Folder size={16} className="text-muted-foreground" />
-                        <span className="font-medium text-sm">Files</span>
-                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                            {fileList.length}
-                        </span>
-                    </div>
-                    {filesExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </button>
-
-                {filesExpanded && (
-                    <div className="flex-1 overflow-y-auto px-2 pb-2">
-                        {fileList.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-4">
-                                No files generated yet
-                            </p>
-                        ) : (
-                            <div className="space-y-1">
-                                {fileList.map(([path, content]) => (
-                                    <button
-                                        key={path}
-                                        onClick={() => onFileClick?.(path)}
-                                        className="w-full flex items-center gap-2 p-2 rounded hover:bg-muted/50 transition-colors text-left"
-                                    >
-                                        <File size={14} className="text-muted-foreground shrink-0" />
-                                        <span className="text-xs text-foreground truncate">
-                                            {path.split('/').pop()}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
+                </div>
+            </ScrollArea>
         </div>
     );
 };
 
-TasksFilesSidebar.displayName = 'TasksFilesSidebar';
-
-export default TasksFilesSidebar;
+export const FilesPopover = ({ files, onFileClick }: { files: Record<string, string>, onFileClick?: (path: string) => void }) => {
+    return (
+        <div className="p-2 space-y-1 max-h-60 overflow-y-auto">
+            {Object.keys(files).length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center p-4">No files yet</p>
+            ) : (
+                Object.keys(files).map((path) => (
+                    <button
+                        key={path}
+                        onClick={() => onFileClick?.(path)}
+                        className="w-full flex items-center gap-2 p-2 hover:bg-accent rounded-md text-left transition-colors"
+                    >
+                        <FileText size={14} className="text-muted-foreground" />
+                        <span className="text-xs truncate">{path}</span>
+                    </button>
+                ))
+            )}
+        </div>
+    );
+};

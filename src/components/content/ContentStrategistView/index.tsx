@@ -5,19 +5,20 @@
 'use client';
 
 import React, { useEffect, useCallback, useState } from 'react';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useContentStrategistStore } from '@/stores/contentStrategistStore';
 import { useChat } from './hooks/useChat';
 import { useThreadManagement } from './hooks/useThreadManagement';
 import { useChatHistory } from './hooks/useChatHistory';
-import { ContentStrategistViewProps, Message } from './types';
+import { ContentStrategistViewProps, Message, FileItem } from './types';
 import { ContentThread } from '@/services/database/threadService.client';
 
 // Components
 import { ChatInterface } from './components/ChatInterface';
 import { ThreadHistory } from './components/ThreadHistory';
 import { TasksFilesSidebar } from './components/TasksFilesSidebar';
-import { FileViewDialog, FileItem } from './components/FileViewDialog';
+import { FileViewDialog } from './components/FileViewDialog';
 import { ConfigDialog } from './components/ConfigDialog';
 
 
@@ -28,12 +29,14 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
     const error = useContentStrategistStore(state => state.error);
     const setError = useContentStrategistStore(state => state.setError);
     const clearChat = useContentStrategistStore(state => state.clearChat);
+    const storeTodos = useContentStrategistStore(state => state.todos);
+    const storeFiles = useContentStrategistStore(state => state.files);
 
     // Local state
     const [isLoading, setIsLoading] = useState(false);
     const [workspaceId, setWorkspaceId] = useState<string | null>(null);
     const [userId, setUserId] = useState<string | null>(null);
-    const [isHistoryVisible] = useState(true); // History panel is visible by default
+    const [isHistoryVisible, setIsHistoryVisible] = useState(false);
     const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
     const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
     const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
@@ -53,6 +56,7 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
         isCreatingNewChat,
         startNewChat,
         loadThread,
+        createThread,
         setActiveThreadId,
         setLangThreadId,
     } = useThreadManagement();
@@ -61,7 +65,7 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
     const { chatHistory, isLoadingHistory, deleteThread, renameThread, refreshHistory } = useChatHistory(isHistoryVisible, workspaceId);
 
     // Chat hook
-    const { submit, abort } = useChat({
+    const { submit, abort, resumeInterrupt } = useChat({
         threadId: langThreadId,
         workspaceId: workspaceId || undefined,
         enableReasoning: true,
@@ -109,7 +113,7 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
     // Handle send message
     const handleSendMessage = useCallback(async (
         message: string,
-        attachedFiles?: Array<{ type: 'image' | 'file'; name: string; url: string; size?: number }>
+        options?: { attachedFiles?: Array<{ type: 'image' | 'file'; name: string; url: string; size?: number }> }
     ) => {
         if (!message.trim() || isLoading) return;
 
@@ -117,14 +121,21 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
         setError(null);
 
         try {
-            await submit(message, { attachedFiles });
+            await submit(message, { attachedFiles: options?.attachedFiles });
+
+            // If this was the first message, create a thread entry in the database
+            if (activeThreadId === 'new' && workspaceId && userId && langThreadId) {
+                const title = message.substring(0, 50) + (message.length > 50 ? '...' : '');
+                await createThread(title, workspaceId, userId, langThreadId);
+                refreshHistory();
+            }
         } catch (error) {
             console.error('Failed to send message:', error);
             setError(error instanceof Error ? error.message : 'Failed to send message');
         } finally {
             setIsLoading(false);
         }
-    }, [submit, isLoading, setError]);
+    }, [submit, isLoading, activeThreadId, workspaceId, userId, createThread, langThreadId, refreshHistory, setError]);
 
     // Extract files from messages for sidebar - convert to Record format
     const filesRecord = messages.flatMap(m => m.files || []).reduce((acc, file) => {
@@ -135,19 +146,41 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
     return (
         <div className="flex h-full bg-white dark:bg-gray-900">
             {/* Left Sidebar - Thread History */}
-            <div className="w-64 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 hidden md:block">
-                <ThreadHistory
-                    threads={chatHistory}
-                    activeThreadId={activeThreadId}
-                    onSelectThread={handleSelectThread}
-                    onNewChat={handleNewChat}
-                    onDeleteThread={handleDeleteThread}
-                    onRenameThread={handleRenameThread}
-                    isLoading={isLoadingHistory}
-                    isCreatingNewChat={isCreatingNewChat}
-                    workspaceId={workspaceId}
-                />
-            </div>
+            {isHistoryVisible ? (
+                <div className="w-64 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 hidden md:block">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+                        <span className="text-xs font-semibold text-muted-foreground">Chats</span>
+                        <button
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted"
+                            onClick={() => setIsHistoryVisible(false)}
+                            aria-label="Hide chat history"
+                        >
+                            <PanelLeftClose className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <ThreadHistory
+                        threads={chatHistory}
+                        activeThreadId={activeThreadId}
+                        onSelectThread={handleSelectThread}
+                        onNewChat={handleNewChat}
+                        onDeleteThread={handleDeleteThread}
+                        onRenameThread={handleRenameThread}
+                        isLoading={isLoadingHistory}
+                        isCreatingNewChat={isCreatingNewChat}
+                        workspaceId={workspaceId}
+                    />
+                </div>
+            ) : (
+                <div className="hidden md:flex w-12 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 items-start justify-center py-2">
+                    <button
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
+                        onClick={() => setIsHistoryVisible(true)}
+                        aria-label="Show chat history"
+                    >
+                        <PanelLeftOpen className="h-4 w-4" />
+                    </button>
+                </div>
+            )}
 
             {/* Main Chat Area */}
             <div className="flex-1 flex flex-col min-w-0">
@@ -158,22 +191,23 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
                     error={error}
                     showInput={true}
                     inputPlaceholder="What content would you like to create today?"
+                    onStopStream={abort}
+                    onResumeInterrupt={(value) => resumeInterrupt(value.action || value.decision, value.actionId, value.reason)}
                 />
             </div>
 
             {/* Right Sidebar - Tasks & Files */}
-            <div className="w-72 border-l border-gray-200 dark:border-gray-700 flex-shrink-0 hidden lg:block">
+            <div className="w-72 border-l border-gray-200 dark:border-gray-700 flex-shrink-0 hidden lg:block mr-3 my-3 rounded-lg overflow-hidden bg-white/80 dark:bg-gray-900/80">
                 <TasksFilesSidebar
-                    files={filesRecord}
+                    todos={storeTodos}
+                    files={storeFiles}
                     onFileClick={(path) => {
-                        // Find file content from messages
-                        const fileData = messages
-                            .flatMap(m => m.files || [])
-                            .find(f => f.path === path);
-                        if (fileData) {
+                        // Find file content from store
+                        const content = storeFiles[path];
+                        if (content !== undefined) {
                             setSelectedFile({
-                                path: fileData.path,
-                                content: '', // Content would come from backend state
+                                path,
+                                content: content, // Now we have the content from the store!
                             });
                             setIsFileDialogOpen(true);
                         }
@@ -189,7 +223,13 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
                     setIsFileDialogOpen(false);
                     setSelectedFile(null);
                 }}
-                editDisabled={true}
+                onSaveFile={async (fileName, content) => {
+                    // Update file in store
+                    const setFileState = useContentStrategistStore.getState().setFileState;
+                    setFileState({ ...storeFiles, [fileName]: content });
+                    // Update selected file to reflect changes
+                    setSelectedFile({ path: fileName, content });
+                }}
             />
 
             {/* Config Dialog */}

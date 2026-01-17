@@ -1,116 +1,113 @@
 'use client';
 
-/**
- * FileViewDialog Component
- * 
- * Modal dialog to view and edit generated files with syntax highlighting.
- * Reference: https://github.com/langchain-ai/deep-agents-ui
- */
+import React, { useMemo, useCallback, useState, useEffect } from "react";
+import { FileText, Copy, Download, Edit, Save, X, Loader2, FileDown } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { toast } from "react-hot-toast";
+import { MarkdownContent } from "./MarkdownContent";
+import type { FileItem } from "../types";
+import useSWRMutation from "swr/mutation";
 
-import React, { useMemo, useCallback, useState, useEffect } from 'react';
-import { FileText, Copy, Download, Edit, Save, X, Loader2, Check } from 'lucide-react';
-
-// Language mapping for syntax highlighting
 const LANGUAGE_MAP: Record<string, string> = {
-    js: 'javascript',
-    jsx: 'javascript',
-    ts: 'typescript',
-    tsx: 'typescript',
-    py: 'python',
-    rb: 'ruby',
-    go: 'go',
-    rs: 'rust',
-    java: 'java',
-    cpp: 'cpp',
-    c: 'c',
-    cs: 'csharp',
-    php: 'php',
-    swift: 'swift',
-    kt: 'kotlin',
-    scala: 'scala',
-    sh: 'bash',
-    bash: 'bash',
-    zsh: 'bash',
-    json: 'json',
-    xml: 'xml',
-    html: 'html',
-    css: 'css',
-    scss: 'scss',
-    sass: 'sass',
-    less: 'less',
-    sql: 'sql',
-    yaml: 'yaml',
-    yml: 'yaml',
-    toml: 'toml',
-    ini: 'ini',
-    dockerfile: 'dockerfile',
-    makefile: 'makefile',
-    md: 'markdown',
-    markdown: 'markdown',
+    js: "javascript",
+    jsx: "javascript",
+    ts: "typescript",
+    tsx: "typescript",
+    py: "python",
+    rb: "ruby",
+    go: "go",
+    rs: "rust",
+    java: "java",
+    cpp: "cpp",
+    c: "c",
+    cs: "csharp",
+    php: "php",
+    swift: "swift",
+    kt: "kotlin",
+    scala: "scala",
+    sh: "bash",
+    bash: "bash",
+    zsh: "bash",
+    json: "json",
+    xml: "xml",
+    html: "html",
+    css: "css",
+    scss: "scss",
+    sass: "sass",
+    less: "less",
+    sql: "sql",
+    yaml: "yaml",
+    yml: "yaml",
+    toml: "toml",
+    ini: "ini",
+    dockerfile: "dockerfile",
+    makefile: "makefile",
 };
 
-export interface FileItem {
-    path: string;
-    content: string;
-}
-
-interface FileViewDialogProps {
+export const FileViewDialog = React.memo<{
     file: FileItem | null;
     isOpen: boolean;
-    onClose: () => void;
     onSaveFile?: (fileName: string, content: string) => Promise<void>;
+    onClose: () => void;
     editDisabled?: boolean;
-}
-
-export const FileViewDialog: React.FC<FileViewDialogProps> = ({
-    file,
-    isOpen,
-    onClose,
-    onSaveFile,
-    editDisabled = true,
-}) => {
+}>(({ file, isOpen, onSaveFile, onClose, editDisabled = false }) => {
     const [isEditingMode, setIsEditingMode] = useState(false);
-    const [fileName, setFileName] = useState('');
-    const [fileContent, setFileContent] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
-    const [copied, setCopied] = useState(false);
+    const [fileName, setFileName] = useState(String(file?.path || ""));
+    const [fileContent, setFileContent] = useState(String(file?.content || ""));
 
-    // Reset state when file changes
+    const fileUpdate = useSWRMutation(
+        { kind: "files-update", fileName, fileContent },
+        async ({ fileName, fileContent }) => {
+            if (!fileName || !fileContent || !onSaveFile) return;
+            return await onSaveFile(fileName, fileContent);
+        },
+        {
+            onSuccess: () => setIsEditingMode(false),
+            onError: (error) => toast.error(`Failed to save file: ${error}`),
+        }
+    );
+
     useEffect(() => {
         if (file) {
-            setFileName(file.path);
-            setFileContent(file.content);
+            setFileName(String(file.path || ""));
+            setFileContent(String(file.content || ""));
             setIsEditingMode(false);
         }
     }, [file]);
 
     const fileExtension = useMemo(() => {
-        return fileName.split('.').pop()?.toLowerCase() || '';
+        const fileNameStr = String(fileName || "");
+        return fileNameStr.split(".").pop()?.toLowerCase() || "";
     }, [fileName]);
 
     const isMarkdown = useMemo(() => {
-        return fileExtension === 'md' || fileExtension === 'markdown';
+        return fileExtension === "md" || fileExtension === "markdown";
     }, [fileExtension]);
 
     const language = useMemo(() => {
-        return LANGUAGE_MAP[fileExtension] || 'text';
+        return LANGUAGE_MAP[fileExtension] || "text";
     }, [fileExtension]);
 
-    const handleCopy = useCallback(async () => {
+    const handleCopy = useCallback(() => {
         if (fileContent) {
-            await navigator.clipboard.writeText(fileContent);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            navigator.clipboard.writeText(fileContent);
+            toast.success("Copied to clipboard");
         }
     }, [fileContent]);
 
     const handleDownload = useCallback(() => {
         if (fileContent && fileName) {
-            const blob = new Blob([fileContent], { type: 'text/plain' });
+            const blob = new Blob([fileContent], { type: "text/plain" });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
+            const a = document.createElement("a");
             a.href = url;
-            a.download = fileName.split('/').pop() || 'file.txt';
+            a.download = fileName.split('/').pop() || fileName;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -118,167 +115,236 @@ export const FileViewDialog: React.FC<FileViewDialogProps> = ({
         }
     }, [fileContent, fileName]);
 
+    const handleDownloadPDF = useCallback(async () => {
+        if (!fileContent || !fileName) return;
+        
+        try {
+            // Dynamic import for PDF generation
+            const html2pdf = (await import('html2pdf.js')).default;
+            
+            // Create a styled HTML container for the content
+            const container = document.createElement('div');
+            container.style.cssText = `
+                font-family: Arial, sans-serif;
+                font-size: 11pt;
+                line-height: 1.5;
+                color: #000;
+                background: white;
+            `;
+            
+            // Convert markdown to HTML directly from fileContent
+            if (isMarkdown) {
+                // Simple markdown to HTML conversion for PDF
+                let htmlContent = fileContent
+                    // Headers
+                    .replace(/^### (.*$)/gm, '<h3 style="font-size: 14pt; margin: 16px 0 8px;">$1</h3>')
+                    .replace(/^## (.*$)/gm, '<h2 style="font-size: 16pt; margin: 20px 0 10px;">$1</h2>')
+                    .replace(/^# (.*$)/gm, '<h1 style="font-size: 20pt; margin: 24px 0 12px;">$1</h1>')
+                    // Bold and italic
+                    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    // Lists
+                    .replace(/^\- (.*$)/gm, '<li style="margin: 4px 0;">$1</li>')
+                    .replace(/^\d+\. (.*$)/gm, '<li style="margin: 4px 0;">$1</li>')
+                    // Line breaks to paragraphs
+                    .replace(/\n\n/g, '</p><p style="margin: 12px 0;">')
+                    .replace(/\n/g, '<br/>');
+                
+                container.innerHTML = `<p style="margin: 12px 0;">${htmlContent}</p>`;
+            } else {
+                container.innerHTML = `<pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 10pt; line-height: 1.5;">${fileContent}</pre>`;
+            }
+            
+            document.body.appendChild(container);
+            
+            const opt = {
+                margin: 10,
+                filename: (fileName.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'document') + '.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            
+            await html2pdf().set(opt as any).from(container).save();
+            document.body.removeChild(container);
+            toast.success('PDF downloaded successfully');
+        } catch (error) {
+            console.error('PDF generation error:', error);
+            toast.error('Failed to generate PDF. Please try downloading as text.');
+        }
+    }, [fileContent, fileName, isMarkdown]);
+
     const handleEdit = useCallback(() => {
         setIsEditingMode(true);
     }, []);
 
     const handleCancel = useCallback(() => {
-        if (file) {
-            setFileName(file.path);
-            setFileContent(file.content);
-        }
-        setIsEditingMode(false);
-    }, [file]);
-
-    const handleSave = useCallback(async () => {
-        if (!onSaveFile || !fileName.trim() || !fileContent.trim()) return;
-
-        setIsSaving(true);
-        try {
-            await onSaveFile(fileName, fileContent);
+        if (file === null) {
+            onClose();
+        } else {
+            setFileName(String(file.path));
+            setFileContent(String(file.content));
             setIsEditingMode(false);
-        } catch (error) {
-            console.error('Failed to save file:', error);
-        } finally {
-            setIsSaving(false);
         }
-    }, [fileName, fileContent, onSaveFile]);
+    }, [file, onClose]);
 
-    if (!isOpen || !file) return null;
+    const fileNameIsValid = useMemo(() => {
+        return (
+            fileName.trim() !== "" &&
+            !fileName.includes(" ")
+        );
+    }, [fileName]);
+
+    if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={onClose}
-            />
-
-            {/* Dialog */}
-            <div className="relative z-10 flex h-[80vh] w-[80vw] max-w-5xl flex-col rounded-xl bg-white dark:bg-gray-900 shadow-2xl">
-                {/* Header */}
-                <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <FileText className="h-5 w-5 text-primary shrink-0" />
+        <Dialog
+            open={isOpen}
+            onOpenChange={(open) => !open && onClose()}
+        >
+            <DialogContent className="flex h-[80vh] max-h-[80vh] min-w-[70vw] flex-col p-6 overflow-hidden">
+                <DialogTitle className="sr-only">
+                    {file?.path || "View File"}
+                </DialogTitle>
+                <div className="mb-4 flex items-center justify-between border-b border-border pb-4">
+                    <div className="flex min-w-0 items-center gap-2">
+                        <FileText className="text-primary/50 h-5 w-5 shrink-0" />
                         {isEditingMode ? (
-                            <input
-                                type="text"
+                            <Input
                                 value={fileName}
                                 onChange={(e) => setFileName(e.target.value)}
                                 placeholder="Enter filename..."
-                                className="text-base font-medium bg-transparent border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary"
+                                className="text-base font-medium h-8"
+                                aria-invalid={!fileNameIsValid}
                             />
                         ) : (
-                            <span className="truncate text-base font-medium text-gray-900 dark:text-white">
-                                {file.path}
+                            <span className="overflow-hidden text-ellipsis whitespace-nowrap text-base font-medium text-foreground">
+                                {file?.path}
                             </span>
                         )}
-                        <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-xs text-gray-500 dark:text-gray-400 uppercase">
-                            {language}
-                        </span>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1">
                         {!isEditingMode && (
                             <>
-                                {!editDisabled && onSaveFile && (
-                                    <button
-                                        onClick={handleEdit}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                                    >
-                                        <Edit size={16} />
-                                        Edit
-                                    </button>
-                                )}
-                                <button
+                                <Button
+                                    onClick={handleEdit}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2"
+                                    disabled={editDisabled || !onSaveFile}
+                                >
+                                    <Edit size={16} className="mr-1" />
+                                    Edit
+                                </Button>
+                                <Button
                                     onClick={handleCopy}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2"
                                 >
-                                    {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
-                                    {copied ? 'Copied!' : 'Copy'}
-                                </button>
-                                <button
+                                    <Copy size={16} className="mr-1" />
+                                    Copy
+                                </Button>
+                                <Button
                                     onClick={handleDownload}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2"
                                 >
-                                    <Download size={16} />
+                                    <Download size={16} className="mr-1" />
                                     Download
-                                </button>
+                                </Button>
+                                <Button
+                                    onClick={handleDownloadPDF}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2"
+                                >
+                                    <FileDown size={16} className="mr-1" />
+                                    PDF
+                                </Button>
                             </>
                         )}
-                        <button
-                            onClick={onClose}
-                            className="p-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors ml-2"
-                        >
-                            <X size={20} />
-                        </button>
                     </div>
                 </div>
-
-                {/* Content */}
-                <div className="flex-1 overflow-hidden">
+                <div className="min-h-0 flex-1 overflow-hidden">
                     {isEditingMode ? (
-                        <textarea
+                        <Textarea
                             value={fileContent}
                             onChange={(e) => setFileContent(e.target.value)}
                             placeholder="Enter file content..."
-                            className="h-full w-full resize-none p-6 font-mono text-sm bg-transparent focus:outline-none"
+                            className="h-full min-h-[400px] resize-none font-mono text-sm"
                         />
                     ) : (
-                        <div className="h-full overflow-auto p-6">
-                            {fileContent ? (
-                                isMarkdown ? (
-                                    <div className="prose dark:prose-invert max-w-none">
-                                        <pre className="whitespace-pre-wrap">{fileContent}</pre>
-                                    </div>
-                                ) : (
-                                    <pre className="font-mono text-sm bg-gray-50 dark:bg-gray-800 rounded-lg p-4 overflow-x-auto">
-                                        <code className={`language-${language}`}>
+                        <ScrollArea className="bg-muted/30 h-full rounded-md border">
+                            <div className="p-4">
+                                {fileContent ? (
+                                    isMarkdown ? (
+                                        <div className="rounded-md">
+                                            <MarkdownContent content={fileContent} />
+                                        </div>
+                                    ) : (
+                                        <SyntaxHighlighter
+                                            language={language}
+                                            style={oneDark}
+                                            customStyle={{
+                                                margin: 0,
+                                                borderRadius: "0.5rem",
+                                                fontSize: "0.875rem",
+                                                background: 'transparent',
+                                            }}
+                                            showLineNumbers
+                                            wrapLines={true}
+                                        >
                                             {fileContent}
-                                        </code>
-                                    </pre>
-                                )
-                            ) : (
-                                <div className="flex items-center justify-center h-full">
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        File is empty
-                                    </p>
-                                </div>
-                            )}
-                        </div>
+                                        </SyntaxHighlighter>
+                                    )
+                                ) : (
+                                    <div className="flex items-center justify-center p-12">
+                                        <p className="text-sm text-muted-foreground">
+                                            File is empty
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </ScrollArea>
                     )}
                 </div>
-
-                {/* Edit mode footer */}
                 {isEditingMode && (
-                    <div className="flex justify-end gap-2 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
-                        <button
+                    <div className="mt-4 flex justify-end gap-2 border-t border-border pt-4">
+                        <Button
                             onClick={handleCancel}
-                            className="flex items-center gap-1.5 px-4 py-2 text-sm text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            variant="outline"
+                            size="sm"
                         >
-                            <X size={16} />
+                            <X size={16} className="mr-1" />
                             Cancel
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            disabled={isSaving || !fileName.trim() || !fileContent.trim()}
-                            className="flex items-center gap-1.5 px-4 py-2 text-sm text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        </Button>
+                        <Button
+                            onClick={() => fileUpdate.trigger()}
+                            size="sm"
+                            disabled={
+                                fileUpdate.isMutating ||
+                                !fileName.trim() ||
+                                !fileContent.trim() ||
+                                !fileNameIsValid
+                            }
                         >
-                            {isSaving ? (
-                                <Loader2 size={16} className="animate-spin" />
+                            {fileUpdate.isMutating ? (
+                                <Loader2 size={16} className="mr-1 animate-spin" />
                             ) : (
-                                <Save size={16} />
+                                <Save size={16} className="mr-1" />
                             )}
                             Save
-                        </button>
+                        </Button>
                     </div>
                 )}
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
-};
+});
 
-FileViewDialog.displayName = 'FileViewDialog';
+FileViewDialog.displayName = "FileViewDialog";
 
 export default FileViewDialog;

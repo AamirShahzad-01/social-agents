@@ -1031,14 +1031,15 @@ export function MediaGallery({
 
       {/* Grid View */}
       {viewMode === 'grid' && totalItems > 0 && !isLoading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4">
           {allItems.map((item) => {
             const selected = isItemSelected(item.id);
             return (
               <div
                 key={item.id}
                 className={`
-                ms-gallery-item group relative aspect-square bg-muted rounded-xl overflow-hidden cursor-pointer 
+                ms-gallery-item group relative bg-muted rounded-xl overflow-hidden cursor-pointer 
+                break-inside-avoid mb-4 inline-block w-full align-top
                 transition-all duration-300 ease-out
                 hover:shadow-lg hover:-translate-y-1
                 ${isSelectMode && selected ? 'ring-2 ring-[var(--ms-primary)] ring-offset-2' : ''}
@@ -1049,10 +1050,10 @@ export function MediaGallery({
                   <img
                     src={item.url}
                     alt={item.prompt}
-                    className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+                    className="w-full h-auto object-contain transition-transform duration-500 ease-out group-hover:scale-[1.02]"
                   />
                 ) : item.type === 'audio' ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-900/50 to-pink-900/50 p-4 relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                  <div className="w-full aspect-square flex flex-col items-center justify-center bg-gradient-to-br from-purple-900/50 to-pink-900/50 p-4 relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
                     <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/20 to-transparent" />
 
                     {/* Replace static placeholder with Waveform */}
@@ -1081,7 +1082,7 @@ export function MediaGallery({
                 ) : (
                   <video
                     src={item.url}
-                    className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                    className="w-full h-auto min-h-[220px] max-h-[440px] object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02]"
                     muted
                     playsInline
                     preload="metadata"

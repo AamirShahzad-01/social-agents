@@ -1,132 +1,219 @@
-/**
- * ChatMessage - Renders individual chat messages with tool calls and sub-agents
- * Reference: https://github.com/langchain-ai/deep-agents-ui
- */
-'use client';
+"use client";
 
-import React from 'react';
-import { User, Bot, Loader2 } from 'lucide-react';
-import { Message } from '../types';
-import { ToolCallBox } from './ToolCallBox';
-import { SubAgentIndicator } from './SubAgentIndicator';
-import { ThinkingDisplay } from './ThinkingDisplay';
-import { MarkdownContent } from './MarkdownContent';
+import React, { useMemo, useState, useCallback } from "react";
+import { SubAgentIndicator } from "./SubAgentIndicator";
+import { ToolCallBox } from "./ToolCallBox";
+import { MarkdownContent } from "./MarkdownContent";
+import { ThinkingDisplay } from "./ThinkingDisplay";
+import type {
+    SubAgent,
+    ToolCall,
+    ActionRequest,
+    ReviewConfig,
+    Message,
+} from "../types";
+import {
+    extractSubAgentContent,
+    extractStringFromMessageContent,
+} from "../utils";
+import { cn } from "@/lib/utils";
 
 interface ChatMessageProps {
     message: Message;
-    isLast?: boolean;
+    toolCalls: ToolCall[];
+    isLoading?: boolean;
+    actionRequestsMap?: Map<string, ActionRequest>;
+    reviewConfigsMap?: Map<string, ReviewConfig>;
+    ui?: any[];
+    stream?: any;
+    onResumeInterrupt?: (value: any) => void;
+    graphId?: string;
 }
 
-export function ChatMessage({ message, isLast = false }: ChatMessageProps) {
-    const isUser = message.role === 'user';
-    const isStreaming = message.isStreaming;
-    const isThinking = message.isThinking;
+export const ChatMessage = React.memo<ChatMessageProps>(
+    ({
+        message,
+        toolCalls,
+        isLoading,
+        actionRequestsMap,
+        reviewConfigsMap,
+        ui,
+        stream,
+        onResumeInterrupt,
+        graphId,
+    }) => {
+        const isUser = message.role === "user" || message.type === "human";
+        const messageContent = extractStringFromMessageContent(message as any);
+        const hasContent = messageContent && messageContent.trim() !== "";
+        const hasToolCalls = toolCalls.length > 0;
+        const isStreaming = message.isStreaming && !hasContent;
 
-    return (
-        <div className={`flex gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-            {/* Avatar */}
-            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isUser
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400'
-                }`}>
-                {isUser ? (
-                    <User className="w-4 h-4" />
-                ) : (
-                    <Bot className="w-4 h-4" />
+        const subAgents = useMemo(() => {
+            return toolCalls
+                .filter((toolCall: ToolCall) => {
+                    return (
+                        toolCall.name === "task" &&
+                        toolCall.args["subagent_type"] &&
+                        toolCall.args["subagent_type"] !== "" &&
+                        toolCall.args["subagent_type"] !== null
+                    );
+                })
+                .map((toolCall: ToolCall) => {
+                    const subagentType = (toolCall.args as Record<string, unknown>)[
+                        "subagent_type"
+                    ] as string;
+                    return {
+                        id: toolCall.id,
+                        name: toolCall.name,
+                        subAgentName: subagentType,
+                        input: toolCall.args,
+                        output: toolCall.result ? { result: toolCall.result } : undefined,
+                        status: toolCall.status,
+                    } as SubAgent;
+                });
+        }, [toolCalls]);
+
+        const [expandedSubAgents, setExpandedSubAgents] = useState<
+            Record<string, boolean>
+        >({});
+        const isSubAgentExpanded = useCallback(
+            (id: string) => expandedSubAgents[id] ?? true,
+            [expandedSubAgents]
+        );
+        const toggleSubAgent = useCallback((id: string) => {
+            setExpandedSubAgents((prev) => ({
+                ...prev,
+                [id]: prev[id] === undefined ? false : !prev[id],
+            }));
+        }, []);
+
+        return (
+            <div
+                className={cn(
+                    "flex w-full max-w-full overflow-x-hidden",
+                    isUser && "flex-row-reverse"
                 )}
-            </div>
-
-            {/* Message Content */}
-            <div className={`flex-1 max-w-[80%] ${isUser ? 'text-right' : 'text-left'}`}>
-                {/* User message bubble */}
-                {isUser ? (
-                    <div className="inline-block bg-blue-500 text-white px-4 py-2 rounded-2xl rounded-tr-sm">
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-
-                        {/* Attachments */}
-                        {message.attachments && message.attachments.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-2 justify-end">
-                                {message.attachments.map((file, idx) => (
-                                    <div key={idx} className="text-xs bg-blue-400/50 px-2 py-1 rounded">
-                                        {file.name}
+            >
+                <div
+                    className={cn(
+                        "min-w-0 max-w-full",
+                        isUser ? "max-w-[70%]" : "w-full"
+                    )}
+                >
+                    {!isUser && message.thinking && (
+                        <ThinkingDisplay
+                            thinking={message.thinking}
+                            isThinking={message.isThinking}
+                        />
+                    )}
+                    {!isUser && (isStreaming || message.activity) && !hasContent && (
+                        <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                            <div className="flex gap-1">
+                                <span className="animate-bounce" style={{ animationDelay: '0ms' }}>●</span>
+                                <span className="animate-bounce" style={{ animationDelay: '150ms' }}>●</span>
+                                <span className="animate-bounce" style={{ animationDelay: '300ms' }}>●</span>
+                            </div>
+                            <span>{message.activity || 'Generating response...'}</span>
+                        </div>
+                    )}
+                    {hasContent && (
+                        <div className={cn("relative flex items-end gap-0")}>
+                            <div
+                                className={cn(
+                                    "mt-4 overflow-hidden break-words text-sm font-normal leading-[150%]",
+                                    isUser
+                                        ? "rounded-xl rounded-br-none border border-border px-3 py-2 text-foreground"
+                                        : "text-primary"
+                                )}
+                                style={
+                                    isUser
+                                        ? { backgroundColor: "var(--color-user-message-bg)" }
+                                        : undefined
+                                }
+                            >
+                                {isUser ? (
+                                    <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                        {messageContent}
+                                    </p>
+                                ) : hasContent ? (
+                                    <MarkdownContent content={messageContent} />
+                                ) : null}
+                            </div>
+                        </div>
+                    )}
+                    {hasToolCalls && (
+                        <div className="mt-4 flex w-full flex-col">
+                            {toolCalls.map((toolCall: ToolCall) => {
+                                if (toolCall.name === "task") return null;
+                                const toolCallGenUiComponent = ui?.find(
+                                    (u) => u.metadata?.tool_call_id === toolCall.id
+                                );
+                                const actionRequest = actionRequestsMap?.get(toolCall.name);
+                                const reviewConfig = reviewConfigsMap?.get(toolCall.name);
+                                return (
+                                    <ToolCallBox
+                                        key={toolCall.id}
+                                        toolCall={toolCall}
+                                        uiComponent={toolCallGenUiComponent}
+                                        stream={stream}
+                                        graphId={graphId}
+                                        actionRequest={actionRequest}
+                                        reviewConfig={reviewConfig}
+                                        onResume={onResumeInterrupt}
+                                        isLoading={isLoading}
+                                    />
+                                );
+                            })}
+                        </div>
+                    )}
+                    {!isUser && subAgents.length > 0 && (
+                        <div className="flex w-fit max-w-full flex-col gap-4">
+                            {subAgents.map((subAgent) => (
+                                <div
+                                    key={subAgent.id}
+                                    className="flex w-full flex-col gap-2"
+                                >
+                                    <div className="flex items-end gap-2">
+                                        <div className="w-[calc(100%-100px)]">
+                                            <SubAgentIndicator
+                                                subAgent={subAgent}
+                                                onClick={() => toggleSubAgent(subAgent.id)}
+                                                isExpanded={isSubAgentExpanded(subAgent.id)}
+                                            />
+                                        </div>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    /* AI message */
-                    <div className="space-y-2">
-                        {/* Thinking indicator */}
-                        {isThinking && message.thinking && (
-                            <ThinkingDisplay
-                                thinking={message.thinking}
-                                isThinking={isThinking}
-                            />
-                        )}
-
-                        {/* Sub-agents */}
-                        {message.sub_agents && message.sub_agents.length > 0 && (
-                            <div className="space-y-1">
-                                {message.sub_agents.map((sa, idx) => (
-                                    <SubAgentIndicator key={sa.id || idx} subAgent={sa} />
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Tool calls */}
-                        {message.tool_calls && message.tool_calls.length > 0 && (
-                            <div className="space-y-1">
-                                {message.tool_calls.map((tc, idx) => (
-                                    <ToolCallBox key={tc.id || idx} toolCall={tc} />
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Main content */}
-                        {message.content && (
-                            <div className="bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-2xl rounded-tl-sm">
-                                <MarkdownContent content={message.content} />
-                            </div>
-                        )}
-
-                        {/* Streaming indicator */}
-                        {isStreaming && !message.content && !isThinking && (
-                            <div className="flex items-center gap-2 text-gray-500 px-4 py-2">
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                <span className="text-sm">Thinking...</span>
-                            </div>
-                        )}
-
-                        {/* Generated files */}
-                        {message.files && message.files.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                                {message.files.map((file, idx) => (
-                                    <div key={idx} className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded flex items-center gap-1">
-                                        <span>{file.name}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Suggestions */}
-                        {message.suggestions && message.suggestions.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                                {message.suggestions.map((suggestion, idx) => (
-                                    <button
-                                        key={idx}
-                                        className="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-                                    >
-                                        {suggestion}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
+                                    {isSubAgentExpanded(subAgent.id) && (
+                                        <div className="w-full max-w-full">
+                                            <div className="bg-surface border-border-light rounded-md border p-4">
+                                                <h4 className="text-primary/70 mb-2 text-xs font-semibold uppercase tracking-wider">
+                                                    Input
+                                                </h4>
+                                                <div className="mb-4">
+                                                    <MarkdownContent
+                                                        content={extractSubAgentContent(subAgent.input)}
+                                                    />
+                                                </div>
+                                                {subAgent.output && (
+                                                    <>
+                                                        <h4 className="text-primary/70 mb-2 text-xs font-semibold uppercase tracking-wider">
+                                                            Output
+                                                        </h4>
+                                                        <MarkdownContent
+                                                            content={extractSubAgentContent(subAgent.output)}
+                                                        />
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
-    );
-}
+        );
+    }
+);
 
-export default ChatMessage;
+ChatMessage.displayName = "ChatMessage";
