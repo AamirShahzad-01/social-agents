@@ -174,11 +174,27 @@ async def stream_agent_response(
                 tool_name = event["name"]
                 logger.info(f"Tool start: {tool_name}")
                 
-                # Middleware tools to hide from UI
+                # Middleware tools to hide from UI but show activity
                 hidden_tools = {
                     "write_file", "read_file", "edit_file", "ls", "glob", "grep", "execute",
                     "write_todos", "read_todos",
                 }
+                
+                # Emit activity event for all tools (shows what agent is doing)
+                activity_messages = {
+                    "write_todos": "Updating task list...",
+                    "read_todos": "Reading tasks...",
+                    "write_file": "Writing file...",
+                    "read_file": "Reading file...",
+                    "edit_file": "Editing file...",
+                    "ls": "Listing files...",
+                    "glob": "Searching files...",
+                    "grep": "Searching content...",
+                    "task": "Delegating to sub-agent...",
+                    "web_search": "Searching the web...",
+                }
+                activity_msg = activity_messages.get(tool_name, f"Running {tool_name}...")
+                yield {"step": "activity", "message": activity_msg, "tool": tool_name}
                 
                 # Only emit tool_call for user-visible tools
                 if tool_name not in hidden_tools:
