@@ -87,7 +87,8 @@ export function RunwayImageToVideo({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt: prompt.trim(),
-                    promptImage: imageUrl,
+                    // Use official API array format (promptImages)
+                    promptImages: [{ uri: imageUrl, position: 'first' }],
                     model: 'gen4_turbo',
                     ratio,
                     duration,
@@ -113,7 +114,7 @@ export function RunwayImageToVideo({
                     model: 'gen4_turbo',
                     ratio,
                     duration,
-                    promptImage: imageUrl,
+                    promptImages: [{ uri: imageUrl, position: 'first' }],
                     seed: seed ? parseInt(seed) : undefined,
                     generation_mode: 'image',
                 },

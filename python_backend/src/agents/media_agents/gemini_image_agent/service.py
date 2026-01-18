@@ -3,7 +3,6 @@ Gemini Image Agent Service
 Handles image generation and editing using Google Gemini API
 
 Models:
-- gemini-2.5-flash-image: Fast, general purpose image generation
 - gemini-3-pro-image-preview: Advanced 4K, thinking mode, up to 14 reference images
 
 API Reference: https://ai.google.dev/gemini-api/docs/image-generation
@@ -39,6 +38,17 @@ def get_api_key() -> str:
     return api_key
 
 
+def get_extension_from_mime(mime_type: str) -> str:
+    """Get file extension from mime type"""
+    mime_to_ext = {
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/webp": "webp",
+    }
+    return mime_to_ext.get(mime_type, "png")
+
+
 def extract_base64_from_data_url(data_url: str) -> Tuple[str, str]:
     """
     Extract base64 data and MIME type from a data URL
@@ -53,6 +63,9 @@ def extract_base64_from_data_url(data_url: str) -> Tuple[str, str]:
         # Parse data URL: data:image/png;base64,xxxxx
         header, data = data_url.split(",", 1)
         mime_type = header.split(":")[1].split(";")[0]
+        # Ensure we have a valid image MIME type
+        if mime_type not in ["image/png", "image/jpeg", "image/jpg", "image/webp"]:
+            mime_type = "image/png"
         return data, mime_type
     else:
         # Assume it's already base64
@@ -77,7 +90,12 @@ async def url_to_base64(url: str) -> Tuple[str, str]:
         response = await client.get(url)
         response.raise_for_status()
         content_type = response.headers.get("content-type", "image/png")
-        mime_type = content_type.split(";")[0]
+        # Handle cases where content-type might have charset or other params
+        mime_type = content_type.split(";")[0].strip()
+        # Ensure we have a valid image MIME type (not application/octet-stream)
+        if mime_type not in ["image/png", "image/jpeg", "image/jpg", "image/webp"]:
+            # Try to infer from content or default to png
+            mime_type = "image/png"
         b64_data = base64.b64encode(response.content).decode("utf-8")
         return b64_data, mime_type
 
@@ -90,16 +108,28 @@ def base64_to_data_url(b64_data: str, mime_type: str = "image/png") -> str:
 def build_generation_config(
     aspect_ratio: Optional[str] = None,
     image_size: Optional[str] = None,
+    response_modalities: Optional[List[str]] = None,
 ) -> dict:
-    """Build the generationConfig for Gemini API"""
+    """
+    Build the generationConfig for Gemini API
+    
+    Args:
+        aspect_ratio: Aspect ratio for the image (e.g., "16:9", "1:1")
+        image_size: Image size for Gemini 3 Pro (1K, 2K, 4K)
+        response_modalities: Response types, defaults to ["TEXT", "IMAGE"]
+    
+    Returns:
+        Generation config dictionary
+    """
     config = {
-        "responseModalities": ["TEXT", "IMAGE"]
+        "responseModalities": response_modalities or ["TEXT", "IMAGE"]
     }
     
     image_config = {}
     if aspect_ratio:
         image_config["aspectRatio"] = aspect_ratio
     if image_size:
+        # Gemini 3 Pro always supports imageSize (1K, 2K, 4K)
         image_config["imageSize"] = image_size
     
     if image_config:
@@ -120,24 +150,33 @@ async def generate_image(request: GeminiImageGenerateRequest) -> GeminiImageResp
     Generate an image from a text prompt
     
     Uses Gemini's native image generation capability.
+    
+    All parameters come from the frontend request:
+    - request.prompt: Text prompt for generation
+    - request.get_model(): Model from action or model field
+    - request.aspect_ratio: Aspect ratio from frontend (e.g., "16:9", "1:1")
+    - request.image_size: Image size from frontend (1K, 2K, 4K)
+    - request.response_modalities: Response types from frontend (["TEXT", "IMAGE"] or ["IMAGE"])
+    - request.enable_google_search: Google Search grounding flag from frontend
     """
     try:
         api_key = get_api_key()
         # Use get_model() to handle both model and action fields
         model = request.get_model()
         
-        # Build request payload
+        # Build request payload - all parameters from frontend request
         payload = {
             "contents": [{
                 "parts": [{"text": request.prompt}]
             }],
             "generationConfig": build_generation_config(
-                request.aspect_ratio,
-                request.image_size
+                aspect_ratio=request.aspect_ratio,  # From frontend
+                image_size=request.image_size,  # From frontend
+                response_modalities=request.response_modalities  # From frontend
             )
         }
         
-        # Add tools if needed
+        # Add tools if needed - based on frontend request
         tools = build_tools(request.enable_google_search)
         if tools:
             payload["tools"] = tools
@@ -213,18 +252,19 @@ async def edit_image(request: GeminiImageEditRequest) -> GeminiImageResponse:
                     }
                 })
         
-        # Build request payload
+        # Build request payload - all parameters from frontend request
         payload = {
             "contents": [{
                 "parts": parts
             }],
             "generationConfig": build_generation_config(
-                request.aspect_ratio,
-                request.image_size
+                aspect_ratio=request.aspect_ratio,  # From frontend
+                image_size=request.image_size,  # From frontend
+                response_modalities=request.response_modalities  # From frontend
             )
         }
         
-        # Add tools if needed
+        # Add tools if needed - based on frontend request
         tools = build_tools(request.enable_google_search)
         if tools:
             payload["tools"] = tools
@@ -307,16 +347,17 @@ async def multi_turn_edit(request: GeminiMultiTurnRequest) -> GeminiImageRespons
             "parts": [{"text": request.prompt}]
         })
         
-        # Build request payload
+        # Build request payload - all parameters from frontend request
         payload = {
             "contents": contents,
             "generationConfig": build_generation_config(
-                request.aspect_ratio,
-                request.image_size
+                aspect_ratio=request.aspect_ratio,  # From frontend
+                image_size=request.image_size,  # From frontend
+                response_modalities=request.response_modalities  # From frontend
             )
         }
         
-        # Add tools if needed
+        # Add tools if needed - based on frontend request
         tools = build_tools(request.enable_google_search)
         if tools:
             payload["tools"] = tools

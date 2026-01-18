@@ -17,8 +17,8 @@ SKILL_MAPPING = {
     ("dalle", "image"): ("openai_gpt_image", "OpenAI GPT Image 1.5"),
     
     # Video generation skills
-    ("google", "video"): ("google_veo", "Google Veo 3"),
-    ("veo", "video"): ("google_veo", "Google Veo 3"),
+    ("google", "video"): ("google_veo", "Google Veo 3.1"),
+    ("veo", "video"): ("google_veo", "Google Veo 3.1"),
     ("openai", "video"): ("openai_sora", "OpenAI Sora"),
     ("sora", "video"): ("openai_sora", "OpenAI Sora"),
     ("runway", "video"): ("runway_gen3", "Runway Gen-3 Alpha"),
@@ -51,7 +51,7 @@ def get_skill_for_request(provider: str | None, media_type: str) -> tuple[str, s
     
     # Fallback based on media type
     if is_video:
-        return ("google_veo", "Google Veo 3")
+        return ("google_veo", "Google Veo 3.1")
     else:
         return ("google_imagen", "Google Imagen 4")
 

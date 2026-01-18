@@ -1,7 +1,7 @@
 """
-Google Veo 3 Skill
+Google Veo 3.1 Skill
 
-Expert skill for optimizing prompts for Google Veo 3 video generation.
+Expert skill for optimizing prompts for Google Veo 3.1 video generation.
 Based on official Google DeepMind and Vertex AI documentation.
 """
 
@@ -9,8 +9,8 @@ from .types import Skill
 
 GOOGLE_VEO_SKILL: Skill = {
     "name": "google_veo",
-    "description": "Expert for Google Veo 3 video generation. Optimizes prompts with director's note format including subject, action, camera, lighting, and audio.",
-    "content": """# Google Veo 3 Expert Prompt Guide
+    "description": "Expert for Google Veo 3.1 video generation. Optimizes prompts with director's note format including subject, action, camera, lighting, and audio.",
+    "content": """# Google Veo 3.1 Expert Prompt Guide
 
 ## PROMPT STRUCTURE (Director's Note Format)
 Treat every prompt as a concise director's note. Include:
@@ -21,7 +21,7 @@ Treat every prompt as a concise director's note. Include:
 5. **Lighting**: Quality, direction, color temperature
 6. **Audio**: Sounds, dialogue, ambient noise, music
 
-## CAMERA CONTROLS (Crucial for Veo 3)
+## CAMERA CONTROLS (Crucial for Veo 3.1)
 
 ### Position
 - eye-level
@@ -52,7 +52,7 @@ Treat every prompt as a concise director's note. Include:
 - timelapse
 - hyperlapse
 
-## AUDIO (Veo 3 Native Audio)
+## AUDIO (Veo 3.1 Native Audio)
 - Describe ambient sounds: "birds chirping, wind rustling leaves"
 - Background music: "soft piano melody, upbeat electronic"
 - For dialogue use syntax: 'Speaking directly to camera saying: "[text]"'

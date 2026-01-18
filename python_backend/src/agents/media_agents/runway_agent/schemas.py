@@ -2,6 +2,7 @@
 Runway Agent Schemas
 Runway Gen4 Alpha Video Generation API
 Per Runway API documentation: https://docs.dev.runwayml.com/api
+API Version: 2024-11-06
 """
 from typing import Optional, Literal, List
 from pydantic import BaseModel, Field
@@ -16,8 +17,30 @@ RunwayModel = Literal[
     "gen4_turbo",    # Image-to-video, fast generation
     "gen4_aleph",    # Video-to-video style transfer
     "veo3.1",        # Text-to-video
-    "gen4_image",    # Text/image to image
+    "upscale_v1",    # Video upscaling (4x, max 4096px)
 ]
+
+
+# ============================================================================
+# COMMON SCHEMAS
+# ============================================================================
+
+class ContentModeration(BaseModel):
+    """
+    Content moderation settings per Runway API.
+    When publicFigureThreshold is 'low', the system is less strict about
+    preventing generations with recognizable public figures.
+    """
+    publicFigureThreshold: Optional[Literal["low"]] = None
+
+
+class PromptImage(BaseModel):
+    """
+    Image input for image-to-video generation.
+    Per API docs, promptImages is an array with position indicating frame placement.
+    """
+    uri: str = Field(..., description="HTTPS URL, Runway URI, or data URI of the image")
+    position: Literal["first"] = Field("first", description="Position in video, 'first' uses image as first frame")
 
 # Video ratio options per API docs
 RunwayRatio = Literal[
@@ -48,19 +71,26 @@ class RunwayTextToVideoRequest(BaseModel):
     ratio: Optional[str] = Field("1280:720", description="Output video resolution ratio")
     duration: Optional[int] = Field(8, description="Video duration in seconds (5-10)")
     audio: Optional[bool] = Field(False, description="Whether to generate audio")
+    contentModeration: Optional[ContentModeration] = Field(None, description="Content moderation settings")
 
 
 class RunwayImageToVideoRequest(BaseModel):
     """
     Image-to-video generation request
     POST /v1/image_to_video
+    
+    Supports both:
+    - promptImage: Single image URL (legacy/convenience)
+    - promptImages: Array of images with position (official API format)
     """
     prompt: str = Field(..., min_length=1, max_length=1000, description="Video description prompt")
-    promptImage: str = Field(..., description="Image URL or base64 data URL for first frame")
+    promptImage: Optional[str] = Field(None, description="Single image URL for first frame (legacy format)")
+    promptImages: Optional[List[PromptImage]] = Field(None, description="Array of images with position (official API format)")
     model: Optional[str] = Field("gen4_turbo", description="Model to use")
     ratio: Optional[str] = Field("1280:720", description="Output video resolution ratio")
     duration: Optional[int] = Field(10, description="Video duration in seconds")
     seed: Optional[int] = Field(None, description="Random seed for reproducibility")
+    contentModeration: Optional[ContentModeration] = Field(None, description="Content moderation settings")
 
 
 class RunwayVideoToVideoRequest(BaseModel):
@@ -74,13 +104,17 @@ class RunwayVideoToVideoRequest(BaseModel):
     ratio: Optional[str] = Field("1280:720", description="Output video resolution ratio")
     seed: Optional[int] = Field(None, description="Random seed for reproducibility")
     referenceImageUri: Optional[str] = Field(None, description="Optional reference image for style")
+    contentModeration: Optional[ContentModeration] = Field(None, description="Content moderation settings")
 
 
 class RunwayUpscaleRequest(BaseModel):
     """
     Video upscale request
     POST /v1/video_upscale
+    
+    Upscales video by 4x, capped at 4096px per side.
     """
+    model: str = Field("upscale_v1", description="Model (must be upscale_v1)")
     videoUri: str = Field(..., description="Video URL or data URI to upscale")
 
 
@@ -146,6 +180,13 @@ RUNWAY_MODELS = [
         "description": "Text-to-video generation with audio support",
         "type": "text_to_video",
         "estimatedTime": "2-4 minutes"
+    },
+    {
+        "id": "upscale_v1",
+        "name": "Upscale V1",
+        "description": "4x video upscaling (max 4096px per side)",
+        "type": "upscale",
+        "estimatedTime": "1-2 minutes"
     },
 ]
 

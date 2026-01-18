@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateMusic } from '@/agents/audio_agent/services/elevenlabs.service';
 import { musicRequestSchema } from '@/agents/audio_agent/schemas/audio.schemas';
 
+// Extended timeout for music generation (2 minutes)
+export const maxDuration = 120;
+
 /**
  * POST /api/ai/media/audio/music
  * Generate music from text prompt using ElevenLabs Music API

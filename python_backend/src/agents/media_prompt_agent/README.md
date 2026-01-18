@@ -33,7 +33,7 @@ Output: "Professional product photography of a sleek high-end athletic sneaker
 | Provider | Type | Skill Name |
 |----------|------|------------|
 | Google Imagen 4 | Image | `google_imagen` |
-| Google Veo 3 | Video | `google_veo` |
+| Google Veo 3.1 | Video | `google_veo` |
 | OpenAI GPT Image 1.5 | Image | `openai_gpt_image` |
 | OpenAI Sora | Video | `openai_sora` |
 | Runway Gen-3 Alpha | Video | `runway_gen3` |

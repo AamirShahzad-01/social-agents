@@ -105,7 +105,10 @@ export function RunwayVideoToVideo({
                 : '/api/ai/media/runway/video-to-video';
 
             const body = isUpscaleMode
-                ? { videoUri: videoUrl }
+                ? {
+                    model: 'upscale_v1',  // Required by Runway API
+                    videoUri: videoUrl
+                }
                 : {
                     prompt: prompt.trim(),
                     videoUri: videoUrl,
@@ -136,7 +139,7 @@ export function RunwayVideoToVideo({
                 taskId: data.taskId,
                 config: {
                     prompt: isUpscaleMode ? 'upscale' : prompt.trim(),
-                    model: isUpscaleMode ? 'gen4_turbo' : 'gen4_aleph',
+                    model: isUpscaleMode ? 'upscale_v1' : 'gen4_aleph',
                     ratio,
                     duration: 10,
                     videoUri: videoUrl,

@@ -19,7 +19,7 @@ def load_skill(skill_name: str) -> str:
     
     Available skills:
     - google_imagen: Google Imagen 4 image generation expert
-    - google_veo: Google Veo 3 video generation expert
+    - google_veo: Google Veo 3.1 video generation expert
     - openai_gpt_image: OpenAI GPT Image 1.5 expert
     - runway_gen3: Runway Gen-3 Alpha video generation expert
     

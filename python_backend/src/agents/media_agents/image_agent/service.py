@@ -1,6 +1,9 @@
 """
 Image Generation Service
-OpenAI gpt-image-1.5 implementation per latest API docs
+OpenAI gpt-image-1.5 implementation per latest API docs (2026)
+
+Supported models: gpt-image-1.5 (best quality), gpt-image-1, gpt-image-1-mini
+Note: DALL-E 2 and DALL-E 3 are deprecated as of May 2026
 """
 import logging
 import time
@@ -44,6 +47,27 @@ def base64_to_data_url(b64_data: str, format: str = "png") -> str:
     return f"data:image/{format};base64,{b64_data}"
 
 
+def get_extension_from_mime(mime_type: str) -> str:
+    """Get file extension from mime type"""
+    mime_to_ext = {
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/webp": "webp",
+    }
+    return mime_to_ext.get(mime_type, "png")
+
+
+def bytes_to_file_tuple(data: bytes, mime_type: str, filename_prefix: str = "image") -> tuple:
+    """
+    Convert bytes to a file tuple for OpenAI API.
+    OpenAI SDK expects: (filename, file_bytes, content_type)
+    """
+    ext = get_extension_from_mime(mime_type)
+    filename = f"{filename_prefix}.{ext}"
+    return (filename, data, mime_type)
+
+
 async def url_to_bytes(url: str) -> tuple[bytes, str]:
     """Convert URL or data URL to bytes and detect mime type"""
     if url.startswith("data:"):
@@ -57,19 +81,30 @@ async def url_to_bytes(url: str) -> tuple[bytes, str]:
             response = await http_client.get(url)
             response.raise_for_status()
             content_type = response.headers.get("content-type", "image/png")
+            # Handle cases where content-type might have charset
+            if ";" in content_type:
+                content_type = content_type.split(";")[0].strip()
             return response.content, content_type
+
+
+# Default model - gpt-image-1.5 is the latest and best quality
+DEFAULT_IMAGE_MODEL = "gpt-image-1.5"
 
 
 async def generate_image(request: FrontendImageRequest) -> ImageGenerationResponse:
     """
-    Generate image using OpenAI gpt-image-1.5
+    Generate image using OpenAI gpt-image-1.5 (latest model as of 2026)
     
-    Per docs:
+    Per OpenAI docs:
+    - Models: gpt-image-1.5 (best), gpt-image-1, gpt-image-1-mini
     - Sizes: 1024x1024, 1536x1024, 1024x1536
-    - Quality: low, medium, high, auto
+    - Quality: low, medium, high
     - Background: transparent, opaque, auto
-    - Format: png, jpeg, webp
-    - Moderation: auto, low
+    - Output format: png (default), jpeg, webp
+    - Max prompt: 32,000 characters
+    - Multiple images: n parameter (1-10)
+    
+    Note: No response_format parameter - always returns base64
     """
     start_time = time.time()
     
@@ -83,12 +118,17 @@ async def generate_image(request: FrontendImageRequest) -> ImageGenerationRespon
             size = "1024x1024"
         
         # Build OpenAI API params
+        # Note: gpt-image-1.5 always returns base64 - no response_format needed
         params = {
-            "model": "gpt-image-1.5",
+            "model": DEFAULT_IMAGE_MODEL,
             "prompt": request.prompt,
-            "response_format": "b64_json",
             "size": size,
         }
+        
+        # Add output format (png, jpeg, webp)
+        output_format = getattr(opts, 'format', None) or "png"
+        if output_format and output_format in ["png", "jpeg", "webp"]:
+            params["output_format"] = output_format
         
         # Add quality
         quality = getattr(opts, 'quality', None)
@@ -138,7 +178,7 @@ async def generate_image(request: FrontendImageRequest) -> ImageGenerationRespon
         logger.info(f"Image generated successfully in {generation_time}ms")
         
         metadata = ImageGenerationMetadata(
-            model="gpt-image-1.5",
+            model=DEFAULT_IMAGE_MODEL,
             promptUsed=request.prompt,
             revisedPrompt=getattr(image_data, "revised_prompt", None),
             size=size,
@@ -184,8 +224,10 @@ async def generate_image_edit(request: ImageEditRequest) -> ImageGenerationRespo
         
         logger.info(f"Image edit request: {request.prompt[:50]}...")
         
-        # Get image bytes
-        image_bytes, _ = await url_to_bytes(request.originalImageUrl)
+        # Get image bytes and mime type
+        image_bytes, mime_type = await url_to_bytes(request.originalImageUrl)
+        # Convert to proper file tuple for OpenAI API
+        image_file = bytes_to_file_tuple(image_bytes, mime_type, "source_image")
         
         # Get size, handle 'auto'
         size = request.size or "1024x1024"
@@ -193,18 +235,18 @@ async def generate_image_edit(request: ImageEditRequest) -> ImageGenerationRespo
             size = "1024x1024"
         
         # Build params
+        # Note: gpt-image-1.5 always returns base64 - no response_format needed
         params = {
-            "model": "gpt-image-1.5",
-            "image": image_bytes,
+            "model": DEFAULT_IMAGE_MODEL,
+            "image": image_file,
             "prompt": request.prompt,
-            "response_format": "b64_json",
             "size": size,
         }
         
         # Add mask if provided
         if request.maskImageUrl:
-            mask_bytes, _ = await url_to_bytes(request.maskImageUrl)
-            params["mask"] = mask_bytes
+            mask_bytes, mask_mime = await url_to_bytes(request.maskImageUrl)
+            params["mask"] = bytes_to_file_tuple(mask_bytes, mask_mime, "mask")
         
         # Add quality
         if request.quality and request.quality != "auto":
@@ -244,7 +286,7 @@ async def generate_image_edit(request: ImageEditRequest) -> ImageGenerationRespo
             data=ImageGenerationData(
                 imageUrl=image_url,
                 metadata=ImageGenerationMetadata(
-                    model="gpt-image-1.5",
+                    model=DEFAULT_IMAGE_MODEL,
                     promptUsed=request.prompt,
                     size=size,
                     quality=request.quality,
@@ -274,22 +316,24 @@ async def generate_image_reference(request: ImageReferenceRequest) -> ImageGener
         
         logger.info(f"Reference image request: {request.prompt[:50]}...")
         
-        # Get all reference image bytes
+        # Get all reference image bytes with proper file formatting
         images = []
-        for url in request.referenceImages[:5]:  # Max 5 for high fidelity
-            img_bytes, _ = await url_to_bytes(url)
-            images.append(img_bytes)
+        for i, url in enumerate(request.referenceImages[:5]):  # Max 5 for high fidelity
+            img_bytes, mime_type = await url_to_bytes(url)
+            # Convert to proper file tuple for OpenAI API
+            image_file = bytes_to_file_tuple(img_bytes, mime_type, f"ref_image_{i}")
+            images.append(image_file)
         
         # Get size, handle 'auto'
         size = request.size or "1024x1024"
         if size == "auto":
             size = "1024x1024"
         
+        # Note: gpt-image-1.5 always returns base64 - no response_format needed
         params = {
-            "model": "gpt-image-1.5",
+            "model": DEFAULT_IMAGE_MODEL,
             "image": images,
             "prompt": request.prompt,
-            "response_format": "b64_json",
             "size": size,
         }
         
@@ -334,7 +378,7 @@ async def generate_image_reference(request: ImageReferenceRequest) -> ImageGener
             data=ImageGenerationData(
                 imageUrl=image_url,
                 metadata=ImageGenerationMetadata(
-                    model="gpt-image-1.5",
+                    model=DEFAULT_IMAGE_MODEL,
                     promptUsed=request.prompt,
                     size=size,
                     quality=request.quality,

@@ -3,6 +3,9 @@ import { getPythonBackendUrl } from '@/lib/backend-url';
 
 const PYTHON_BACKEND_URL = getPythonBackendUrl();
 
+// Status checks are quick (30 seconds)
+export const maxDuration = 30;
+
 /**
  * POST /api/ai/media/runway/status
  * Get status of Runway video generation task

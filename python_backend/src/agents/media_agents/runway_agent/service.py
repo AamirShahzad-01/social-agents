@@ -92,6 +92,10 @@ async def text_to_video(request: RunwayTextToVideoRequest) -> RunwayGenerationRe
         if request.audio:
             payload["audio"] = True
         
+        # Add content moderation if provided
+        if request.contentModeration:
+            payload["contentModeration"] = request.contentModeration.model_dump(exclude_none=True)
+        
         response = await client.post("/v1/text_to_video", json=payload, headers=headers)
         response.raise_for_status()
         
@@ -138,7 +142,7 @@ async def image_to_video(request: RunwayImageToVideoRequest) -> RunwayGeneration
     Generate video with image as first frame
     
     POST /v1/image_to_video
-    Image must match target video resolution
+    Supports both promptImage (legacy) and promptImages (official API format)
     """
     try:
         client = await get_http_client()
@@ -148,15 +152,31 @@ async def image_to_video(request: RunwayImageToVideoRequest) -> RunwayGeneration
         
         payload = {
             "model": request.model or "gen4_turbo",
-            "promptImage": request.promptImage,
             "promptText": request.prompt,
             "ratio": request.ratio or "1280:720",
             "duration": request.duration or 10,
         }
         
+        # Support both promptImages array (official) and promptImage (legacy)
+        if request.promptImages:
+            # Official API format: array of images with position
+            payload["promptImages"] = [
+                {"uri": img.uri, "position": img.position} 
+                for img in request.promptImages
+            ]
+        elif request.promptImage:
+            # Legacy format: single image URL
+            payload["promptImage"] = request.promptImage
+        else:
+            return RunwayGenerationResponse(success=False, error="Either promptImage or promptImages is required")
+        
         # Add seed if provided
         if request.seed is not None:
             payload["seed"] = request.seed
+        
+        # Add content moderation if provided
+        if request.contentModeration:
+            payload["contentModeration"] = request.contentModeration.model_dump(exclude_none=True)
         
         response = await client.post("/v1/image_to_video", json=payload, headers=headers)
         response.raise_for_status()
@@ -226,6 +246,10 @@ async def video_to_video(request: RunwayVideoToVideoRequest) -> RunwayGeneration
                 "uri": request.referenceImageUri
             }]
         
+        # Add content moderation if provided
+        if request.contentModeration:
+            payload["contentModeration"] = request.contentModeration.model_dump(exclude_none=True)
+        
         response = await client.post("/v1/video_to_video", json=payload, headers=headers)
         response.raise_for_status()
         
@@ -268,6 +292,7 @@ async def upscale_video(request: RunwayUpscaleRequest) -> RunwayGenerationRespon
     Upscale video resolution
     
     POST /v1/video_upscale
+    Upscales by 4x, max 4096px per side
     """
     try:
         client = await get_http_client()
@@ -276,6 +301,7 @@ async def upscale_video(request: RunwayUpscaleRequest) -> RunwayGenerationRespon
         logger.info(f"Starting Runway video upscale")
         
         payload = {
+            "model": request.model or "upscale_v1",  # Required by API
             "videoUri": request.videoUri,
         }
         

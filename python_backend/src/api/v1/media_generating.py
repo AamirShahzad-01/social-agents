@@ -219,17 +219,17 @@ async def api_reference_image(request: ImageReferenceRequest):
 @router.post("/imagen", response_model=GeminiImageResponse)
 async def api_gemini_generate_image(request: GeminiImageGenerateRequest):
     """
-    Generate image using Google Gemini
+    Generate image using Google Gemini 3 Pro Image Preview
     
-    Models:
-    - gemini-2.5-flash-image: Fast, general purpose
-    - gemini-3-pro-image-preview: Advanced 4K, thinking mode
+    Model:
+    - gemini-3-pro-image-preview: Advanced 4K, thinking mode, up to 14 reference images
     
     Features:
     - Text-to-image generation
     - Aspect ratios: 1:1, 16:9, 9:16, etc.
     - Image sizes: 1K, 2K, 4K
     - Google Search grounding (for real-time info)
+    - Response modalities: ['TEXT', 'IMAGE'] or ['IMAGE']
     """
     try:
         logger.info(f"Gemini image generation: {request.prompt[:50]}...")
@@ -310,17 +310,9 @@ async def get_gemini_image_models():
         "success": True,
         "models": [
             {
-                "id": "gemini-2.5-flash-image",
-                "name": "Gemini 2.5 Flash Image",
-                "description": "Fast, general purpose image generation",
-                "maxReferenceImages": 1,
-                "supportedSizes": ["1K"],
-                "features": ["text-to-image", "image-editing"]
-            },
-            {
                 "id": "gemini-3-pro-image-preview",
                 "name": "Gemini 3 Pro Image Preview",
-                "description": "Advanced 4K generation with thinking mode",
+                "description": "Advanced 4K generation with thinking mode, up to 14 reference images",
                 "maxReferenceImages": 14,
                 "supportedSizes": ["1K", "2K", "4K"],
                 "features": ["text-to-image", "image-editing", "multi-turn", "google-search", "thinking"]
@@ -984,7 +976,7 @@ async def media_info():
                 "endpoints": ["/image/generate", "/image/inpaint", "/image/reference"]
             },
             "gemini": {
-                "models": ["gemini-2.5-flash-image", "gemini-3-pro-image-preview"],
+                "models": ["gemini-3-pro-image-preview"],
                 "features": ["text-to-image", "image-editing", "multi-turn", "4K-output", "google-search-grounding"],
                 "endpoints": ["/imagen", "/imagen/edit", "/imagen/chat", "/imagen/models"]
             },

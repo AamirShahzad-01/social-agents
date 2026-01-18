@@ -16,8 +16,8 @@ VeoModel = Literal[
 ]
 
 VeoAspectRatio = Literal["16:9", "9:16"]
-VeoResolution = Literal["720p", "1080p"]
-VeoDuration = Literal[4, 6, 8]  # Veo 3.1 supports 4, 6, 8 (Veo 2 also has 5)
+VeoResolution = Literal["720p", "1080p", "4k"]
+VeoDuration = Literal[4, 6, 8]  # Veo 3.1 supports 4, 6, 8 seconds
 VeoPersonGeneration = Literal["allow_all", "allow_adult", "dont_allow"]
 VeoReferenceType = Literal["asset", "style"]  # For reference images
 
@@ -31,11 +31,11 @@ class VideoGenerationRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=4000, description="Video prompt (max ~1024 tokens)")
     model: Optional[VeoModel] = Field("veo-3.1-generate-preview", description="Veo model")
     aspectRatio: Optional[VeoAspectRatio] = Field("16:9", description="16:9 or 9:16")
-    resolution: Optional[VeoResolution] = Field("720p", description="720p or 1080p (1080p only for 8s)")
+    resolution: Optional[VeoResolution] = Field("720p", description="720p, 1080p, or 4k (1080p and 4k only for 8s)")
     durationSeconds: Optional[VeoDuration] = Field(8, description="4, 6, or 8 seconds")
     personGeneration: Optional[VeoPersonGeneration] = Field(None, description="Person generation control")
     negativePrompt: Optional[str] = Field(None, description="What to avoid")
-    seed: Optional[int] = Field(None, description="Seed for reproducibility (Veo 3+ only)")
+    seed: Optional[int] = Field(None, description="Seed for reproducibility (Veo 3.1 only)")
 
 
 # ============================================================================
@@ -48,7 +48,7 @@ class ImageToVideoRequest(BaseModel):
     imageUrl: str = Field(..., description="Image URL or base64 data URL")
     model: Optional[VeoModel] = Field("veo-3.1-generate-preview", description="Veo model")
     aspectRatio: Optional[VeoAspectRatio] = Field("16:9", description="Aspect ratio")
-    resolution: Optional[VeoResolution] = Field("720p", description="Resolution")
+    resolution: Optional[VeoResolution] = Field("720p", description="720p, 1080p, or 4k (1080p and 4k only for 8s)")
     durationSeconds: Optional[VeoDuration] = Field(8, description="Duration in seconds")
     personGeneration: Optional[VeoPersonGeneration] = Field("allow_adult", description="Required for image-to-video")
 
@@ -176,14 +176,17 @@ VEO_DURATIONS = [
 VEO_RESOLUTIONS = [
     {"id": "720p", "name": "720p", "description": "All durations"},
     {"id": "1080p", "name": "1080p", "description": "8 seconds only"},
+    {"id": "4k", "name": "4K", "description": "8 seconds only"},
 ]
 
 
 def validate_veo_config(resolution: str, duration: int, model: str = None) -> tuple[bool, str]:
     """Validate Veo configuration combinations"""
-    # 1080p only with 8 seconds
+    # 1080p and 4k only with 8 seconds
     if resolution == "1080p" and duration != 8:
         return False, "1080p resolution only available for 8 second videos"
+    if resolution == "4k" and duration != 8:
+        return False, "4K resolution only available for 8 second videos"
     
     return True, ""
 

@@ -135,31 +135,39 @@ async def generate_video(request: VideoGenerationRequest) -> VideoGenerationResp
     """
     Generate video from text prompt using Google Veo API
     
+    All parameters come from the frontend request. Pydantic schemas provide defaults
+    if frontend doesn't send a value, but we use request values directly when provided.
+    
     Returns operation ID immediately - poll get_video_status() for completion.
     """
     try:
-        # Validate config
+        # Validate config - use request values (Pydantic provides defaults if not sent)
+        # Note: Pydantic Field defaults apply when field is omitted, not when explicitly None
+        resolution = request.resolution if request.resolution is not None else "720p"
+        duration = request.durationSeconds if request.durationSeconds is not None else 8
         valid, error = validate_veo_config(
-            request.resolution or "720p",
-            request.durationSeconds or 8,
+            resolution,
+            duration,
             request.model
         )
         if not valid:
             return VideoGenerationResponse(success=False, error=error)
         
         client = get_genai_client()
-        model = request.model or "veo-3.1-generate-preview"
+        # Model comes from frontend request (Pydantic default if not provided)
+        model = request.model if request.model is not None else "veo-3.1-generate-preview"
         
-        logger.info(f"[Veo] Text-to-video: model={model}")
+        logger.info(f"[Veo] Text-to-video: model={model}, resolution={resolution}, duration={duration}")
         
-        # Build config
+        # Build config - all parameters from frontend request
+        # Pydantic defaults ensure values exist even if frontend omits them
         config = _build_video_config(
-            aspect_ratio=request.aspectRatio or "16:9",
-            resolution=request.resolution or "720p",
-            duration_seconds=request.durationSeconds or 8,
-            negative_prompt=request.negativePrompt,
-            person_generation=request.personGeneration,
-            seed=request.seed,
+            aspect_ratio=request.aspectRatio if request.aspectRatio is not None else "16:9",
+            resolution=resolution,
+            duration_seconds=duration,
+            negative_prompt=request.negativePrompt,  # Optional - can be None
+            person_generation=request.personGeneration,  # Optional - can be None
+            seed=request.seed,  # Optional - can be None
         )
         
         # Start generation
@@ -191,30 +199,38 @@ async def generate_video(request: VideoGenerationRequest) -> VideoGenerationResp
 async def generate_image_to_video(request: ImageToVideoRequest) -> VideoGenerationResponse:
     """
     Generate video with image as first frame
+    
+    All parameters come from the frontend request. Pydantic schemas provide defaults
+    if frontend doesn't send a value, but we use request values directly when provided.
     """
     try:
+        # Validate config - use request values (Pydantic provides defaults if not sent)
+        resolution = request.resolution if request.resolution is not None else "720p"
+        duration = request.durationSeconds if request.durationSeconds is not None else 8
         valid, error = validate_veo_config(
-            request.resolution or "720p",
-            request.durationSeconds or 8,
+            resolution,
+            duration,
             request.model
         )
         if not valid:
             return VideoGenerationResponse(success=False, error=error)
         
         client = get_genai_client()
-        model = request.model or "veo-3.1-generate-preview"
+        # Model comes from frontend request (Pydantic default if not provided)
+        model = request.model if request.model is not None else "veo-3.1-generate-preview"
         
-        logger.info(f"[Veo] Image-to-video: model={model}")
+        logger.info(f"[Veo] Image-to-video: model={model}, resolution={resolution}, duration={duration}")
         
         # Parse image
         image = _parse_image_input(request.imageUrl)
         
-        # Build config
+        # Build config - all parameters from frontend request
+        # personGeneration has Pydantic default "allow_adult" but use request value if provided
         config = _build_video_config(
-            aspect_ratio=request.aspectRatio or "16:9",
-            resolution=request.resolution or "720p",
-            duration_seconds=request.durationSeconds or 8,
-            person_generation=request.personGeneration or "allow_adult",
+            aspect_ratio=request.aspectRatio if request.aspectRatio is not None else "16:9",
+            resolution=resolution,
+            duration_seconds=duration,
+            person_generation=request.personGeneration if request.personGeneration is not None else "allow_adult",
         )
         
         # Start generation with image as first frame
@@ -248,10 +264,14 @@ async def generate_frame_specific(request: FrameSpecificRequest) -> VideoGenerat
     """
     Generate video by specifying first and last frames (interpolation)
     Veo 3.1 only feature
+    
+    Note: Resolution and duration are fixed per API requirements (720p, 8s),
+    but aspectRatio and personGeneration come from frontend request.
     """
     try:
         client = get_genai_client()
-        model = request.model or "veo-3.1-generate-preview"
+        # Model comes from frontend request (Pydantic default if not provided)
+        model = request.model if request.model is not None else "veo-3.1-generate-preview"
         
         if "veo-3.1" not in model:
             return VideoGenerationResponse(
@@ -266,11 +286,13 @@ async def generate_frame_specific(request: FrameSpecificRequest) -> VideoGenerat
         last_image = _parse_image_input(request.lastImageUrl)
         
         # Config with last_frame for interpolation
+        # Note: resolution and duration_seconds are API-required (720p, 8s)
+        # aspectRatio and personGeneration come from frontend request
         config = _build_video_config(
-            aspect_ratio=request.aspectRatio or "16:9",
-            resolution="720p",  # Interpolation requires 720p
-            duration_seconds=8,  # Must be 8 for interpolation
-            person_generation=request.personGeneration or "allow_adult",
+            aspect_ratio=request.aspectRatio if request.aspectRatio is not None else "16:9",
+            resolution="720p",  # API requirement: interpolation requires 720p
+            duration_seconds=8,  # API requirement: must be 8 for interpolation
+            person_generation=request.personGeneration if request.personGeneration is not None else "allow_adult",
             last_frame=last_image,
         )
         
@@ -305,10 +327,14 @@ async def generate_with_references(request: ReferenceImagesRequest) -> VideoGene
     """
     Generate video using 1-3 reference images for content guidance
     Veo 3.1 only feature
+    
+    Note: aspectRatio, resolution, and duration are fixed per API requirements (16:9, 720p, 8s),
+    but personGeneration comes from frontend request.
     """
     try:
         client = get_genai_client()
-        model = request.model or "veo-3.1-generate-preview"
+        # Model comes from frontend request (Pydantic default if not provided)
+        model = request.model if request.model is not None else "veo-3.1-generate-preview"
         
         if "veo-3.1" not in model:
             return VideoGenerationResponse(
@@ -335,12 +361,13 @@ async def generate_with_references(request: ReferenceImagesRequest) -> VideoGene
                 )
             )
         
-        # Config with reference_images - must be 16:9 and 8s
+        # Config with reference_images - API requirements: 16:9, 720p, 8s
+        # personGeneration comes from frontend request
         config = _build_video_config(
-            aspect_ratio="16:9",  # Required for reference images
-            resolution="720p",
-            duration_seconds=8,  # Required for reference images
-            person_generation=request.personGeneration or "allow_adult",
+            aspect_ratio="16:9",  # API requirement: must be 16:9 for reference images
+            resolution="720p",  # API requirement: 720p for reference images
+            duration_seconds=8,  # API requirement: must be 8 for reference images
+            person_generation=request.personGeneration if request.personGeneration is not None else "allow_adult",
             reference_images=ref_images,
         )
         
@@ -375,6 +402,9 @@ async def extend_video(request: VideoExtendRequest) -> VideoGenerationResponse:
     Extend a Veo-generated video by 7 seconds (up to 20 extensions = 148s max)
     Veo 3.1 only feature
     
+    Note: Resolution is fixed to 720p per API requirements for extensions.
+    Model and prompt come from frontend request.
+    
     Input video must be:
     - From previous Veo generation
     - Max 141 seconds
@@ -383,7 +413,8 @@ async def extend_video(request: VideoExtendRequest) -> VideoGenerationResponse:
     """
     try:
         client = get_genai_client()
-        model = request.model or "veo-3.1-generate-preview"
+        # Model comes from frontend request (Pydantic default if not provided)
+        model = request.model if request.model is not None else "veo-3.1-generate-preview"
         
         if "veo-3.1" not in model:
             return VideoGenerationResponse(
@@ -393,10 +424,12 @@ async def extend_video(request: VideoExtendRequest) -> VideoGenerationResponse:
         
         logger.info(f"[Veo] Extend video: veoVideoId={request.veoVideoId[:50]}...")
         
-        # Config for extension - 720p only
+        # Config for extension - API requirement: 720p only for extensions
+        # resolution comes from frontend request (defaults to 720p if not provided)
+        resolution = request.resolution if request.resolution is not None else "720p"
         config = types.GenerateVideosConfig(
             number_of_videos=1,
-            resolution=request.resolution or "720p",
+            resolution=resolution,
         )
         
         # Get video reference from previous generation

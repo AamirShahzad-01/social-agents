@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cloneVoice } from '@/agents/audio_agent/services/elevenlabs.service';
 import { voiceCloningRequestSchema } from '@/agents/audio_agent/schemas/audio.schemas';
 
+// Extended timeout for voice cloning (60 seconds)
+export const maxDuration = 60;
+
 /**
  * POST /api/ai/media/audio/voice-cloning
  * Clone a voice from uploaded audio using ElevenLabs Instant Voice Cloning

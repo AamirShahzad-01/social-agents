@@ -275,7 +275,7 @@ export const VIDEO_MODEL_OPTIONS = [
 export type VeoModel =
   | 'veo-3.1-generate-preview'
   | 'veo-3.1-fast-preview';
-export type VeoResolution = '720p' | '1080p';
+export type VeoResolution = '720p' | '1080p' | '4k';
 export type VeoDuration = 4 | 6 | 8;
 export type VeoAspectRatio = '16:9' | '9:16';
 export type VeoGenerationMode = 'text' | 'image' | 'extend' | 'frame-specific' | 'reference';
@@ -333,6 +333,7 @@ export const VEO_MODEL_OPTIONS = [
 export const VEO_RESOLUTION_OPTIONS = [
   { value: '720p', label: '720p HD', note: '' },
   { value: '1080p', label: '1080p Full HD', note: 'Only for 8s duration' },
+  { value: '4k', label: '4K Ultra HD', note: 'Only for 8s duration' },
 ] as const;
 
 export const VEO_DURATION_OPTIONS = [
@@ -413,11 +414,20 @@ export const PLATFORM_PRESETS = {
 // Runway Gen4 Alpha Video Generation Types
 // ============================================================================
 
-export type RunwayModel = 'gen4_turbo' | 'gen4_aleph' | 'veo3.1' | 'gen4_image';
+export type RunwayModel = 'gen4_turbo' | 'gen4_aleph' | 'veo3.1' | 'upscale_v1';
 export type RunwayRatio = '1280:720' | '1920:1080' | '720:1280' | '1080:1920';
 export type RunwayDuration = 5 | 8 | 10;
 export type RunwayGenerationMode = 'text' | 'image' | 'video' | 'upscale';
 export type RunwayTaskStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+
+export interface RunwayContentModeration {
+  publicFigureThreshold?: 'low';
+}
+
+export interface RunwayPromptImage {
+  uri: string;
+  position: 'first';
+}
 
 export interface RunwayVideoGenerationConfig {
   prompt: string;
@@ -426,8 +436,11 @@ export interface RunwayVideoGenerationConfig {
   duration: RunwayDuration;
   audio?: boolean;
 
-  // For image-to-video
+  // For image-to-video (legacy single image)
   promptImage?: string;
+
+  // For image-to-video (official API array format)
+  promptImages?: RunwayPromptImage[];
 
   // For video-to-video
   videoUri?: string;
@@ -435,6 +448,9 @@ export interface RunwayVideoGenerationConfig {
 
   // Seed for reproducibility
   seed?: number;
+
+  // Content moderation settings
+  contentModeration?: RunwayContentModeration;
 
   // Generation mode tracking
   generation_mode?: RunwayGenerationMode;
@@ -458,6 +474,7 @@ export const RUNWAY_MODEL_OPTIONS = [
   { value: 'gen4_turbo', label: 'Gen-4 Turbo', description: 'Fast image-to-video generation', type: 'image_to_video', estimatedTime: '1-2 min' },
   { value: 'gen4_aleph', label: 'Gen-4 Aleph', description: 'Video style transfer', type: 'video_to_video', estimatedTime: '2-3 min' },
   { value: 'veo3.1', label: 'Veo 3.1', description: 'Text-to-video with audio', type: 'text_to_video', estimatedTime: '2-4 min' },
+  { value: 'upscale_v1', label: 'Upscale V1', description: '4x video upscaling', type: 'upscale', estimatedTime: '1-2 min' },
 ] as const;
 
 export const RUNWAY_RATIO_OPTIONS = [

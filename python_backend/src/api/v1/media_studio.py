@@ -913,6 +913,161 @@ async def delete_media_item(workspace_id: str, media_id: str):
         raise HTTPException(status_code=500, detail="Failed to delete media item")
 
 
+# ================== HISTORY ENDPOINTS ==================
+
+class HistoryEntryRequest(BaseModel):
+    """Request to create a history entry"""
+    workspace_id: str = Field(..., alias="workspaceId")
+    history_entry: dict = Field(..., alias="historyEntry")
+    
+    class Config:
+        populate_by_name = True
+
+
+class UpdateHistoryRequest(BaseModel):
+    """Request to update a history entry"""
+    workspace_id: str = Field(..., alias="workspaceId")
+    history_id: str = Field(..., alias="historyId")
+    updates: dict
+    
+    class Config:
+        populate_by_name = True
+
+
+@router.get("/history")
+async def get_media_history(
+    workspace_id: str,
+    limit: int = 50,
+    offset: int = 0
+):
+    """Get media generation history for a workspace"""
+    try:
+        supabase = get_supabase_admin_client()
+        
+        # Check if media_history table exists, if not return empty array
+        try:
+            result = supabase.table("media_history").select("*").eq(
+                "workspace_id", workspace_id
+            ).order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+            
+            return {
+                "data": result.data or [],
+                "total": len(result.data or []),
+                "limit": limit,
+                "offset": offset
+            }
+        except Exception as table_err:
+            # Table might not exist yet - return empty array
+            logger.warning(f"media_history table may not exist: {table_err}")
+            return {
+                "data": [],
+                "total": 0,
+                "limit": limit,
+                "offset": offset
+            }
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch history: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch history")
+
+
+@router.post("/history")
+async def create_history_entry(payload: HistoryEntryRequest, request: Request):
+    """Create a new history entry for media generation"""
+    try:
+        # Verify JWT to get user ID
+        auth_header = request.headers.get("authorization")
+        user_id = None
+        
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1]
+            jwt_result = await verify_jwt(token)
+            if jwt_result.get("success") and jwt_result.get("user"):
+                user_id = jwt_result["user"]["id"]
+        
+        supabase = get_supabase_admin_client()
+        
+        entry = payload.history_entry
+        now = datetime.now(timezone.utc).isoformat()
+        
+        db_entry = {
+            "workspace_id": payload.workspace_id,
+            "type": entry.get("type", "image"),
+            "action": entry.get("action", "generated"),
+            "prompt": entry.get("prompt", ""),
+            "model": entry.get("model", "unknown"),
+            "config": entry.get("config", {}),
+            "input_media_urls": entry.get("inputMediaUrls", []),
+            "status": "pending",
+            "created_at": now,
+            "updated_at": now,
+        }
+        
+        if user_id:
+            db_entry["user_id"] = user_id
+            
+        try:
+            result = supabase.table("media_history").insert(db_entry).execute()
+            
+            if result.data:
+                return {"success": True, "data": result.data[0]}
+            else:
+                return {"success": True, "data": {"id": None}}
+        except Exception as table_err:
+            # Table might not exist - return success with null ID
+            logger.warning(f"media_history table may not exist: {table_err}")
+            return {"success": True, "data": {"id": None}}
+            
+    except Exception as e:
+        logger.error(f"Failed to create history entry: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create history entry")
+
+
+@router.patch("/history")
+async def update_history_entry(payload: UpdateHistoryRequest):
+    """Update a history entry (completion or failure)"""
+    try:
+        if not payload.history_id:
+            return {"success": False, "error": "No history ID provided"}
+            
+        supabase = get_supabase_admin_client()
+        
+        updates = payload.updates
+        now = datetime.now(timezone.utc).isoformat()
+        
+        db_updates = {
+            "updated_at": now,
+        }
+        
+        if "status" in updates:
+            db_updates["status"] = updates["status"]
+        if "outputMediaUrl" in updates:
+            db_updates["output_media_url"] = updates["outputMediaUrl"]
+        if "outputMediaId" in updates:
+            db_updates["output_media_id"] = updates["outputMediaId"]
+        if "generationTimeMs" in updates:
+            db_updates["generation_time_ms"] = updates["generationTimeMs"]
+        if "revisedPrompt" in updates:
+            db_updates["revised_prompt"] = updates["revisedPrompt"]
+        if "errorMessage" in updates:
+            db_updates["error_message"] = updates["errorMessage"]
+            
+        try:
+            result = supabase.table("media_history").update(db_updates).eq(
+                "id", payload.history_id
+            ).eq("workspace_id", payload.workspace_id).execute()
+            
+            return {"success": True, "data": result.data[0] if result.data else None}
+        except Exception as table_err:
+            # Table might not exist - return success anyway
+            logger.warning(f"media_history table may not exist: {table_err}")
+            return {"success": True, "data": None}
+            
+    except Exception as e:
+        logger.error(f"Failed to update history entry: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update history entry")
+
+
 # ================== INFO ENDPOINT ==================
 
 @router.get("/")

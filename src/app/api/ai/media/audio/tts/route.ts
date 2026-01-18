@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateSpeech } from '@/agents/audio_agent/services/elevenlabs.service';
 import { ttsRequestSchema } from '@/agents/audio_agent/schemas/audio.schemas';
 
+// Extended timeout for audio generation (60 seconds)
+export const maxDuration = 60;
+
 /**
  * POST /api/ai/media/audio/tts
  * Generate speech from text using ElevenLabs TTS

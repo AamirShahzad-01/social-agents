@@ -3,7 +3,6 @@ Gemini Image Agent Schemas
 Pydantic models for Gemini image generation and editing
 
 Supports:
-- gemini-2.5-flash-image (fast, general purpose)
 - gemini-3-pro-image-preview (4K, thinking mode, up to 14 reference images)
 """
 
@@ -18,7 +17,7 @@ AspectRatio = Literal["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "
 ImageSize = Literal["1K", "2K", "4K"]
 
 # Available models
-GeminiImageModel = Literal["gemini-2.5-flash-image", "gemini-3-pro-image-preview"]
+GeminiImageModel = Literal["gemini-3-pro-image-preview"]
 
 
 class InlineImage(BaseModel):
@@ -67,14 +66,14 @@ class GeminiImageGenerateRequest(BaseModel):
     Example:
     {
         "prompt": "A sunset over mountains",
-        "model": "gemini-2.5-flash-image",
+        "model": "gemini-3-pro-image-preview",
         "aspectRatio": "16:9",
         "imageSize": "2K"
     }
     
     Frontend may use 'action' field instead of 'model':
     - action: 'gemini-3-pro' -> model: 'gemini-3-pro-image-preview'
-    - action: 'gemini-flash' -> model: 'gemini-2.5-flash-image'
+    - action: 'gemini-3-pro-image' -> model: 'gemini-3-pro-image-preview'
     """
     prompt: str = Field(..., min_length=1, max_length=10000, description="Text prompt for image generation")
     model: Optional[GeminiImageModel] = Field(default=None, description="Gemini model to use")
@@ -82,6 +81,7 @@ class GeminiImageGenerateRequest(BaseModel):
     aspect_ratio: Optional[str] = Field(default="1:1", alias="aspectRatio")
     image_size: Optional[str] = Field(default="1K", alias="imageSize")
     enable_google_search: bool = Field(default=False, alias="enableGoogleSearch", description="Enable Google Search grounding")
+    response_modalities: Optional[List[str]] = Field(default=None, alias="responseModalities", description="Response modalities: ['TEXT', 'IMAGE'] or ['IMAGE']")
     
     class Config:
         populate_by_name = True
@@ -95,15 +95,13 @@ class GeminiImageGenerateRequest(BaseModel):
         action_map = {
             "gemini-3-pro": "gemini-3-pro-image-preview",
             "gemini-3-pro-image": "gemini-3-pro-image-preview",
-            "gemini-flash": "gemini-2.5-flash-image",
-            "gemini-2.5-flash": "gemini-2.5-flash-image",
         }
         
         if self.action and self.action in action_map:
             return action_map[self.action]
         
-        # Default to flash model
-        return "gemini-2.5-flash-image"
+        # Default to Gemini 3 Pro Image Preview
+        return "gemini-3-pro-image-preview"
 
 
 class GeminiImageEditRequest(BaseModel):
@@ -114,15 +112,16 @@ class GeminiImageEditRequest(BaseModel):
     {
         "prompt": "Add a wizard hat to the cat",
         "imageUrl": "data:image/png;base64,...",
-        "model": "gemini-2.5-flash-image"
+        "model": "gemini-3-pro-image-preview"
     }
     """
     prompt: str = Field(..., min_length=1, max_length=10000, description="Edit instructions")
     image_url: str = Field(..., alias="imageUrl", description="Base64 data URL or http URL of source image")
-    model: GeminiImageModel = Field(default="gemini-2.5-flash-image")
+    model: GeminiImageModel = Field(default="gemini-3-pro-image-preview")
     aspect_ratio: Optional[AspectRatio] = Field(default=None, alias="aspectRatio")
     image_size: Optional[ImageSize] = Field(default=None, alias="imageSize")
     enable_google_search: bool = Field(default=False, alias="enableGoogleSearch")
+    response_modalities: Optional[List[str]] = Field(default=None, alias="responseModalities", description="Response modalities: ['TEXT', 'IMAGE'] or ['IMAGE']")
     # Additional reference images (Gemini 3 Pro supports up to 14 total)
     reference_images: Optional[List[InlineImage]] = Field(default=None, alias="referenceImages")
     
@@ -147,6 +146,7 @@ class GeminiMultiTurnRequest(BaseModel):
     aspect_ratio: Optional[AspectRatio] = Field(default="1:1", alias="aspectRatio")
     image_size: Optional[ImageSize] = Field(default="1K", alias="imageSize")
     enable_google_search: bool = Field(default=False, alias="enableGoogleSearch")
+    response_modalities: Optional[List[str]] = Field(default=None, alias="responseModalities", description="Response modalities: ['TEXT', 'IMAGE'] or ['IMAGE']")
     
     class Config:
         populate_by_name = True

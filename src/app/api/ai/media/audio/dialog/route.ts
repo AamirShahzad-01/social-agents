@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateDialog } from '@/agents/audio_agent/services/elevenlabs.service';
 import { dialogRequestSchema } from '@/agents/audio_agent/schemas/audio.schemas';
 
+// Extended timeout for dialog generation (60 seconds)
+export const maxDuration = 60;
+
 /**
  * POST /api/ai/media/audio/dialog
  * Generate multi-speaker dialog using ElevenLabs Text-to-Dialog API

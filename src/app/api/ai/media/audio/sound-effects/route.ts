@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateSoundEffects } from '@/agents/audio_agent/services/elevenlabs.service';
 import { soundEffectsRequestSchema } from '@/agents/audio_agent/schemas/audio.schemas';
 
+// Extended timeout for sound effects generation (60 seconds)
+export const maxDuration = 60;
+
 /**
  * POST /api/ai/media/audio/sound-effects
  * Generate sound effects from text prompt using ElevenLabs

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { designVoice, remixVoice, saveDesignedVoice } from '@/agents/audio_agent/services/elevenlabs.service';
 import { voiceDesignRequestSchema, voiceRemixRequestSchema, saveVoiceRequestSchema } from '@/agents/audio_agent/schemas/audio.schemas';
 
+// Extended timeout for voice design (60 seconds)
+export const maxDuration = 60;
+
 /**
  * POST /api/ai/media/audio/voice-design
  * Design a new voice or remix an existing voice using ElevenLabs Voice Design API
