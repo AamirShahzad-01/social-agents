@@ -15,6 +15,10 @@ import {
     Circle,
     Clock,
     FileText,
+    PlusCircle,
+    X,
+    Image,
+    File,
 } from "lucide-react";
 import { FiSend } from "react-icons/fi";
 import { ChatMessage } from "./ChatMessage";
@@ -34,12 +38,21 @@ import {
 } from "../utils";
 import { useContentStrategistStore } from "@/stores/contentStrategistStore";
 import { useChat } from "../hooks/useChat";
+import { useFileUpload } from "../hooks/useFileUpload";
 import { cn } from "@/lib/utils";
 import { useStickToBottom } from "use-stick-to-bottom";
+import type { ContentBlock } from "@/lib/multimodal-utils";
+
+// Supported file types
+const SUPPORTED_IMAGE_TYPES = '.jpg,.jpeg,.png,.gif,.webp,.svg,.bmp,.ico,.tiff,.heic,.heif';
+const SUPPORTED_DOC_TYPES = '.pdf,.doc,.docx,.ppt,.pptx,.txt,.csv,.json';
 
 interface ChatInterfaceProps {
     messages: Message[];
-    onSendMessage: (content: string, options?: { attachedFiles?: any[] }) => void;
+    onSendMessage: (content: string, options?: {
+        attachedFiles?: any[];
+        contentBlocks?: ContentBlock[];
+    }) => void;
     isLoading: boolean;
     error: string | null;
     showInput?: boolean;
@@ -70,6 +83,19 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
     const todos = useContentStrategistStore(state => state.todos);
     const files = useContentStrategistStore(state => state.files);
 
+    // File upload hook
+    const {
+        contentBlocks,
+        attachedFiles,
+        showUploadMenu,
+        handleFileUpload,
+        removeAttachment,
+        clearBlocks,
+        setShowUploadMenu,
+    } = useFileUpload();
+    const [localShowMenu, setLocalShowMenu] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
     const submitDisabled = isLoading;
 
     const resizeTextarea = useCallback(() => {
@@ -93,10 +119,14 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
             if (e) e.preventDefault();
             const messageText = input.trim();
             if (!messageText || isLoading || submitDisabled) return;
-            onSendMessage(messageText);
+            onSendMessage(messageText, {
+                attachedFiles: attachedFiles.length > 0 ? attachedFiles : undefined,
+                contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
+            });
             setInput("");
+            clearBlocks();
         },
-        [input, isLoading, onSendMessage, submitDisabled]
+        [input, isLoading, onSendMessage, submitDisabled, attachedFiles, contentBlocks, clearBlocks]
     );
 
     const handleKeyDown = useCallback(
@@ -233,10 +263,10 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
                     <div className="mx-auto w-full max-w-3xl">
                         <form
                             onSubmit={handleSubmit}
-                            className="relative flex w-full flex-col overflow-hidden rounded-[18px] border border-border bg-muted/30 focus-within:ring-1 focus-within:ring-primary/20 transition-all"
+                            className="relative flex w-full flex-col overflow-visible rounded-[18px] border border-border bg-muted/30 focus-within:ring-1 focus-within:ring-primary/20 transition-all"
                         >
                             {(hasTasks || hasFiles) && (
-                                <div className="border-b border-border bg-background">
+                                <div className="border-b border-border bg-background rounded-t-[18px]">
                                     {!metaOpen && (
                                         <div className="flex items-center gap-2 px-4 py-2 text-xs">
                                             {hasTasks && (
@@ -351,7 +381,111 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
                                     )}
                                 </div>
                             )}
+                            {/* Hidden file inputs */}
+                            <input
+                                type="file"
+                                multiple
+                                accept={SUPPORTED_IMAGE_TYPES}
+                                onChange={(e) => { handleFileUpload(e); setLocalShowMenu(false); }}
+                                id="chat-image-upload"
+                                style={{ display: 'none' }}
+                            />
+                            <input
+                                type="file"
+                                multiple
+                                accept={SUPPORTED_DOC_TYPES}
+                                onChange={(e) => { handleFileUpload(e); setLocalShowMenu(false); }}
+                                id="chat-document-upload"
+                                style={{ display: 'none' }}
+                            />
+
+                            {/* Attached Files Preview */}
+                            {attachedFiles.length > 0 && (
+                                <div className="px-4 pt-3 flex flex-wrap gap-2">
+                                    {attachedFiles.map((file, idx) => (
+                                        <div key={idx} className="relative group">
+                                            {file.type === 'image' ? (
+                                                <div className="relative">
+                                                    <img src={file.url} alt={file.name} className="h-16 w-16 object-cover rounded-lg border border-border" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeAttachment(idx)}
+                                                        className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border">
+                                                    <FileText className="w-4 h-4 text-muted-foreground" />
+                                                    <span className="text-sm text-muted-foreground max-w-[120px] truncate">{file.name}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeAttachment(idx)}
+                                                        className="p-0.5 hover:bg-gray-200 rounded transition-colors"
+                                                    >
+                                                        <X className="w-3 h-3 text-muted-foreground" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
                             <div className="relative flex items-end px-4 py-2">
+                                {/* Plus Button with Dropdown Menu */}
+                                <div className="relative mr-2" ref={menuRef}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setLocalShowMenu(!localShowMenu)}
+                                        disabled={isLoading}
+                                        className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                                        title="Attach files"
+                                    >
+                                        <PlusCircle className="w-5 h-5" />
+                                    </button>
+
+                                    {/* Upload Menu Dropdown */}
+                                    {localShowMenu && (
+                                        <div className="absolute bottom-full left-0 mb-2 bg-card rounded-xl shadow-lg border border-border py-1 min-w-[200px] z-50">
+                                            <div className="px-3 py-2 border-b border-border">
+                                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Upload Files</p>
+                                            </div>
+
+                                            <label
+                                                htmlFor="chat-image-upload"
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 transition-colors text-left cursor-pointer"
+                                            >
+                                                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                                                    <Image className="w-4 h-4 text-blue-600" />
+                                                </div>
+                                                <div>
+                                                    <span className="text-sm font-medium text-foreground block">Images</span>
+                                                    <span className="text-xs text-muted-foreground">JPG, PNG, GIF, WebP</span>
+                                                </div>
+                                            </label>
+
+                                            <label
+                                                htmlFor="chat-document-upload"
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 transition-colors text-left cursor-pointer"
+                                            >
+                                                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                                                    <File className="w-4 h-4 text-orange-600" />
+                                                </div>
+                                                <div>
+                                                    <span className="text-sm font-medium text-foreground block">Documents</span>
+                                                    <span className="text-xs text-muted-foreground">PDF, DOC, PPT, TXT</span>
+                                                </div>
+                                            </label>
+
+                                            <div className="px-3 py-2 border-t border-border mt-1">
+                                                <p className="text-xs text-muted-foreground">Max 10MB per file</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <textarea
                                     ref={textareaRef}
                                     value={input}
@@ -378,7 +512,7 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
                                     <Button
                                         type="submit"
                                         size="icon"
-                                        disabled={submitDisabled || !input.trim()}
+                                        disabled={submitDisabled || (!input.trim() && attachedFiles.length === 0)}
                                         className="absolute bottom-2 right-3 h-9 w-9 rounded-[12px] bg-blue-600 text-white shadow-[0_6px_16px_rgba(37,99,235,0.35)] hover:bg-blue-700"
                                     >
                                         <FiSend className="h-4 w-4" />

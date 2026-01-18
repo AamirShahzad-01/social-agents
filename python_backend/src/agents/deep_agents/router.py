@@ -32,6 +32,7 @@ class ContentBlock(BaseModel):
     text: Optional[str] = None
     data: Optional[str] = None
     mimeType: Optional[str] = None
+    metadata: Optional[dict] = None
 
 
 class ChatRequest(BaseModel):
@@ -60,19 +61,111 @@ def format_sse(data: dict) -> str:
 
 
 # =============================================================================
+# Multimodal Content Builder
+# =============================================================================
+
+def build_multimodal_content(message: str, content_blocks: list = None):
+    """
+    Build multimodal content for LangChain message.
+    
+    Converts ContentBlocks to LangChain format:
+    - text: {"type": "text", "text": "..."}
+    - image: {"type": "image_url", "image_url": {"url": "data:mime;base64,..."}}
+    - file: Extracted text content using document processor
+    """
+    from src.utils.document_processor import process_document_from_base64
+    
+    content = []
+    document_texts = []
+    
+    # Process content blocks (images, files) first to gather document context
+    if content_blocks:
+        for block in content_blocks:
+            if isinstance(block, dict):
+                block_type = block.get('type')
+                block_data = block.get('data')
+                block_mime = block.get('mimeType')
+                block_text = block.get('text')
+                block_metadata = block.get('metadata')
+            else:
+                block_type = getattr(block, 'type', None)
+                block_data = getattr(block, 'data', None)
+                block_mime = getattr(block, 'mimeType', None)
+                block_text = getattr(block, 'text', None)
+                block_metadata = getattr(block, 'metadata', None)
+            
+            if block_type == "image" and block_data:
+                # Image block - convert to image_url format
+                mime_type = block_mime or "image/png"
+                data_url = f"data:{mime_type};base64,{block_data}"
+                content.append({
+                    "type": "image_url",
+                    "image_url": {"url": data_url}
+                })
+                logger.info(f"Added image block: {mime_type}")
+            elif block_type == "file" and block_data:
+                # PDF/document - extract text using document processor
+                filename = None
+                if block_metadata:
+                    filename = block_metadata.get("filename") or block_metadata.get("name")
+                
+                mime_type = block_mime or "application/pdf"
+                
+                try:
+                    extracted_text = process_document_from_base64(
+                        data=block_data,
+                        mime_type=mime_type,
+                        filename=filename
+                    )
+                    if extracted_text:
+                        document_texts.append(extracted_text)
+                        logger.info(f"Extracted {len(extracted_text)} chars from document: {filename}")
+                except Exception as e:
+                    logger.error(f"Failed to process document {filename}: {e}")
+                    document_texts.append(f"[Failed to process document: {filename}]")
+                    
+            elif block_type == "text" and block_text:
+                content.append({
+                    "type": "text",
+                    "text": block_text
+                })
+    
+    # Build the message with document context
+    full_message = message
+    
+    if document_texts:
+        # Prepend document context to the message
+        doc_context = "\n\n---\n## Attached Documents\n\nThe following document(s) have been provided for analysis:\n\n"
+        doc_context += "\n\n---\n\n".join(document_texts)
+        doc_context += "\n\n---\n\n**User's Request:** "
+        full_message = doc_context + message
+    
+    # Add the combined text message at the beginning
+    content.insert(0, {"type": "text", "text": full_message})
+    
+    # If only one text block, return simple string for compatibility
+    if len(content) == 1 and content[0]["type"] == "text":
+        return content[0]["text"]
+    
+    return content
+
+
+# =============================================================================
 # Streaming Handler (matches content_writer.py pattern)
 # =============================================================================
 
 async def stream_agent_response(
     message: str,
     thread_id: str,
+    content_blocks: list = None,
 ) -> AsyncGenerator[dict, None]:
     """Stream agent response using events stream mode.
     
     This provides token-by-token streaming for a better UI experience.
+    Supports multimodal content via content_blocks.
     """
     try:
-        logger.info(f"Streaming chat - Thread: {thread_id}, Message: {message[:100]}")
+        logger.info(f"Streaming chat - Thread: {thread_id}, Message: {message[:100]}, Blocks: {len(content_blocks) if content_blocks else 0}")
         
         agent = get_agent()
         config = {"configurable": {"thread_id": thread_id}}
@@ -80,9 +173,12 @@ async def stream_agent_response(
         accumulated_content = ""
         accumulated_thinking = ""
         
+        # Build multimodal content if blocks provided
+        message_content = build_multimodal_content(message, content_blocks)
+        
         # Checkpointer automatically handles message history via thread_id
         async for event in agent.astream_events(
-            {"messages": [HumanMessage(content=message)]},
+            {"messages": [HumanMessage(content=message_content)]},
             config=config,
             version="v2",
         ):
@@ -315,6 +411,7 @@ async def chat_stream(request: ChatRequest):
             async for event in stream_agent_response(
                 message=message,
                 thread_id=request.threadId,
+                content_blocks=request.contentBlocks,
             ):
                 yield format_sse(event)
                 
