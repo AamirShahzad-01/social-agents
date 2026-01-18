@@ -100,7 +100,7 @@ export const TasksFilesSidebar: React.FC<TasksFilesSidebarProps> = ({
             <div className="p-4 border-b border-border/60 bg-background/70">
                 <h2 className="text-sm font-semibold flex items-center gap-2 text-foreground">
                     <Search size={14} className="text-muted-foreground" />
-                    Project State
+                    Agents State
                 </h2>
             </div>
 

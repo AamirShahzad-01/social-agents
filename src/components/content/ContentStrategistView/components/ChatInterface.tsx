@@ -22,6 +22,8 @@ import {
     Sparkles,
     ChevronDown,
     Check,
+    Mic,
+    MicOff,
 } from "lucide-react";
 import { FiSend } from "react-icons/fi";
 import { ChatMessage } from "./ChatMessage";
@@ -42,6 +44,7 @@ import {
 import { useContentStrategistStore } from "@/stores/contentStrategistStore";
 import { useChat } from "../hooks/useChat";
 import { useFileUpload } from "../hooks/useFileUpload";
+import { useVoiceInput } from "../hooks/useVoiceInput";
 import { cn } from "@/lib/utils";
 import { useStickToBottom } from "use-stick-to-bottom";
 import type { ContentBlock } from "@/lib/multimodal-utils";
@@ -91,6 +94,10 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
     const { scrollRef, contentRef } = useStickToBottom();
     const todos = useContentStrategistStore(state => state.todos);
     const files = useContentStrategistStore(state => state.files);
+    const setError = useContentStrategistStore(state => state.setError);
+
+    // Voice input hook
+    const { isRecording, toggleVoiceInput } = useVoiceInput(setInput, setError);
 
     // File upload hook
     const {
@@ -463,7 +470,7 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
                                         type="button"
                                         onClick={() => setLocalShowMenu(!localShowMenu)}
                                         disabled={isLoading}
-                                        className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                                        className="py-2 pl-0 pr-0.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                                         title="Attach files"
                                     >
                                         <PlusCircle className="w-5 h-5" />
@@ -517,30 +524,43 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
                                         requestAnimationFrame(resizeTextarea);
                                     }}
                                     onKeyDown={handleKeyDown}
-                                    placeholder={isLoading ? "Agent is working..." : inputPlaceholder}
-                                    className="scrollbar-hide flex-1 resize-none border-0 bg-transparent py-2 pr-12 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground min-h-[44px] max-h-[240px] overflow-y-auto"
+                                    placeholder={isLoading ? "Agent is working..." : isRecording ? "Listening..." : inputPlaceholder}
+                                    className="scrollbar-hide flex-1 resize-none border-0 bg-transparent py-2 pr-24 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground min-h-[44px] max-h-[240px] overflow-y-auto"
                                     rows={1}
                                 />
-                                {isLoading ? (
-                                    <Button
+                                <div className="absolute bottom-2 right-3 flex items-center gap-2">
+                                    {/* Voice Input Button */}
+                                    <button
                                         type="button"
-                                        size="icon"
-                                        variant="destructive"
-                                        onClick={onStopStream}
-                                        className="absolute bottom-2 right-3 h-9 w-9 rounded-full"
+                                        onClick={toggleVoiceInput}
+                                        disabled={isLoading}
+                                        className="p-2 rounded-md text-muted-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        title={isRecording ? "Stop recording" : "Voice input"}
                                     >
-                                        <Square size={14} />
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        type="submit"
-                                        size="icon"
-                                        disabled={submitDisabled || (!input.trim() && attachedFiles.length === 0)}
-                                        className="absolute bottom-2 right-3 h-9 w-9 rounded-[12px] bg-blue-600 text-white shadow-[0_6px_16px_rgba(37,99,235,0.35)] hover:bg-blue-700"
-                                    >
-                                        <FiSend className="h-4 w-4" />
-                                    </Button>
-                                )}
+                                        {isRecording ? <MicOff className="w-5 h-5 text-red-500" /> : <Mic className="w-5 h-5" />}
+                                    </button>
+
+                                    {isLoading ? (
+                                        <Button
+                                            type="button"
+                                            size="icon"
+                                            variant="destructive"
+                                            onClick={onStopStream}
+                                            className="h-9 w-9 rounded-full"
+                                        >
+                                            <Square size={14} />
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            type="submit"
+                                            size="icon"
+                                            disabled={submitDisabled || (!input.trim() && attachedFiles.length === 0)}
+                                            className="h-9 w-9 rounded-[12px] bg-blue-600 text-white shadow-[0_6px_16px_rgba(37,99,235,0.35)] hover:bg-blue-700"
+                                        >
+                                            <FiSend className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
                         </form>
                         <div className="mt-2 flex justify-end">
