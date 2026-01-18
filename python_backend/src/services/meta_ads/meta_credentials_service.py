@@ -686,18 +686,21 @@ class MetaCredentialsService:
         ig_user_id = credentials.get("ig_user_id")
         
         if not ig_user_id and credentials.get("page_id"):
-            # Fetch IG account from Page using SDK
+            # Fetch IG account from Page using InstagramService
             try:
-                sdk_client = create_meta_sdk_client(
+                from ..platforms.ig_service import InstagramService
+                ig_service = InstagramService(
                     credentials.get("page_access_token") or credentials.get("access_token")
                 )
-                ig_account = await sdk_client.get_instagram_account(credentials["page_id"])
+                result = await ig_service.get_instagram_account(credentials["page_id"])
                 
-                if ig_account:
-                    ig_user_id = ig_account.get("id")
-                    
-                    # Update in database
-                    await MetaCredentialsService._update_ig_user_id(workspace_id, ig_user_id)
+                # Parse the response - ig_service returns {"success": True, "instagram_account": {...}}
+                if result and result.get("success"):
+                    ig_account = result.get("instagram_account")
+                    if ig_account:
+                        ig_user_id = ig_account.get("id")
+                        # Update in database
+                        await MetaCredentialsService._update_ig_user_id(workspace_id, ig_user_id)
                     
             except Exception as e:
                 logger.error(f"Error fetching Instagram account: {e}")

@@ -408,3 +408,261 @@ class PagesService:
             page_id,
             limit
         )
+    
+    # =========================================================================
+    # REELS, STORIES, CAROUSEL (2026 Features)
+    # =========================================================================
+    
+    def _upload_reel_sync(
+        self,
+        page_id: str,
+        video_url: str,
+        description: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Upload Facebook Reel (short-form vertical video).
+        Uses 3-step resumable upload flow per Graph API v24 docs.
+        """
+        try:
+            import httpx
+            
+            appsecret_proof = self._get_appsecret_proof()
+            
+            # Step 1: Initialize upload session
+            init_url = f"https://graph.facebook.com/v24.0/{page_id}/video_reels"
+            init_params = {
+                'upload_phase': 'start',
+                'access_token': self.access_token
+            }
+            if appsecret_proof:
+                init_params['appsecret_proof'] = appsecret_proof
+            
+            with httpx.Client(timeout=60.0) as client:
+                init_response = client.post(init_url, data=init_params)
+                if not init_response.is_success:
+                    return {"success": False, "error": f"Init failed: {init_response.text}"}
+                
+                video_id = init_response.json().get('video_id')
+                
+                # Step 2: Download video and upload binary
+                video_response = client.get(video_url)
+                if not video_response.is_success:
+                    return {"success": False, "error": "Failed to download video"}
+                
+                video_data = video_response.content
+                
+                upload_url = f"https://rupload.facebook.com/video-upload/v24.0/{video_id}"
+                upload_response = client.post(
+                    upload_url,
+                    headers={
+                        'Authorization': f'OAuth {self.access_token}',
+                        'offset': '0',
+                        'file_size': str(len(video_data))
+                    },
+                    content=video_data
+                )
+                
+                if not upload_response.is_success:
+                    return {"success": False, "error": f"Upload failed: {upload_response.text}"}
+                
+                # Step 3: Finish and publish
+                finish_params = {
+                    'video_id': video_id,
+                    'upload_phase': 'finish',
+                    'video_state': 'PUBLISHED',
+                    'access_token': self.access_token
+                }
+                if description:
+                    finish_params['description'] = description
+                if appsecret_proof:
+                    finish_params['appsecret_proof'] = appsecret_proof
+                
+                finish_response = client.post(init_url, data=finish_params)
+                if not finish_response.is_success:
+                    return {"success": False, "error": f"Finish failed: {finish_response.text}"}
+                
+                result = finish_response.json()
+                return {
+                    "success": True,
+                    "id": result.get('id', video_id),
+                    "video_id": video_id
+                }
+                
+        except Exception as e:
+            logger.error(f"Upload reel error: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def upload_reel(
+        self,
+        page_id: str,
+        video_url: str,
+        description: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Upload Facebook Reel (short-form vertical video).
+        
+        Args:
+            page_id: Facebook Page ID
+            video_url: Public URL of the video
+            description: Optional reel description
+            
+        Returns:
+            Dict with video_id
+        """
+        return await asyncio.to_thread(
+            self._upload_reel_sync,
+            page_id,
+            video_url,
+            description
+        )
+    
+    def _upload_story_sync(
+        self,
+        page_id: str,
+        media_url: str,
+        is_video: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Upload Facebook Story (24-hour temporary post).
+        """
+        try:
+            import httpx
+            
+            appsecret_proof = self._get_appsecret_proof()
+            
+            with httpx.Client(timeout=60.0) as client:
+                if is_video:
+                    # Video story - upload binary
+                    video_response = client.get(media_url)
+                    if not video_response.is_success:
+                        return {"success": False, "error": "Failed to download video"}
+                    
+                    files = {'source': ('story.mp4', video_response.content, 'video/mp4')}
+                    data = {'access_token': self.access_token}
+                    if appsecret_proof:
+                        data['appsecret_proof'] = appsecret_proof
+                    
+                    response = client.post(
+                        f"https://graph-video.facebook.com/v24.0/{page_id}/video_stories",
+                        files=files,
+                        data=data
+                    )
+                else:
+                    # Photo story - use URL
+                    params = {
+                        'url': media_url,
+                        'access_token': self.access_token
+                    }
+                    if appsecret_proof:
+                        params['appsecret_proof'] = appsecret_proof
+                    
+                    response = client.post(
+                        f"https://graph.facebook.com/v24.0/{page_id}/photo_stories",
+                        data=params
+                    )
+                
+                if not response.is_success:
+                    return {"success": False, "error": response.text}
+                
+                result = response.json()
+                return {
+                    "success": True,
+                    "id": result.get('id')
+                }
+                
+        except Exception as e:
+            logger.error(f"Upload story error: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def upload_story(
+        self,
+        page_id: str,
+        media_url: str,
+        is_video: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Upload Facebook Story (24-hour temporary post).
+        
+        Args:
+            page_id: Facebook Page ID
+            media_url: Public URL of the media
+            is_video: True for video story, False for photo story
+            
+        Returns:
+            Dict with story id
+        """
+        return await asyncio.to_thread(
+            self._upload_story_sync,
+            page_id,
+            media_url,
+            is_video
+        )
+    
+    def _create_carousel_sync(
+        self,
+        page_id: str,
+        photo_ids: List[str],
+        message: str
+    ) -> Dict[str, Any]:
+        """
+        Create carousel post with multiple photos.
+        Photos must be uploaded first as unpublished (published=False).
+        """
+        try:
+            import httpx
+            
+            appsecret_proof = self._get_appsecret_proof()
+            
+            attached_media = [{'media_fbid': photo_id} for photo_id in photo_ids]
+            
+            params = {
+                'message': message,
+                'attached_media': attached_media,
+                'access_token': self.access_token
+            }
+            if appsecret_proof:
+                params['appsecret_proof'] = appsecret_proof
+            
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(
+                    f"https://graph.facebook.com/v24.0/{page_id}/feed",
+                    json=params
+                )
+                
+                if not response.is_success:
+                    return {"success": False, "error": response.text}
+                
+                result = response.json()
+                return {
+                    "success": True,
+                    "id": result.get('id'),
+                    "post_id": result.get('id')
+                }
+                
+        except Exception as e:
+            logger.error(f"Create carousel error: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def create_carousel(
+        self,
+        page_id: str,
+        photo_ids: List[str],
+        message: str
+    ) -> Dict[str, Any]:
+        """
+        Create carousel post with multiple photos.
+        
+        Args:
+            page_id: Facebook Page ID
+            photo_ids: List of photo IDs (from unpublished photo uploads)
+            message: Carousel caption
+            
+        Returns:
+            Dict with post_id
+        """
+        return await asyncio.to_thread(
+            self._create_carousel_sync,
+            page_id,
+            photo_ids,
+            message
+        )

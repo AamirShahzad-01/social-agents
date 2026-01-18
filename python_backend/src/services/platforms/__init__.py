@@ -3,13 +3,17 @@ from .linkedin_service import linkedin_service, close_linkedin_service
 from .twitter_service import twitter_service, close_twitter_service
 from .tiktok_service import tiktok_service, close_tiktok_service
 from .youtube_service import youtube_service, close_youtube_service
-from .facebook_service import facebook_service, close_facebook_service, FacebookService
-from .instagram_service import instagram_service, close_instagram_service, InstagramService
-
-# Meta SDK services (moved from meta_ads)
-from .pages_service import PagesService
-from .ig_service import InstagramService as IGService
 from .comments_service import CommentsService
+
+# Instagram - using ig_service.py (more complete, no singleton issues)
+from .ig_service import InstagramService, INSTAGRAM_MEDIA_TYPES
+
+# Facebook Pages - using pages_service.py (more complete, no singleton issues)
+from .pages_service import PagesService
+
+# Backward compatibility aliases
+IGService = InstagramService
+FacebookService = PagesService
 
 __all__ = [
     # LinkedIn
@@ -24,17 +28,13 @@ __all__ = [
     # YouTube
     "youtube_service",
     "close_youtube_service",
-    # Facebook
-    "facebook_service",
-    "close_facebook_service",
-    "FacebookService",
+    # Facebook Pages
     "PagesService",
+    "FacebookService",  # Alias for backward compatibility
     # Instagram
-    "instagram_service",
-    "close_instagram_service",
     "InstagramService",
-    "IGService",
+    "IGService",  # Alias for backward compatibility
+    "INSTAGRAM_MEDIA_TYPES",
     # Comments/Engagement
     "CommentsService",
 ]
-

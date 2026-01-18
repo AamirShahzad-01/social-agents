@@ -140,20 +140,11 @@ class SocialMediaService:
         self,
         access_token: str
     ) -> Dict[str, Any]:
-        """
-        Get Facebook Pages managed by the user using Meta Business SDK
-        """
+        """Get Facebook Pages managed by the user"""
         try:
-            client = self._get_sdk_client(access_token)
-            pages = await client.get_user_pages()
-            
-            return {
-                'success': True,
-                'pages': pages
-            }
-            
-        except MetaSDKError as e:
-            return {'success': False, 'error': e.message}
+            from .platforms.pages_service import PagesService
+            pages_svc = PagesService(access_token)
+            return await pages_svc.get_user_pages()
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -164,24 +155,11 @@ class SocialMediaService:
         message: str,
         link: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Post to Facebook Page using Meta Business SDK
-        """
+        """Post to Facebook Page"""
         try:
-            client = self._get_sdk_client(page_access_token)
-            result = await client.post_to_page(
-                page_id=page_id,
-                message=message,
-                link=link
-            )
-            
-            return {
-                'success': True,
-                'post_id': result.get('post_id') or result.get('id')
-            }
-            
-        except MetaSDKError as e:
-            return {'success': False, 'error': e.message}
+            from .platforms.pages_service import PagesService
+            pages_svc = PagesService(page_access_token)
+            return await pages_svc.post_to_page(page_id, message, link)
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -192,25 +170,11 @@ class SocialMediaService:
         image_url: str,
         caption: str
     ) -> Dict[str, Any]:
-        """
-        Post photo to Facebook Page using Meta Business SDK
-        """
+        """Post photo to Facebook Page"""
         try:
-            client = self._get_sdk_client(page_access_token)
-            result = await client.post_photo_to_page(
-                page_id=page_id,
-                photo_url=image_url,
-                caption=caption
-            )
-            
-            return {
-                'success': True,
-                'photo_id': result.get('photo_id') or result.get('id'),
-                'post_id': result.get('post_id')
-            }
-            
-        except MetaSDKError as e:
-            return {'success': False, 'error': e.message}
+            from .platforms.pages_service import PagesService
+            pages_svc = PagesService(page_access_token)
+            return await pages_svc.post_photo_to_page(page_id, image_url, caption)
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -221,24 +185,11 @@ class SocialMediaService:
         video_url: str,
         description: str
     ) -> Dict[str, Any]:
-        """
-        Upload video to Facebook Page using Meta Business SDK
-        """
+        """Upload video to Facebook Page"""
         try:
-            client = self._get_sdk_client(page_access_token)
-            result = await client.post_video_to_page(
-                page_id=page_id,
-                video_url=video_url,
-                description=description
-            )
-            
-            return {
-                'success': True,
-                'video_id': result.get('video_id') or result.get('id')
-            }
-            
-        except MetaSDKError as e:
-            return {'success': False, 'error': e.message}
+            from .platforms.pages_service import PagesService
+            pages_svc = PagesService(page_access_token)
+            return await pages_svc.post_video_to_page(page_id, video_url, description)
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -249,64 +200,11 @@ class SocialMediaService:
         video_url: str,
         description: str
     ) -> Dict[str, Any]:
-        """
-        Upload Facebook Reel (short-form vertical video)
-        Note: Uses direct API as SDK doesn't have specific Reels support
-        """
+        """Upload Facebook Reel (short-form vertical video)"""
         try:
-            # Fetch video from URL
-            video_response = await self.http_client.get(video_url)
-            video_response.raise_for_status()
-            video_data = video_response.content
-            
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(page_access_token, app_secret)
-            
-            # Step 1: Initialize upload session
-            init_response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{page_id}/video_reels',
-                data={
-                    'upload_phase': 'start',
-                    'access_token': page_access_token,
-                    'appsecret_proof': app_secret_proof
-                }
-            )
-            init_response.raise_for_status()
-            init_data = init_response.json()
-            video_id = init_data['video_id']
-            
-            # Step 2: Upload video data
-            upload_response = await self.http_client.post(
-                f'https://rupload.facebook.com/video-upload/v24.0/{video_id}',
-                headers={
-                    'Authorization': f'OAuth {page_access_token}',
-                    'offset': '0',
-                    'file_size': str(len(video_data))
-                },
-                content=video_data
-            )
-            upload_response.raise_for_status()
-            
-            # Step 3: Finish and publish
-            finish_response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{page_id}/video_reels',
-                data={
-                    'video_id': video_id,
-                    'upload_phase': 'finish',
-                    'video_state': 'PUBLISHED',
-                    'description': description,
-                    'access_token': page_access_token,
-                    'appsecret_proof': app_secret_proof
-                }
-            )
-            finish_response.raise_for_status()
-            result = finish_response.json()
-            
-            return {
-                'success': True,
-                'id': result.get('id', video_id)
-            }
-            
+            from .platforms.pages_service import PagesService
+            pages_svc = PagesService(page_access_token)
+            return await pages_svc.upload_reel(page_id, video_url, description)
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -317,48 +215,11 @@ class SocialMediaService:
         media_url: str,
         is_video: bool = False
     ) -> Dict[str, Any]:
-        """
-        Upload Facebook Story (24-hour temporary post)
-        Note: Uses direct API as SDK doesn't have specific Stories support
-        """
+        """Upload Facebook Story (24-hour temporary post)"""
         try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(page_access_token, app_secret)
-            
-            if is_video:
-                video_response = await self.http_client.get(media_url)
-                video_response.raise_for_status()
-                video_data = video_response.content
-                
-                files = {'source': ('story.mp4', video_data, 'video/mp4')}
-                data = {
-                    'access_token': page_access_token,
-                    'appsecret_proof': app_secret_proof
-                }
-                
-                response = await self.http_client.post(
-                    f'https://graph-video.facebook.com/v24.0/{page_id}/video_stories',
-                    files=files,
-                    data=data
-                )
-            else:
-                response = await self.http_client.post(
-                    f'https://graph.facebook.com/v24.0/{page_id}/photo_stories',
-                    data={
-                        'url': media_url,
-                        'access_token': page_access_token,
-                        'appsecret_proof': app_secret_proof
-                    }
-                )
-            
-            response.raise_for_status()
-            result = response.json()
-            
-            return {
-                'success': True,
-                'id': result['id']
-            }
-            
+            from .platforms.pages_service import PagesService
+            pages_svc = PagesService(page_access_token)
+            return await pages_svc.upload_story(page_id, media_url, is_video)
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -368,24 +229,11 @@ class SocialMediaService:
         page_access_token: str,
         image_url: str
     ) -> Dict[str, Any]:
-        """
-        Upload photo as unpublished (for carousel)
-        """
+        """Upload photo as unpublished (for carousel)"""
         try:
-            client = self._get_sdk_client(page_access_token)
-            result = await client.post_photo_to_page(
-                page_id=page_id,
-                photo_url=image_url,
-                published=False
-            )
-            
-            return {
-                'success': True,
-                'photo_id': result.get('photo_id') or result.get('id')
-            }
-            
-        except MetaSDKError as e:
-            return {'success': False, 'error': e.message}
+            from .platforms.pages_service import PagesService
+            pages_svc = PagesService(page_access_token)
+            return await pages_svc.post_photo_to_page(page_id, image_url, published=False)
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
@@ -396,39 +244,16 @@ class SocialMediaService:
         photo_ids: List[str],
         message: str
     ) -> Dict[str, Any]:
-        """
-        Create carousel post with multiple photos
-        Note: Uses direct API for carousel attachment
-        """
+        """Create carousel post with multiple photos"""
         try:
-            app_secret = settings.FACEBOOK_CLIENT_SECRET
-            app_secret_proof = self.generate_app_secret_proof(page_access_token, app_secret)
-            
-            attached_media = [{'media_fbid': photo_id} for photo_id in photo_ids]
-            
-            response = await self.http_client.post(
-                f'https://graph.facebook.com/v24.0/{page_id}/feed',
-                json={
-                    'message': message,
-                    'attached_media': attached_media,
-                    'access_token': page_access_token,
-                    'appsecret_proof': app_secret_proof
-                }
-            )
-            
-            response.raise_for_status()
-            result = response.json()
-            
-            return {
-                'success': True,
-                'post_id': result['id']
-            }
-            
+            from .platforms.pages_service import PagesService
+            pages_svc = PagesService(page_access_token)
+            return await pages_svc.create_carousel(page_id, photo_ids, message)
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
     # ============================================================================
-    # INSTAGRAM API - Using Meta Business SDK
+    # INSTAGRAM API - Using InstagramService from platforms
     # ============================================================================
     
     async def instagram_get_business_account(
@@ -437,22 +262,27 @@ class SocialMediaService:
         page_access_token: str
     ) -> Dict[str, Any]:
         """
-        Get Instagram Business Account connected to Facebook Page using SDK
+        Get Instagram Business Account connected to Facebook Page using InstagramService
         """
         try:
-            client = self._get_sdk_client(page_access_token)
-            result = await client.get_instagram_account(page_id)
+            from .platforms.ig_service import InstagramService
+            ig_service = InstagramService(page_access_token)
+            result = await ig_service.get_instagram_account(page_id)
             
-            if not result:
-                return {'success': False, 'error': 'No Instagram Business Account connected'}
+            if not result or not result.get("success"):
+                return {'success': False, 'error': result.get('error', 'Failed to get Instagram account')}
+            
+            ig_account = result.get("instagram_account")
+            if not ig_account:
+                return {'success': False, 'error': result.get('message', 'No Instagram Business Account connected')}
             
             return {
                 'success': True,
-                'instagram_account_id': result.get('id')
+                'instagram_account_id': ig_account.get('id'),
+                'username': ig_account.get('username'),
+                'name': ig_account.get('name')
             }
             
-        except MetaSDKError as e:
-            return {'success': False, 'error': e.message}
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
