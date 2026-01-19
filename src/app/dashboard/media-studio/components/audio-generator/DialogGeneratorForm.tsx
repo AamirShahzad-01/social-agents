@@ -15,7 +15,8 @@ import {
     Search,
     Info,
 } from 'lucide-react';
-import { validation, parseAudioError, formatErrorMessage, createTimeoutController } from './utils/errorHandling';
+import { validation, parseAudioError, formatErrorMessage } from './utils/errorHandling';
+import { post } from '@/lib/python-backend/client';
 
 // ============================================================================
 // TYPES
@@ -122,34 +123,18 @@ export function DialogGeneratorForm({
         setIsGenerating(true);
 
         try {
-            const { controller, timeoutId } = createTimeoutController(120000); // 2min for dialog
-
-            const response = await fetch('/api/ai/media/audio/dialog', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    inputs: validLines.map(l => ({
-                        text: l.text,
-                        voiceId: l.voiceId,
-                    })),
-                }),
-                signal: controller.signal,
+            const data = await post<{ success: boolean; audioBase64?: string; error?: string }>('/media/audio/dialog', {
+                inputs: validLines.map(l => ({
+                    text: l.text,
+                    voiceId: l.voiceId,
+                })),
             });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({ error: `Server error (${response.status})` }));
-                throw new Error(data.error || 'Failed to generate dialog');
-            }
-
-            const data = await response.json();
 
             if (!data.success) {
                 throw new Error(data.error || 'Failed to generate dialog');
             }
 
-            onAudioGenerated(data.audioBase64);
+            onAudioGenerated(data.audioBase64!);
             setError(null);
         } catch (err) {
             const audioError = parseAudioError(err);

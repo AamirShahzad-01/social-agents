@@ -3,7 +3,7 @@ import { generateSpeech } from '@/agents/audio_agent/services/elevenlabs.service
 import { ttsRequestSchema } from '@/agents/audio_agent/schemas/audio.schemas';
 
 // Extended timeout for audio generation (60 seconds)
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 /**
  * POST /api/ai/media/audio/tts

@@ -111,6 +111,70 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/media", tags=["Media Generation"])
 
 
+def parse_media_error(error: Exception) -> str:
+    """
+    Parse media generation errors into user-friendly messages.
+    
+    Args:
+        error: The exception from media generation
+        
+    Returns:
+        User-friendly error message string
+    """
+    error_msg = str(error).lower()
+    error_str = str(error)
+    
+    # Rate limit / quota errors
+    if "rate" in error_msg and "limit" in error_msg:
+        return "Rate limit exceeded. Please wait a moment and try again."
+    
+    if "quota" in error_msg or "exceeded" in error_msg:
+        return "API quota exceeded. Please check your API plan and billing details."
+    
+    if "insufficient" in error_msg:
+        return "Insufficient quota. Please add credits to your account."
+    
+    # Authentication errors
+    if "api_key" in error_msg or "apikey" in error_msg:
+        return "Invalid API key. Please check your API configuration."
+    
+    if "unauthorized" in error_msg or "401" in error_str:
+        return "API authentication failed. Please verify your API key."
+    
+    if "forbidden" in error_msg or "403" in error_str:
+        return "Access forbidden. Your API key may lack permissions for this operation."
+    
+    # Content policy / safety errors
+    if "safety" in error_msg or "blocked" in error_msg or "moderation" in error_msg:
+        return "Content blocked by safety filters. Please modify your prompt."
+    
+    if "content_policy" in error_msg:
+        return "Content blocked by policy. Please try a different prompt."
+    
+    # Model/service errors
+    if "model" in error_msg and ("not found" in error_msg or "does not exist" in error_msg):
+        return "The requested model is currently unavailable. Please try again later."
+    
+    if "overloaded" in error_msg or "capacity" in error_msg:
+        return "Service is currently overloaded. Please try again in a few moments."
+    
+    # Network/connection errors
+    if "connection" in error_msg or "timeout" in error_msg:
+        return "Connection error. Please check your internet and try again."
+    
+    # File/format errors
+    if "format" in error_msg and ("invalid" in error_msg or "unsupported" in error_msg):
+        return "Unsupported file format. Please use a supported format."
+    
+    if "size" in error_msg and ("too large" in error_msg or "exceeds" in error_msg):
+        return "File size too large. Please use a smaller file."
+    
+    # Default: truncate long messages
+    if len(error_str) > 150:
+        return f"Media generation error: {error_str[:150]}..."
+    return f"Media generation error: {error_str}"
+
+
 # ============================================================================
 # IMAGE ENDPOINTS
 # ============================================================================
@@ -136,7 +200,7 @@ async def api_generate_image(request: FrontendImageRequest):
         raise
     except Exception as e:
         logger.error(f"Image generation error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=parse_media_error(e))
 
 
 @router.post("/image/edit", response_model=ImageGenerationResponse)
@@ -159,7 +223,7 @@ async def api_edit_image(request: ImageEditRequest):
         raise
     except Exception as e:
         logger.error(f"Image edit error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=parse_media_error(e))
 
 
 
@@ -185,7 +249,7 @@ async def api_inpaint_image(request: ImageEditRequest):
         raise
     except Exception as e:
         logger.error(f"Image inpaint error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=parse_media_error(e))
 
 
 @router.post("/image/reference", response_model=ImageGenerationResponse)
@@ -209,7 +273,7 @@ async def api_reference_image(request: ImageReferenceRequest):
         raise
     except Exception as e:
         logger.error(f"Image reference error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=parse_media_error(e))
 
 
 # ============================================================================
@@ -244,7 +308,7 @@ async def api_gemini_generate_image(request: GeminiImageGenerateRequest):
         raise
     except Exception as e:
         logger.error(f"Gemini image generation error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=parse_media_error(e))
 
 
 @router.post("/imagen/edit", response_model=GeminiImageResponse)
@@ -271,7 +335,7 @@ async def api_gemini_edit_image(request: GeminiImageEditRequest):
         raise
     except Exception as e:
         logger.error(f"Gemini image edit error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=parse_media_error(e))
 
 
 @router.post("/imagen/chat", response_model=GeminiImageResponse)
@@ -300,7 +364,7 @@ async def api_gemini_multi_turn(request: GeminiMultiTurnRequest):
         raise
     except Exception as e:
         logger.error(f"Gemini multi-turn error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=parse_media_error(e))
 
 
 @router.get("/imagen/models")

@@ -91,6 +91,73 @@ async def url_to_bytes(url: str) -> tuple[bytes, str]:
 DEFAULT_IMAGE_MODEL = "gpt-image-1.5"
 
 
+def parse_openai_error(error: Exception) -> str:
+    """
+    Parse OpenAI API errors and return user-friendly messages.
+    
+    Args:
+        error: The exception from OpenAI SDK
+        
+    Returns:
+        User-friendly error message string
+    """
+    error_msg = str(error).lower()
+    error_str = str(error)
+    
+    # Rate limit / quota errors
+    if "rate_limit" in error_msg or "rate limit" in error_msg:
+        return "Rate limit exceeded. Please wait a moment and try again."
+    
+    if "quota" in error_msg or "exceeded" in error_msg:
+        return "API quota exceeded. Please check your OpenAI API plan and billing details."
+    
+    if "insufficient" in error_msg:
+        return "Insufficient quota. Please add credits to your OpenAI account."
+    
+    # Authentication errors
+    if "api_key" in error_msg or "invalid_api_key" in error_msg:
+        return "Invalid API key. Please check your OpenAI API key configuration."
+    
+    if "unauthorized" in error_msg or "401" in error_str:
+        return "API authentication failed. Please check your OpenAI API key."
+    
+    if "forbidden" in error_msg or "403" in error_str:
+        return "Access forbidden. Your API key may not have permission for this operation."
+    
+    # Content policy errors
+    if "content_policy" in error_msg or "safety" in error_msg or "moderation" in error_msg:
+        return "Content blocked by safety filters. Please modify your prompt or image."
+    
+    if "invalid_request" in error_msg:
+        # Try to extract the specific reason
+        if "size" in error_msg:
+            return "Invalid image size. Please use a supported size format."
+        if "format" in error_msg:
+            return "Invalid output format. Please use png, jpeg, or webp."
+        return "Invalid request. Please check your input parameters."
+    
+    # Model errors
+    if "model" in error_msg and ("not found" in error_msg or "does not exist" in error_msg):
+        return "Model not available. The image generation model may be temporarily unavailable."
+    
+    # Network/connection errors
+    if "connection" in error_msg or "timeout" in error_msg or "network" in error_msg:
+        return "Connection error. Please check your internet and try again."
+    
+    # File/image errors
+    if "image" in error_msg and ("invalid" in error_msg or "format" in error_msg or "corrupt" in error_msg):
+        return "Invalid image format. Please use PNG, JPEG, or WebP images."
+    
+    if "mask" in error_msg:
+        return "Invalid mask image. The mask must have transparent areas indicating where to edit."
+    
+    # Default: return a cleaned up version of the error
+    # Truncate very long error messages
+    if len(error_str) > 200:
+        return f"Image generation error: {error_str[:200]}..."
+    return f"Image generation error: {error_str}"
+
+
 async def generate_image(request: FrontendImageRequest) -> ImageGenerationResponse:
     """
     Generate image using OpenAI gpt-image-1.5 (latest model as of 2026)
@@ -200,13 +267,7 @@ async def generate_image(request: FrontendImageRequest) -> ImageGenerationRespon
     
     except Exception as e:
         logger.error(f"Image generation error: {e}", exc_info=True)
-        error_msg = str(e)
-        if "api_key" in error_msg.lower():
-            error_msg = "Invalid API key"
-        elif "rate_limit" in error_msg.lower():
-            error_msg = "Rate limit exceeded"
-        
-        return ImageGenerationResponse(success=False, error=error_msg)
+        return ImageGenerationResponse(success=False, error=parse_openai_error(e))
 
 
 async def generate_image_edit(request: ImageEditRequest) -> ImageGenerationResponse:
@@ -297,7 +358,7 @@ async def generate_image_edit(request: ImageEditRequest) -> ImageGenerationRespo
         
     except Exception as e:
         logger.error(f"Image edit error: {e}", exc_info=True)
-        return ImageGenerationResponse(success=False, error=str(e))
+        return ImageGenerationResponse(success=False, error=parse_openai_error(e))
 
 
 async def generate_image_reference(request: ImageReferenceRequest) -> ImageGenerationResponse:
@@ -389,4 +450,4 @@ async def generate_image_reference(request: ImageReferenceRequest) -> ImageGener
         
     except Exception as e:
         logger.error(f"Reference image error: {e}", exc_info=True)
-        return ImageGenerationResponse(success=False, error=str(e))
+        return ImageGenerationResponse(success=False, error=parse_openai_error(e))

@@ -13,7 +13,8 @@ import {
     Square,
     Volume2,
 } from 'lucide-react';
-import { validation, parseAudioError, formatErrorMessage, createTimeoutController } from './utils/errorHandling';
+import { validation, parseAudioError, formatErrorMessage } from './utils/errorHandling';
+import { post } from '@/lib/python-backend/client';
 
 // ============================================================================
 // TYPES
@@ -156,28 +157,12 @@ export function VoiceCloningForm({ onVoiceCreated }: VoiceCloningFormProps) {
         setIsCloning(true);
 
         try {
-            const { controller, timeoutId } = createTimeoutController(180000); // 3min for cloning
-
-            const response = await fetch('/api/ai/media/audio/voice-cloning', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: voiceName,
-                    description,
-                    audioBase64,
-                    removeBackgroundNoise: removeNoise,
-                }),
-                signal: controller.signal,
+            const data = await post<{ success: boolean; voiceId?: string; error?: string }>('/media/audio/voice-cloning', {
+                name: voiceName,
+                description,
+                audioBase64,
+                removeBackgroundNoise: removeNoise,
             });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({ error: `Server error (${response.status})` }));
-                throw new Error(data.error || 'Failed to clone voice');
-            }
-
-            const data = await response.json();
 
             if (!data.success) {
                 throw new Error(data.error || 'Failed to clone voice');

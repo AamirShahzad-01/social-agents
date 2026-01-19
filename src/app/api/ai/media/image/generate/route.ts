@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPythonBackendUrl } from '@/lib/backend-url';
+import { normalizeApiResponse } from '@/lib/api-response';
 
 const PYTHON_BACKEND_URL = getPythonBackendUrl();
 
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
             clearTimeout(timeoutId);
 
             const data = await backendResponse.json();
-            return NextResponse.json(data, { status: backendResponse.status });
+            return normalizeApiResponse(data, backendResponse.status);
         } catch (fetchError: any) {
             clearTimeout(timeoutId);
 

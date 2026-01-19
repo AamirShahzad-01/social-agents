@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPythonBackendUrl } from '@/lib/backend-url';
+import { normalizeApiResponse, createTimeoutResponse, createErrorResponse } from '@/lib/api-response';
 
 const PYTHON_BACKEND_URL = getPythonBackendUrl();
 
@@ -32,29 +33,17 @@ export async function POST(request: NextRequest) {
             clearTimeout(timeoutId);
 
             const data = await backendResponse.json();
-            return NextResponse.json(data, { status: backendResponse.status });
+            return normalizeApiResponse(data, backendResponse.status);
         } catch (fetchError: any) {
             clearTimeout(timeoutId);
 
             if (fetchError.name === 'AbortError') {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: 'Request timed out. Image generation can take up to 60 seconds. Please try again.'
-                    },
-                    { status: 408 }
-                );
+                return createTimeoutResponse('Request timed out. Image generation can take up to 60 seconds. Please try again.');
             }
             throw fetchError;
         }
     } catch (error) {
         console.error('Imagen generation error:', error);
-        return NextResponse.json(
-            {
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to process image request'
-            },
-            { status: 500 }
-        );
+        return createErrorResponse(error, 'Failed to process image request');
     }
 }

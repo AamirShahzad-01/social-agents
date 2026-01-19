@@ -13,7 +13,9 @@ import {
     Repeat,
     Wand2,
 } from 'lucide-react';
-import { validation, parseAudioError, formatErrorMessage, createTimeoutController } from './utils/errorHandling';
+import { validation, parseAudioError, formatErrorMessage } from './utils/errorHandling';
+import { post } from '@/lib/python-backend/client';
+
 
 // ============================================================================
 // TYPES
@@ -49,34 +51,18 @@ export function SoundEffectsForm({ onAudioGenerated }: SoundEffectsFormProps) {
         setIsGenerating(true);
 
         try {
-            const { controller, timeoutId } = createTimeoutController(90000); // 90s timeout
-
-            const response = await fetch('/api/ai/media/audio/sound-effects', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt,
-                    durationSeconds,
-                    loop,
-                    promptInfluence,
-                }),
-                signal: controller.signal,
+            const data = await post<{ success: boolean; audioBase64?: string; error?: string }>('/media/audio/sound-effects', {
+                prompt,
+                durationSeconds,
+                loop,
+                promptInfluence,
             });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({ error: `Server error (${response.status})` }));
-                throw new Error(data.error || 'Failed to generate sound effect');
-            }
-
-            const data = await response.json();
 
             if (!data.success) {
                 throw new Error(data.error || 'Failed to generate sound effect');
             }
 
-            onAudioGenerated(data.audioBase64, prompt);
+            onAudioGenerated(data.audioBase64!, prompt);
             setError(null);
         } catch (err) {
             const audioError = parseAudioError(err);
@@ -85,6 +71,7 @@ export function SoundEffectsForm({ onAudioGenerated }: SoundEffectsFormProps) {
             setIsGenerating(false);
         }
     }, [prompt, durationSeconds, loop, promptInfluence, onAudioGenerated]);
+
 
     return (
         <div className="space-y-6">

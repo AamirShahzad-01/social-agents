@@ -56,12 +56,17 @@ def web_search(
 
         api_key = os.environ.get("TAVILY_API_KEY")
         if not api_key:
-            return {"error": "TAVILY_API_KEY not set"}
+            return {"error": "Web search not configured. Please add TAVILY_API_KEY to your settings."}
 
         client = TavilyClient(api_key=api_key)
         return client.search(query, max_results=max_results, topic=topic)
     except Exception as e:
-        return {"error": f"Search failed: {e}"}
+        error_msg = str(e).lower()
+        if "rate" in error_msg or "limit" in error_msg:
+            return {"error": "Search rate limit reached. Please try again in a moment."}
+        if "api" in error_msg and "key" in error_msg:
+            return {"error": "Invalid search API key. Please check your TAVILY_API_KEY."}
+        return {"error": f"Search failed: {str(e)[:100]}"}
 
 
 @tool
@@ -89,9 +94,16 @@ def generate_cover(prompt: str, slug: str) -> str:
                 image.save(str(output_path))
                 return f"Image saved to {output_path}"
 
-        return "No image generated"
+        return "No image was generated. Try being more specific in your prompt."
     except Exception as e:
-        return f"Error: {e}"
+        error_msg = str(e).lower()
+        if "quota" in error_msg or "rate" in error_msg or "limit" in error_msg:
+            return "Image generation quota exceeded. Please try again later."
+        if "api" in error_msg and "key" in error_msg:
+            return "Image API not configured. Please check your GOOGLE_API_KEY."
+        if "safety" in error_msg or "blocked" in error_msg:
+            return "Image blocked by safety filters. Please modify your prompt."
+        return f"Image generation failed: {str(e)[:100]}"
 
 
 @tool
@@ -120,9 +132,16 @@ def generate_social_image(prompt: str, platform: str, slug: str) -> str:
                 image.save(str(output_path))
                 return f"Image saved to {output_path}"
 
-        return "No image generated"
+        return "No image was generated. Try being more specific in your prompt."
     except Exception as e:
-        return f"Error: {e}"
+        error_msg = str(e).lower()
+        if "quota" in error_msg or "rate" in error_msg or "limit" in error_msg:
+            return "Image generation quota exceeded. Please try again later."
+        if "api" in error_msg and "key" in error_msg:
+            return "Image API not configured. Please check your GOOGLE_API_KEY."
+        if "safety" in error_msg or "blocked" in error_msg:
+            return "Image blocked by safety filters. Please modify your prompt."
+        return f"Image generation failed: {str(e)[:100]}"
 
 
 # =============================================================================

@@ -151,8 +151,7 @@ export function AudioGenerator() {
     const fetchVoices = useCallback(async () => {
         setIsLoadingVoices(true);
         try {
-            const response = await fetch('/api/ai/media/audio/voices');
-            const data = await response.json();
+            const data = await get<{ success: boolean; voices: Voice[] }>('/media/audio/voices');
             if (data.success && data.voices) {
                 setVoices(data.voices);
             }
@@ -162,6 +161,7 @@ export function AudioGenerator() {
             setIsLoadingVoices(false);
         }
     }, []);
+
 
     useEffect(() => {
         fetchVoices();

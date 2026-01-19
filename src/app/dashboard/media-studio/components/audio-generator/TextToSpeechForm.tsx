@@ -16,6 +16,8 @@ import {
     AlertCircle,
 } from 'lucide-react';
 import { validation, parseAudioError, formatErrorMessage, createTimeoutController } from './utils/errorHandling';
+import { post } from '@/lib/python-backend/client';
+
 
 // ============================================================================
 // TYPES
@@ -106,39 +108,23 @@ export function TextToSpeechForm({
         setIsGenerating(true);
 
         try {
-            const { controller, timeoutId } = createTimeoutController(60000); // 60s timeout
-
-            const response = await fetch('/api/ai/media/audio/tts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    text,
-                    voiceId: selectedVoiceId,
-                    modelId,
-                    speed,
-                    voiceSettings: {
-                        stability,
-                        similarity_boost: similarity,
-                        style,
-                    },
-                }),
-                signal: controller.signal,
+            const data = await post<{ success: boolean; audioBase64?: string; error?: string }>('/media/audio/tts', {
+                text,
+                voiceId: selectedVoiceId,
+                modelId,
+                speed,
+                voiceSettings: {
+                    stability,
+                    similarity_boost: similarity,
+                    style,
+                },
             });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({ error: `Server error (${response.status})` }));
-                throw new Error(data.error || `Server returned ${response.status}`);
-            }
-
-            const data = await response.json();
 
             if (!data.success) {
                 throw new Error(data.error || 'Failed to generate speech');
             }
 
-            onAudioGenerated(data.audioBase64);
+            onAudioGenerated(data.audioBase64!);
             setError(null);
         } catch (err) {
             const audioError = parseAudioError(err);
@@ -147,6 +133,7 @@ export function TextToSpeechForm({
             setIsGenerating(false);
         }
     }, [text, selectedVoiceId, modelId, speed, stability, similarity, style, onAudioGenerated]);
+
 
     return (
         <div className="space-y-5">

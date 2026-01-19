@@ -14,7 +14,8 @@ import {
     Check,
     Volume2,
 } from 'lucide-react';
-import { validation, parseAudioError, formatErrorMessage, createTimeoutController } from './utils/errorHandling';
+import { validation, parseAudioError, formatErrorMessage } from './utils/errorHandling';
+import { post } from '@/lib/python-backend/client';
 
 // ============================================================================
 // TYPES
@@ -88,27 +89,11 @@ export function VoiceDesignForm({ onVoiceCreated }: VoiceDesignFormProps) {
         setSelectedPreviewId(null);
 
         try {
-            const { controller, timeoutId } = createTimeoutController(90000); // 90s timeout
-
-            const response = await fetch('/api/ai/media/audio/voice-design', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'design',
-                    voiceDescription,
-                    text: previewText,
-                }),
-                signal: controller.signal,
+            const data = await post<{ success: boolean; previews?: VoicePreview[]; error?: string }>('/media/audio/voice-design', {
+                action: 'design',
+                voiceDescription,
+                text: previewText,
             });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({ error: `Server error (${response.status})` }));
-                throw new Error(data.error || 'Failed to generate voice previews');
-            }
-
-            const data = await response.json();
 
             if (!data.success) {
                 throw new Error(data.error || 'Failed to generate voice previews');
@@ -161,23 +146,12 @@ export function VoiceDesignForm({ onVoiceCreated }: VoiceDesignFormProps) {
         setIsSaving(true);
 
         try {
-            const response = await fetch('/api/ai/media/audio/voice-design', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'save',
-                    generatedVoiceId: selectedPreviewId,
-                    name: voiceName,
-                    description: voiceDescription,
-                }),
+            const data = await post<{ success: boolean; voiceId?: string; error?: string }>('/media/audio/voice-design', {
+                action: 'save',
+                generatedVoiceId: selectedPreviewId,
+                name: voiceName,
+                description: voiceDescription,
             });
-
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({ error: `Server error (${response.status})` }));
-                throw new Error(data.error || 'Failed to save voice');
-            }
-
-            const data = await response.json();
 
             if (!data.success) {
                 throw new Error(data.error || 'Failed to save voice');

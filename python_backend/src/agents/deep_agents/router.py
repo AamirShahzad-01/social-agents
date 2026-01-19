@@ -60,6 +60,84 @@ def format_sse(data: dict) -> str:
     return f"data: {json.dumps(data)}\n\n"
 
 
+def parse_agent_error(error: Exception) -> str:
+    """
+    Parse agent/LLM errors and return user-friendly messages.
+    
+    Args:
+        error: The exception from the agent execution
+        
+    Returns:
+        User-friendly error message string
+    """
+    error_msg = str(error).lower()
+    error_str = str(error)
+    
+    # Rate limit / quota errors
+    if "rate_limit" in error_msg or "rate limit" in error_msg or "ratelimit" in error_msg:
+        return "Rate limit exceeded. Please wait a moment and try again."
+    
+    if "quota" in error_msg or "exceeded" in error_msg:
+        return "API quota exceeded. Please check your API plan and billing details."
+    
+    if "insufficient" in error_msg:
+        return "Insufficient quota. Please add credits to your API account."
+    
+    # Authentication errors
+    if "api_key" in error_msg or "invalid_api_key" in error_msg or "apikey" in error_msg:
+        return "Invalid API key. Please check your API configuration in settings."
+    
+    if "unauthorized" in error_msg or "401" in error_str:
+        return "API authentication failed. Please check your API keys."
+    
+    if "forbidden" in error_msg or "403" in error_str:
+        return "Access forbidden. Your API key may not have permission for this operation."
+    
+    # Content policy / safety errors
+    if "content_policy" in error_msg or "safety" in error_msg or "moderation" in error_msg:
+        return "Content blocked by safety filters. Please modify your message."
+    
+    if "blocked" in error_msg:
+        return "Request blocked. Please try rephrasing your message."
+    
+    # Model/service errors
+    if "model" in error_msg and ("not found" in error_msg or "does not exist" in error_msg):
+        return "AI model temporarily unavailable. Please try again later."
+    
+    if "overloaded" in error_msg or "capacity" in error_msg:
+        return "AI service is currently overloaded. Please try again in a few moments."
+    
+    # Network/connection errors
+    if "connection" in error_msg or "timeout" in error_msg or "network" in error_msg:
+        return "Connection error. Please check your internet and try again."
+    
+    if "econnrefused" in error_msg or "enotfound" in error_msg:
+        return "Unable to connect to AI service. Please try again later."
+    
+    # Context length errors
+    if "context" in error_msg and ("length" in error_msg or "too long" in error_msg or "maximum" in error_msg):
+        return "Message too long. Please try a shorter message or start a new conversation."
+    
+    if "token" in error_msg and ("limit" in error_msg or "maximum" in error_msg):
+        return "Conversation is too long. Please start a new conversation."
+    
+    # Configuration errors
+    if "not configured" in error_msg or "not set" in error_msg:
+        return "Service not configured. Please check your API settings."
+    
+    # Generic server errors
+    if "500" in error_str or "internal server error" in error_msg:
+        return "Server error occurred. Please try again."
+    
+    if "502" in error_str or "503" in error_str or "504" in error_str:
+        return "AI service temporarily unavailable. Please try again later."
+    
+    # Default: truncate and clean up
+    if len(error_str) > 150:
+        return f"An error occurred: {error_str[:150]}..."
+    return f"An error occurred: {error_str}"
+
+
 # =============================================================================
 # Multimodal Content Builder
 # =============================================================================
@@ -374,7 +452,7 @@ async def stream_agent_response(
         
     except Exception as e:
         logger.error(f"Streaming error: {e}", exc_info=True)
-        yield {"step": "error", "content": str(e)}
+        yield {"step": "error", "content": parse_agent_error(e)}
 
 
 # =============================================================================
@@ -389,7 +467,7 @@ async def health_check():
         return HealthResponse(status="healthy", agent="content-writer")
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=parse_agent_error(e))
 
 
 @router.post("/chat")
@@ -417,7 +495,7 @@ async def chat_stream(request: ChatRequest):
                 
         except Exception as e:
             logger.error(f"Chat stream error: {e}", exc_info=True)
-            yield format_sse({"step": "error", "content": str(e)})
+            yield format_sse({"step": "error", "content": parse_agent_error(e)})
     
     return StreamingResponse(
         generate(),
@@ -473,7 +551,7 @@ async def get_thread_history(thread_id: str):
             "success": False,
             "threadId": thread_id,
             "messages": [],
-            "error": str(e),
+            "error": parse_agent_error(e),
         }
 
 
@@ -540,6 +618,6 @@ async def get_thread_state(thread_id: str):
             "threadId": thread_id,
             "todos": [],
             "files": {},
-            "error": str(e),
+            "error": parse_agent_error(e),
         }
 

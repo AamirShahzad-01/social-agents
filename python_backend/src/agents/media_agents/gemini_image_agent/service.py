@@ -109,6 +109,80 @@ def base64_to_data_url(b64_data: str, mime_type: str = "image/png") -> str:
     return f"data:{mime_type};base64,{b64_data}"
 
 
+def parse_api_error_message(status_code: int, error_text: str) -> str:
+    """
+    Parse Gemini API error response and extract a user-friendly error message
+    
+    Args:
+        status_code: HTTP status code from the API response
+        error_text: Raw error text from the API (may be JSON)
+        
+    Returns:
+        User-friendly error message string
+    """
+    import json
+    
+    try:
+        error_data = json.loads(error_text)
+        error_info = error_data.get("error", {})
+        
+        message = error_info.get("message", "")
+        status = error_info.get("status", "")
+        
+        # Handle rate limit / quota errors (429)
+        if status_code == 429 or status == "RESOURCE_EXHAUSTED":
+            # Check for retry info
+            details = error_info.get("details", [])
+            retry_time = None
+            for detail in details:
+                if detail.get("@type", "").endswith("RetryInfo"):
+                    retry_delay = detail.get("retryDelay", "")
+                    if retry_delay:
+                        retry_time = retry_delay
+                        break
+            
+            # Build user-friendly message
+            if "quota" in message.lower() or "exceeded" in message.lower():
+                if retry_time:
+                    return f"Rate limit exceeded. Please retry in {retry_time}. Consider checking your API quota."
+                return "API quota exceeded. Please check your Gemini API plan and billing details at https://ai.google.dev/gemini-api/docs/rate-limits"
+            
+            if retry_time:
+                return f"Too many requests. Please retry in {retry_time}."
+            return "Rate limit exceeded. Please wait a moment and try again."
+        
+        # Handle authentication errors (401, 403)
+        if status_code in (401, 403):
+            return "API authentication failed. Please check your Gemini API key configuration."
+        
+        # Handle not found errors (404)
+        if status_code == 404:
+            return f"Model or endpoint not found: {message or 'Unknown resource'}"
+        
+        # Handle safety/content blocked
+        if "safety" in message.lower() or "blocked" in message.lower():
+            return "Content blocked by safety filters. Please modify your prompt."
+        
+        # Handle invalid request (400)
+        if status_code == 400:
+            return f"Invalid request: {message or 'Please check your input parameters.'}"
+        
+        # Default: return a cleaned up message
+        if message:
+            # Truncate very long messages but keep the key info
+            if len(message) > 200:
+                return f"API error ({status_code}): {message[:200]}..."
+            return f"API error ({status_code}): {message}"
+        
+        return f"API error: {status_code}"
+        
+    except json.JSONDecodeError:
+        # Not JSON, return raw text (truncated if too long)
+        if len(error_text) > 200:
+            return f"API error ({status_code}): {error_text[:200]}..."
+        return f"API error ({status_code}): {error_text}"
+
+
 def build_generation_config(
     aspect_ratio: Optional[str] = None,
     image_size: Optional[str] = None,
@@ -205,7 +279,7 @@ async def generate_image(request: GeminiImageGenerateRequest) -> GeminiImageResp
                 logger.error(f"Gemini API error: {response.status_code} - {error_text}")
                 return GeminiImageResponse(
                     success=False,
-                    error=f"API error: {response.status_code} - {error_text}"
+                    error=parse_api_error_message(response.status_code, error_text)
                 )
             
             data = response.json()
@@ -293,7 +367,7 @@ async def edit_image(request: GeminiImageEditRequest) -> GeminiImageResponse:
                 logger.error(f"Gemini API error: {response.status_code} - {error_text}")
                 return GeminiImageResponse(
                     success=False,
-                    error=f"API error: {response.status_code} - {error_text}"
+                    error=parse_api_error_message(response.status_code, error_text)
                 )
             
             data = response.json()
@@ -386,7 +460,7 @@ async def multi_turn_edit(request: GeminiMultiTurnRequest) -> GeminiImageRespons
                 logger.error(f"Gemini API error: {response.status_code} - {error_text}")
                 return GeminiImageResponse(
                     success=False,
-                    error=f"API error: {response.status_code} - {error_text}"
+                    error=parse_api_error_message(response.status_code, error_text)
                 )
             
             data = response.json()

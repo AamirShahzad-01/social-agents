@@ -11,7 +11,9 @@ import {
     AlertCircle,
     Clock,
 } from 'lucide-react';
-import { validation, parseAudioError, formatErrorMessage, createTimeoutController } from './utils/errorHandling';
+import { validation, parseAudioError, formatErrorMessage } from './utils/errorHandling';
+import { post } from '@/lib/python-backend/client';
+
 
 // ============================================================================
 // TYPES
@@ -45,32 +47,16 @@ export function MusicGeneratorForm({ onAudioGenerated }: MusicGeneratorFormProps
         setIsGenerating(true);
 
         try {
-            const { controller, timeoutId } = createTimeoutController(120000); // 2min for music
-
-            const response = await fetch('/api/ai/media/audio/music', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt,
-                    durationMs: durationSeconds * 1000,
-                }),
-                signal: controller.signal,
+            const data = await post<{ success: boolean; audioBase64?: string; error?: string }>('/media/audio/music', {
+                prompt,
+                durationMs: durationSeconds * 1000,
             });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({ error: `Server error (${response.status})` }));
-                throw new Error(data.error || `Server returned ${response.status}`);
-            }
-
-            const data = await response.json();
 
             if (!data.success) {
                 throw new Error(data.error || 'Failed to generate music');
             }
 
-            onAudioGenerated(data.audioBase64, prompt);
+            onAudioGenerated(data.audioBase64!, prompt);
             setError(null);
         } catch (err) {
             const audioError = parseAudioError(err);
@@ -79,6 +65,7 @@ export function MusicGeneratorForm({ onAudioGenerated }: MusicGeneratorFormProps
             setIsGenerating(false);
         }
     }, [prompt, durationSeconds, onAudioGenerated]);
+
 
     // Format duration display
     const formatDuration = (seconds: number) => {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPythonBackendUrl } from '@/lib/backend-url';
+import { normalizeApiResponse, createTimeoutResponse, createErrorResponse } from '@/lib/api-response';
 
 const PYTHON_BACKEND_URL = getPythonBackendUrl();
 
@@ -31,26 +32,17 @@ export async function POST(request: NextRequest) {
             clearTimeout(timeoutId);
 
             const data = await backendResponse.json();
-            return NextResponse.json(data, { status: backendResponse.status });
+            return normalizeApiResponse(data, backendResponse.status);
         } catch (fetchError: any) {
             clearTimeout(timeoutId);
 
             if (fetchError.name === 'AbortError') {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: 'Request timed out. Video generation can take several minutes.'
-                    },
-                    { status: 408 }
-                );
+                return createTimeoutResponse('Request timed out. Video generation can take several minutes.');
             }
             throw fetchError;
         }
     } catch (error) {
         console.error('Sora generate error:', error);
-        return NextResponse.json(
-            { success: false, error: 'Failed to generate video' },
-            { status: 500 }
-        );
+        return createErrorResponse(error, 'Failed to generate video');
     }
 }
