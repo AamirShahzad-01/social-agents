@@ -1,134 +1,192 @@
 """
-LinkedIn Expert Skill
-2025 best practices for LinkedIn content optimization.
+LinkedIn Expert Skill - Enterprise Brand Focus
+2025 best practices for corporate LinkedIn content.
 """
 from .types import Skill
 
 LINKEDIN_SKILL: Skill = {
     "name": "linkedin",
-    "description": "Expert for LinkedIn content: thought leadership, professional tone, B2B engagement",
-    "content": """# LinkedIn Content Expert - 2025
+    "description": "Expert for enterprise LinkedIn: corporate communications, B2B content, thought leadership",
+    "content": """# LinkedIn Content Expert - Enterprise Brands 2025
 
 ## PLATFORM OVERVIEW
-- **Character Limit**: 3,000 (first 2-3 lines visible before "see more")
-- **Hashtags**: 3-5 relevant hashtags
-- **Posting Frequency**: 3-5x per week optimal
-- **Content Priority**: Native content > External links
+- **Character Limit**: 3,000 for posts
+- **Hashtags**: 3-5 professional tags
+- **Content Priority**: Text + Image > Document > Video > Text only
+- **Brand Focus**: Corporate communications, B2B, employer branding, thought leadership
 
-## HOOK FORMULAS (First 2-3 Lines)
-The algorithm tests engagement in first 60 minutes. Strong hooks are critical.
+## POST STRUCTURE FOR BRANDS
 
-### Contrarian Hooks
-- "Unpopular opinion:"
-- "Everyone says X. They're wrong."
-- "I disagree with most experts on this..."
-- "The truth about [industry topic] that no one discusses..."
-
-### Transformation Hooks
-- "3 years ago, I was struggling with..."
-- "I went from [bad state] to [good state]. Here's how."
-- "The single decision that changed my career..."
-- "What I wish I knew when I started..."
-
-### Numbers/Lists Hooks
-- "5 lessons from [experience] that made me a better [role]"
-- "I analyzed 100 [things]. Here's what I learned."
-- "3 strategic steps every [persona] should take..."
-
-### Question Hooks
-- "What would you do if...?"
-- "Why do most [personas] fail at...?"
-- "Have you ever noticed...?"
-
-### Narrative Hooks
-- "It was 3 AM when I realized..."
-- "The email came on a Friday..."
-- "I'll never forget what my mentor told me..."
-
-## POST STRUCTURE
+### Corporate Announcement
 ```
-[Compelling Hook - 2-3 lines max]
+[Headline - Clear statement of news]
 
-[Story/Value with heavy line breaks]
+[Context - Why this matters]
 
-[Key insight or takeaway]
+[Details - Key information]
 
-[Call-to-Action]
+[Forward-looking statement]
 
-#hashtag1 #hashtag2 #hashtag3
+[Link if applicable]
+
+#BrandName #Industry
 ```
 
-## FORMATTING RULES
-- **Short Paragraphs**: 1-3 sentences max
-- **Heavy Line Breaks**: White space improves readability
-- **One Idea Per Section**: Makes content scannable
-- **Emojis**: Use sparingly (1-3 max), or none for executive tone
-- **No Links in Post**: Put in first comment to boost reach
+### Product/Innovation Post
+```
+[Innovation headline]
 
-## HASHTAG STRATEGY
-- Use 3-5 targeted hashtags
-- Mix: 1 branded + 2 industry + 2 trending
-- Place at end of post
-- Research hashtag followers before using
+[Problem being solved or opportunity]
 
-## CONTENT PILLARS FOR THOUGHT LEADERSHIP
-1. **Industry Insights**: Original analysis of trends
-2. **Lessons Learned**: Personal stories with takeaways
-3. **Contrarian Views**: Challenge conventional wisdom
-4. **How-To Guides**: Tactical, actionable advice
-5. **Case Studies**: Real examples with data
-6. **Behind-the-Scenes**: Authentic workplace moments
+[Solution and approach]
 
-## CALL-TO-ACTION EXAMPLES
-- "What's your take? Share in the comments."
-- "Agree or disagree? I'd love to hear your perspective."
-- "Which of these resonates most with you?"
-- "Tag someone who needs to see this."
-- "Follow for more insights on [topic]."
-- "Repost if this resonated ♻️"
+[Impact or results]
+
+[Learn more CTA]
+
+#BrandName #Innovation
+```
+
+### Employer Brand Post
+```
+[Culture or employee story hook]
+
+[Specific example or testimonial]
+
+[What this represents about company]
+
+[Invitation to join/learn more]
+
+#BrandName #Careers
+```
+
+## HOOK FORMULAS FOR ENTERPRISE BRANDS
+
+### Announcement Hooks
+- "Today, we're proud to announce..."
+- "A new milestone: [achievement]."
+- "Introducing [initiative/product]."
+
+### Thought Leadership Hooks
+- "[Topic] is changing. Here's how."
+- "The future of [industry]."
+- "What we learned from [experience]."
+
+### Results Hooks
+- "[Number]% improvement in [metric]."
+- "How we achieved [result]."
+- "The impact of [initiative]."
+
+## FORMATTING BEST PRACTICES
+
+### Structure
+- Lead with clear headline or statement
+- Use line breaks for readability
+- Keep paragraphs to 2-3 lines max
+- End with clear next step
+
+### Length
+- 150-300 words optimal
+- Longer acceptable for announcements
+- Use formatting to maintain readability
+
+### Links
+- Include in post body
+- Ensure link preview is optimized
+- CTAs: "Read more →", "Learn more →"
 
 ## TONE & STYLE
-- Professional yet human
-- Thought leadership without arrogance
-- Vulnerable storytelling welcomed
-- Data-backed insights add credibility
-- First-person perspective works best
 
-## ENGAGEMENT TACTICS
-- Reply to every comment within 1 hour
-- Comment on others' posts (10-20 daily)
-- Ask genuine questions in comments
-- Turn long comments into new posts
+### Professional Characteristics
+- Authoritative but approachable
+- Data-informed statements
+- Forward-looking optimism
+- Inclusive language
 
-## EXAMPLE TRANSFORMATION
+### Include
+- Specific metrics and achievements
+- Named executives when appropriate
+- Partner and team recognition
+- Industry context
 
-**Before:**
-"We just launched a new product that helps companies improve their workflow. Check it out!"
+### Avoid
+- Casual social media language
+- Self-congratulatory tone
+- Jargon without explanation
+- Overpromising without evidence
 
-**After:**
-"I spent 3 years watching teams waste 10+ hours weekly on manual processes.
+## CALL-TO-ACTION STANDARDS
 
-Here's what I observed:
+### Professional CTAs
+- "Read our full report → [link]"
+- "Learn more about our approach"
+- "Join our team: [careers link]"
+- "Connect with us to discuss"
 
-→ Talented people doing repetitive work
-→ Burnout becoming the norm
-→ Innovation taking a backseat
+### Avoid
+- Engagement bait
+- Excessive enthusiasm
+- Stock acknowledgments
 
-So we built something different.
+## HASHTAG STRATEGY
 
-Not another tool that adds complexity.
-But one that removes friction entirely.
+### Use (3-5 total)
+- #BrandName (always)
+- #Industry tags
+- #Sustainability, #Innovation, #Leadership (if relevant)
 
-The result?
+### Avoid
+- Trending consumer hashtags
+- Viral tags
+- More than 5 hashtags
 
-Our beta users got back 12 hours per week.
-Not by working harder.
-By eliminating work that shouldn't exist.
+## EXAMPLE TRANSFORMATIONS
 
-What's one process in your company that desperately needs to die?
+**Before (Casual Style):**
+"Exciting news! 🎉 We just hit a HUGE milestone!!!
 
-Drop it in the comments 👇
+So proud of our amazing team for making this happen 💪
 
-#futureofwork #productivity #leadership"
+Like and share if you think we're crushing it!
+
+#blessed #winning #teamwork"
+
+**After (Enterprise Brand Style):**
+"A milestone in sustainable innovation.
+
+Today, we've reached 1 million products manufactured using 100% recycled materials—a goal we set three years ago.
+
+This achievement reflects:
+→ $50M investment in circular manufacturing
+→ Partnerships with 12 recycling facilities worldwide
+→ Dedication from our 10,000+ production team members
+
+We're not stopping here. Next target: 5 million by 2027.
+
+Read our sustainability progress report → [link]
+
+#Sustainability #CircularEconomy #Innovation"
+
+**Before (Casual Style):**
+"OMG we are SO excited about this launch!! 🚀
+
+Can't wait for everyone to see what we've been working on!
+
+Drop a comment if you're excited too! 👇"
+
+**After (Enterprise Brand Style):**
+"Introducing our next generation of [product category].
+
+After two years of development with input from 500+ enterprise customers, [Product Name] delivers:
+
+• 40% faster processing
+• Enterprise-grade security
+• Seamless integration with existing workflows
+
+Available Q2 2025. Join the early access program.
+
+Learn more → [link]
+
+#Enterprise #Innovation #Technology"
 """
 }

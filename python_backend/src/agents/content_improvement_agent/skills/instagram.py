@@ -1,133 +1,176 @@
 """
-Instagram Expert Skill
-2025 best practices for Instagram content optimization.
+Instagram Expert Skill - Enterprise Brand Focus
+2025 best practices for enterprise brand Instagram content.
 """
 from .types import Skill
 
 INSTAGRAM_SKILL: Skill = {
     "name": "instagram",
-    "description": "Expert for Instagram content: captions, hashtags, hooks, Reels, Stories, Carousels",
-    "content": """# Instagram Content Expert - 2025
+    "description": "Expert for enterprise brand Instagram: product launches, campaigns, brand storytelling",
+    "content": """# Instagram Content Expert - Enterprise Brands 2025
 
 ## PLATFORM OVERVIEW
-- **Character Limit**: 2,200 (but first 125 visible before "more")
-- **Hashtags**: Up to 30 (optimal: 9 for 28% more engagement)
+- **Character Limit**: 2,200 (first 125 visible before "more")
+- **Hashtags**: 5-9 brand-appropriate tags
 - **Content Priority**: Reels > Carousels > Images > Text
+- **Brand Focus**: Product launches, campaigns, brand storytelling
 
-## HOOK FORMULAS (First 125 Characters)
-The first line determines if they tap "more". Use these patterns:
+## CAPTION STRUCTURE FOR BRANDS
 
-### Curiosity Hooks
-- "Did you know...?"
-- "The secret no one tells you about..."
-- "You won't believe what happened..."
-- "Here's what 99% of people get wrong about..."
-
-### FOMO/Urgency Hooks
-- "Stop scrolling if you..."
-- "You need this before..."
-- "Don't start your day without..."
-- "This changed everything for me..."
-
-### Question Hooks
-- "What would you do if...?"
-- "Who else feels this way?"
-- "Can we talk about...?"
-- "Ready to learn...?"
-
-### Benefit Hooks
-- "Here's how to finally..."
-- "The easiest way to..."
-- "Save this for when you need..."
-
-## CAPTION STRUCTURE
+### Product Launch Format
 ```
-[Engaging Hook - First 125 chars CRITICAL]
+[Product headline or collection name]
 
-[Story/Value - Break into short paragraphs]
+[Value proposition - key benefit or differentiator]
 
-[Call-to-Action]
-.
-.
-.
-[Hashtags - place below line breaks]
+[Product details - features, materials, availability]
+
+[Call-to-action - shop link or availability]
+
+#BrandName #ProductLine #Category
 ```
+
+### Brand Storytelling Format
+```
+[Opening statement - brand value or story hook]
+
+[Narrative - the story behind the product/initiative]
+
+[Connection - how it relates to customer values]
+
+[Subtle CTA]
+
+#BrandName #BrandPillar
+```
+
+## HOOK FORMULAS FOR ENTERPRISE BRANDS
+
+### Product-Focused Hooks
+- "Introducing [Product Name]."
+- "Engineered for [benefit]."
+- "The next chapter in [category]."
+- "Built for [purpose]."
+
+### Campaign Hooks
+- "The [Season/Collection] Edit."
+- "New arrivals. Now available."
+- "[Number] days until launch."
+
+### Brand Story Hooks
+- "Behind the [process/material/craft]."
+- "Our commitment to [value]."
+- "The story of [product/initiative]."
+
+## CALL-TO-ACTION STANDARDS
+
+### Professional CTAs
+- "Shop the collection → Link in bio"
+- "Available now at [brand].com"
+- "Available in stores and online"
+- "Pre-order now"
+- "Discover more at the link above"
+- "Find your nearest store"
+
+### Avoid These CTAs
+- "Tag a friend who needs this!"
+- "Save this for later 📌"
+- "Double tap if you agree"
+- "Drop a 🔥 in the comments"
+- "Comment [word] and I'll send you..."
 
 ## HASHTAG STRATEGY
-- **Mix**: 3 broad + 3 niche + 3 branded
-- **Optimal Count**: 9 hashtags = 28% more engagement
-- **Placement**: Below content with line breaks
-- **Length**: 21-24 character hashtags perform 20% better
-- **Avoid**: Banned hashtags, #follow4follow type
+
+### Structure (5-9 total)
+- #BrandName (always)
+- #CampaignName (if applicable)
+- #ProductLine (if applicable)
+- 2-4 category hashtags
+
+### Guidelines
+- Professional, not trendy
+- No #fyp, #viral, #trending
+- No generic tags (#love, #instagood)
+- Consistent placement at end
 
 ## POST TYPE OPTIMIZATION
 
 ### Feed Posts
-- Medium captions (150-300 words) for storytelling
-- Use line breaks for readability
-- End with save-worthy CTA
+- Clean, premium visuals
+- Concise caption (100-200 words max)
+- Product or campaign focused
+- Brand-consistent aesthetic
 
 ### Reels
-- Short hooks (first 3 seconds critical)
-- Caption complements video, doesn't repeat
-- Trending audio boosts reach
-- Use text overlays in video
+- 15-30 seconds optimal
+- Product-focused, not personality-driven
+- Subtle text overlays, brand fonts
+- Original or licensed audio
 
 ### Carousels
-- First slide = hook image
-- 7-10 slides optimal
-- Educational content performs best
-- Last slide = strong CTA
+- 5-7 slides optimal
+- First slide: hero product or headline
+- Educational or feature-focused
+- Final slide: CTA with brand mark
 
 ### Stories
-- Interactive stickers (polls, questions)
-- Behind-the-scenes content
-- Swipe-up/Link stickers for CTAs
-
-## CALL-TO-ACTION EXAMPLES
-- "Save this for later 📌"
-- "Tag someone who needs this"
-- "Drop a 🔥 if you agree"
-- "Double tap if this resonates"
-- "Share to your story if you found this helpful"
-- "Comment [word] and I'll send you..."
-
-## EMOJI STRATEGY
-- Use strategically, not excessively
-- 1-3 emojis per paragraph
-- Use as bullet point replacements
-- Match brand personality
+- Product teasers and launches
+- Behind-the-scenes (polished, not casual)
+- Shopping links
+- Collection previews
 
 ## TONE & STYLE
-- Visual, engaging, lifestyle-focused
-- Authentic > Perfect
-- Conversational and relatable
-- "Less perfect, more real" trending
 
-## EXAMPLE TRANSFORMATION
+### Brand Voice
+- Confident, not arrogant
+- Aspirational, not elitist
+- Professional, not corporate jargon
+- Authentic, not performative
 
-**Before:**
-"Check out our new product! It's really good and you should buy it. Link in bio."
+### Writing Style
+- Clear, concise messaging
+- Active voice, strong verbs
+- Benefit-focused descriptions
+- Consistent terminology
 
-**After:**
+### Avoid
+- Viral slang ("POV:", "No cap", "Hits different")
+- Excessive emojis (max 1-2 if any)
+- Engagement bait phrases
+- Hyperbolic claims
+
+## EXAMPLE TRANSFORMATIONS
+
+**Before (Viral Style):**
 "This changed my morning routine forever ☀️
 
 I used to waste 30 minutes every morning until I discovered this game-changer.
 
-Here's what happened when I tried it for 7 days:
-
-Day 1: Skeptical but curious
-Day 3: Started seeing results
-Day 7: Completely hooked
-
-The best part? It takes less than 5 minutes.
-
 Save this and thank me later 📌
 
-Want to try it? Link in bio 🔗
-.
-.
-.
-#morningroutine #productivity #lifehack #selfcare #wellness"
+#morningroutine #productivity #fyp #viral"
+
+**After (Enterprise Brand Style):**
+"Rise and perform.
+
+The [Product Name] combines advanced technology with premium materials for a morning routine that works as hard as you do.
+
+Available now in three colorways.
+Shop → Link in bio
+
+#Nike #Morning #Performance"
+
+**Before (Viral Style):**
+"OMG you guys! 🔥🔥 Check out our new drop!! We're literally obsessed 😍
+
+Tag someone who NEEDS this!!!"
+
+**After (Enterprise Brand Style):**
+"The new arrival.
+
+Crafted from Italian leather with precision stitching. Designed for those who appreciate the details.
+
+Now available online and in select stores.
+
+#Zara #NewSeason #Craftsmanship"
 """
 }

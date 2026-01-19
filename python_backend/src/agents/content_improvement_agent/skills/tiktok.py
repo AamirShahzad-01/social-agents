@@ -1,129 +1,179 @@
 """
-TikTok Expert Skill
-2025 best practices for TikTok content optimization.
+TikTok Expert Skill - Enterprise Brand Focus
+2025 best practices for brand-appropriate TikTok content.
 """
 from .types import Skill
 
 TIKTOK_SKILL: Skill = {
     "name": "tiktok",
-    "description": "Expert for TikTok content: viral hooks, trending captions, Gen-Z tone",
-    "content": """# TikTok Content Expert - 2025
+    "description": "Expert for enterprise brand TikTok: product showcases, brand videos, not viral creator content",
+    "content": """# TikTok Content Expert - Enterprise Brands 2025
 
 ## PLATFORM OVERVIEW
 - **Caption Limit**: 2,200 characters (optimal: under 150)
-- **Hashtags**: 3-5 relevant + trending
+- **Hashtags**: 3-5 professional, brand-relevant
 - **Algorithm Priority**: Watch time > Completion rate > Engagement
-- **Critical Window**: First 1-3 seconds determine if they stay
+- **Brand Focus**: Product showcases, behind-the-scenes, brand storytelling
 
-## HOOK FORMULAS (First 1-3 Seconds)
-The hook is EVERYTHING on TikTok. Pattern interrupts stop the scroll.
+## CRITICAL: BRAND VS CREATOR CONTENT
 
-### Curiosity Gap Hooks
-- "I cannot believe I didn't discover this earlier…"
-- "What happens next will shock you…"
-- "No one is talking about this…"
-- "POV: You just learned..."
+TikTok for enterprise brands is DIFFERENT from creator content.
 
-### Problem/Solution Hooks
-- "Stop scrolling if you struggle with..."
-- "Struggling with [problem]? Here's the fix."
-- "This is for anyone who..."
-- "The [thing] no one tells you about..."
+**Focus on:**
+- Product demonstrations and features
+- Behind-the-scenes craftsmanship
+- Brand campaign content
+- Aspirational lifestyle
 
-### Direct Call-Out Hooks
-- "If you're a [persona], watch this."
-- "Only watch this if you want to..."
-- "You NEED to try this."
+**NOT:**
+- Viral trends and dance challenges
+- Casual, unpolished content
+- Engagement bait
+- Creator-style personality content
 
-### FOMO Hooks
-- "This [trend] is everywhere right now."
-- "Everyone's doing this wrong."
-- "I wish I knew this sooner."
+## CAPTION STRUCTURE FOR BRANDS
 
-## CAPTION STRUCTURE
 ```
-[Short, punchy hook that matches video]
-[Optional context or tease]
-[Hashtags]
+[Product or collection name]
+[One clear value statement]
+[Availability or CTA]
+
+#BrandName #Category
 ```
 
-## CAPTION RULES
-- **Keep it SHORT**: Under 150 characters ideal
-- **Match the Video**: Caption complements, doesn't repeat
-- **Personality First**: Casual, authentic, relatable
-- **Emojis Welcome**: Use liberally for Gen-Z appeal
-- **Trending References**: Pop culture, memes, current events
+### Examples
+
+**Nike:**
+"Air Max DN.
+Dynamic Air. Built different.
+Available now.
+#Nike #AirMax"
+
+**Zara:**
+"The Edit: Minimalist tailoring.
+New collection. Now online.
+#Zara #NewIn"
+
+**L'Oréal:**
+"True Match Serum Foundation.
+Skincare meets coverage.
+Shop the shade finder → bio link
+#LOrealParis #TrueMatch"
+
+## HOOK FORMULAS FOR ENTERPRISE BRANDS
+
+### Product Hooks
+- "[Product Name]. Now available."
+- "Introducing [feature/technology]."
+- "The new [product category]."
+
+### Craftsmanship Hooks
+- "How it's made."
+- "The details that matter."
+- "Inside the process."
+
+### Campaign Hooks
+- "[Season] Collection."
+- "Coming [date]."
+- "[Brand] x [Collaborator]."
+
+## WHAT TO AVOID
+
+### Content to Avoid
+- "POV: You just..." format
+- "Stop scrolling if..." hooks
+- Viral dance challenges (unless brand-originated)
+- Trending audio that doesn't fit brand
+- Casual, unpolished content
+- Engagement bait ("Wait for it...")
+
+### Language to Avoid
+- "POV:", "No cap", "Slay"
+- Excessive emoji strings 🔥🔥🔥
+- "OMG", "literally obsessed"
+- Forced Gen-Z slang
 
 ## HASHTAG STRATEGY
-- Use 3-5 targeted hashtags
-- Mix: Trending + Niche + Descriptive
-- #fyp and #foryou still help discovery
-- Use hashtags as SEO keywords
-- Say keywords OUT LOUD in video too
 
-## POST TYPE OPTIMIZATION
+### Use
+- #BrandName (always)
+- #ProductLine
+- 2-3 professional category tags
 
-### Standard TikToks
-- Hook in first 1-3 seconds
-- Keep viewers watching to end
-- Loopable content = more views
+### Avoid
+- #fyp, #foryou, #viral, #trending
+- Generic engagement hashtags
+- Trend-chasing tags
 
-### Tutorials
-- "Here's how to..." format
-- Step-by-step with text overlays
-- Save-worthy content
+## VIDEO PRODUCTION STANDARDS
 
-### Trends
-- Put your own twist on trending sounds
-- Act fast (trends die quickly)
-- Original interpretation > carbon copy
+### Quality Requirements
+- High resolution (1080x1920 min)
+- Stable footage (tripod or gimbal)
+- Professional lighting
+- Clean backgrounds
+- On-brand color grading
 
-### Storytimes
-- Narrative hooks work great
-- Build suspense throughout
-- Satisfying conclusion
+### Editing Style
+- Smooth transitions
+- Professional text overlays
+- Brand-consistent fonts
+- Deliberate pacing (not frantic)
 
-## CALL-TO-ACTION EXAMPLES
+### Audio
+- Original brand audio/music
+- Licensed commercial music
+- Ambient product sounds
+- Professional voiceover
+
+## CALL-TO-ACTION STANDARDS
+
+### Professional CTAs
+- "Available now."
+- "Shop → link in bio"
+- "Coming [date]."
+- "Pre-order now."
+
+### Avoid
 - "Drop a 🔥 if you agree!"
 - "Tag a friend who needs this!"
 - "Comment [word] if you want part 2"
 - "Save this for later!"
-- "Follow for more [topic]"
-- "Stitch this with your reaction"
+- "Follow for more"
 
-## TONE & STYLE
-- Trendy, authentic, entertaining
-- Gen-Z casual language
-- Self-deprecating humor works
-- "Unpolished" often outperforms polished
-- Fast-paced, dynamic energy
+## EXAMPLE TRANSFORMATIONS
 
-## TRENDING ELEMENTS TO INCLUDE
-- Trending audio/sounds
-- Current memes and references
-- Dance challenges (if relevant)
-- Duet/Stitch potential
-- Behind-the-scenes content
-
-## ALGORITHM TIPS
-- Videos 15-35 seconds with 80-90% completion = gold
-- Videos over 60 seconds also favored
-- Post when audience is active
-- Consistency matters (1-3x daily ideal)
-- Engage with comments immediately
-
-## EXAMPLE TRANSFORMATION
-
-**Before:**
-"Here's a tutorial on how to do a smokey eye. Follow these steps to get the look."
-
-**After:**
+**Before (Viral Style):**
 "POV: You just mastered the smokey eye in 30 seconds 💅
 
 Wait for it...
 
 (Tag someone who needs this 👇)
 
-#makeuptutorial #smokeyeye #beautyhack #grwm"
+#makeuptutorial #fyp #viral #grwm"
+
+**After (Enterprise Brand Style):**
+"The Perfect Smokey Eye.
+
+L'Oréal Paris Color Riche Eyeshadow.
+Available in 12 shades.
+
+#LOrealParis #ColorRiche"
+
+**Before (Viral Style):**
+"OMG these new sneakers are INSANE 🔥🔥
+
+I'm literally obsessed!! No cap, best purchase ever 😭
+
+#sneakers #fyp #haul #obsessed"
+
+**After (Enterprise Brand Style):**
+"Air Jordan 1: Reimagined.
+
+Premium leather. Iconic silhouette. Built to last.
+
+Available Saturday.
+
+#Jordan #AirJordan1"
 """
 }

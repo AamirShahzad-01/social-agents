@@ -1,158 +1,183 @@
 """
-Twitter/X Expert Skill
-2025 best practices for Twitter/X content optimization.
+Twitter/X Expert Skill - Enterprise Brand Focus
+2025 best practices for brand Twitter content.
 """
 from .types import Skill
 
 TWITTER_SKILL: Skill = {
     "name": "twitter",
-    "description": "Expert for Twitter/X content: threads, viral tweets, engagement, concise messaging",
-    "content": """# Twitter/X Content Expert - 2025
+    "description": "Expert for enterprise Twitter/X: brand announcements, campaigns, professional engagement",
+    "content": """# Twitter/X Content Expert - Enterprise Brands 2025
 
 ## PLATFORM OVERVIEW
-- **Character Limit**: 280 per tweet (threads for longer)
-- **Hashtags**: 1-2 per tweet (less is more)
-- **Algorithm Priority**: Engagement in first 5-10 minutes critical
-- **Content Priority**: Video > Threads > Images > Text
+- **Character Limit**: 280 per tweet (threads for longer content)
+- **Hashtags**: 1-2 brand-focused
+- **Content Priority**: Announcements > Campaigns > Engagement
+- **Brand Focus**: Product launches, campaigns, real-time marketing
 
-## 2025 ALGORITHM INSIGHTS
-The algorithm rewards:
-- Replies, retweets, likes, bookmarks
-- Engagement velocity (first 5-10 minutes crucial)
-- Time spent on post
-- Native media (especially video)
-- Thread engagement throughout
+## TWEET STRUCTURE FOR BRANDS
 
-## TWEET FORMULAS
-
-### Hot Take Tweets
-- "Unpopular opinion: [controversial take]"
-- "[Thing everyone loves] is overrated. Here's why:"
-- "Most people think X. The truth is Y."
-
-### Listicle Tweets
-- "5 things I wish I knew about [topic]:"
-- "The top 3 mistakes [personas] make:"
-- "10 tools that changed my [workflow]:"
-
-### Story Tweets
-- "Here's how I went from [A] to [B]:"
-- "Last year, I was [struggling]. Now:"
-- "A thread on what [experience] taught me:"
-
-### Question Tweets
-- "What's one [thing] that changed your life?"
-- "Hot take: [statement]. Agree or disagree?"
-- "What would you do if...?"
-
-## THREAD BEST PRACTICES
-Threads get 63% more impressions than single tweets.
-
-### Thread Structure
+### Announcement Tweet
 ```
-Tweet 1: IRRESISTIBLE HOOK (most important)
-Tweet 2-N: One idea per tweet, logical flow
-Final: Clear CTA + hashtags
+[Clear headline statement]
+
+[Supporting detail or context]
+
+[Availability/CTA]
+
+[Link if applicable]
+
+#BrandName #Product
 ```
 
-### Thread Rules
-- **Hook is Everything**: First tweet determines success
-- **One Idea Per Tweet**: Clear, complete thoughts
-- **Optimal Length**: 5-10 tweets (max engagement)
-- **Visual Breaks**: Add image every 3-4 tweets
-- **Open Loops**: Tease next tweet to keep reading
-- **Numbering**: Use "1/" format for clarity
+### Product Tweet
+```
+[Product name or collection]
+[Key feature or benefit]
+[Where to shop]
 
-### Thread Hook Examples
-- "I spent [time] studying [topic]. Here's what I learned:"
-- "Most [personas] fail at [thing]. Here's the fix:"
-- "[Number] lessons that took me [years] to learn:"
-- "The secret behind [impressive thing]:"
+#BrandName
+```
 
-## FORMATTING RULES
-- **Line Breaks**: Use for readability
-- **Emojis**: Strategic use (1-2 per tweet = 25% more engagement)
-- **White Space**: Makes content scannable
-- **No Hashtags Mid-Tweet**: Put at end or skip entirely
+### Campaign Tweet
+```
+[Campaign message or tagline]
+
+[Visual description or link]
+
+#CampaignHashtag #BrandName
+```
+
+## HOOK FORMULAS FOR ENTERPRISE BRANDS
+
+### Product Hooks
+- "Introducing [Product Name]."
+- "Now available: [Product]."
+- "[Product]. [Benefit statement]."
+
+### Campaign Hooks
+- "A new chapter."
+- "[Season] Collection. Now live."
+- "[Brand] × [Collaborator]."
+
+### Announcement Hooks
+- "Big news."
+- "Today, we announce..."
+- "Coming [date]."
+
+## THREAD STRUCTURE FOR BRANDS
+
+```
+Tweet 1: Headline announcement with hook
+
+Tweet 2: Key details or story context
+
+Tweet 3-5: Feature highlights or story beats
+
+Final Tweet: CTA and availability
+```
+
+### Example Brand Thread
+
+1/ "Introducing the next chapter in sustainable fashion."
+
+2/ "After 3 years of development, we've created a fully circular sneaker—designed to be recycled into a new pair."
+
+3/ "♻️ Made from 100% recycled materials
+♻️ Fully recyclable at end of life
+♻️ Zero waste manufacturing"
+
+4/ "Every pair comes with prepaid return shipping. Send them back, we'll remake them."
+
+5/ "Available March 1st. Sign up for early access → [link]
+
+#CircularFashion #Sustainability"
+
+## CALL-TO-ACTION STANDARDS
+
+### Professional CTAs
+- "Shop now → [link]"
+- "Available now."
+- "Sign up for early access."
+- "Learn more → [link]"
+
+### Avoid
+- "Retweet if you agree!"
+- "Like if you want more!"
+- Excessive enthusiasm
+- Engagement bait
 
 ## HASHTAG STRATEGY
-- Use 1-2 relevant hashtags maximum
-- Place in final tweet of thread
-- Too many hashtags = spam signal
-- Research trending hashtags daily
 
-## ENGAGEMENT TACTICS
-- Engage more than you post (especially smaller accounts)
-- Reply to comments within first hour
-- Quote tweet with added value
-- Comment on relevant posts in your niche
-- Ask genuine questions
+### Use (1-2 total)
+- #BrandName (always)
+- #CampaignName (if active)
+- #ProductLine (if relevant)
 
-## CALL-TO-ACTION EXAMPLES
-- "Retweet if you found this useful"
-- "Follow for more [topic]"
-- "Bookmark this for later"
-- "Reply with your thoughts"
-- "Quote tweet with your experience"
-- "Like if you want more of this"
+### Avoid
+- More than 2 hashtags per tweet
+- Viral/trending unrelated hashtags
+- Hashtag stuffing
+- #follow4follow type tags
 
 ## TONE & STYLE
-- Concise, witty, sharp
-- Hot takes work well
-- Personality > Corporate
-- First-person perspective
-- Conversational and authentic
 
-## VIDEO ON X
-Video is the biggest engagement driver in 2025:
-- Native video vastly outperforms links
-- Keep videos under 2 minutes
-- Add captions (most watch muted)
-- Hook in first second
+### Characteristics
+- Confident and direct
+- Professional but personable
+- Responsive and engaged
+- Culturally aware (when appropriate)
 
-## TIMING
-- Peak: Weekdays 12-1 PM EST, 5-6 PM EST
-- Weekend: 10-11 AM EST
-- Check your analytics for your audience
+### Language
+- Clear, concise statements
+- Active voice
+- Benefit-focused descriptions
+- Consistent brand terminology
 
-## EXAMPLE TRANSFORMATION
+### Avoid
+- Trying too hard to be "relatable"
+- Forced humor
+- Viral meme formats
+- Engagement bait
 
-**Before:**
-"We're excited to announce our new product launch. Check out our website for more information."
+## EXAMPLE TRANSFORMATIONS
 
-**After:**
-"We've been building something in secret for 8 months.
+**Before (Viral Style):**
+"OMG you guys 🔥🔥🔥
 
-Today, it's live.
+We just dropped the HOTTEST collab ever and we're literally screaming rn!!
 
-Here's the story of how it came together 🧵
+GO GET IT BEFORE IT SELLS OUT 😭
 
-1/ It started with a single complaint from a customer.
+retweet if you're obsessed!! #blessed #fyp"
 
-'Why is this so complicated?'
+**After (Enterprise Brand Style):**
+"A new collaboration.
 
-They were right.
+@ArtistName × BrandName: Limited edition collection dropping Friday, 10am EST.
 
-2/ So we scrapped everything.
+Sign up for early access → [link]
 
-Started from zero.
+#BrandName #CollabName"
 
-Asked one question: What if this took 10 seconds instead of 10 minutes?
+**Before (Viral Style):**
+"THIS IS NOT A DRILL!! 🚨🚨
 
-3/ 8 months. 47 prototypes. Countless failures.
+Our new product just launched and it's INSANE
 
-But today?
+Like + RT to spread the word!! 
 
-10 seconds. Exactly.
+#NewDrop #Shopping"
 
-4/ We're not charging more for less.
+**After (Enterprise Brand Style):**
+"The wait is over.
 
-Same price. 60x faster.
+[Product Name] is now available in select stores and online.
 
-Try it: [link]
+Clean lines. Premium materials. Built to last.
 
-Like this thread? Retweet the first tweet.
+Shop → [link]
 
-Follow @handle for the behind-the-scenes of v2 👀"
+#Nike #NewRelease"
 """
 }

@@ -1,180 +1,168 @@
-# Social Media Content Skill
+---
+name: social-media
+description: |
+  Master reference for enterprise brand social media strategy across all platforms.
+  
+  Platforms covered:
+  - Instagram (feed, Reels, Stories, Carousels)
+  - TikTok (brand-appropriate video)
+  - LinkedIn (corporate, B2B)
+  - Twitter/X (announcements, campaigns)
+  - YouTube (product videos, Shorts)
+  - Facebook (community, announcements)
+  
+  When to use this skill:
+  - User needs a quick overview of brand content strategy
+  - User asks which platform to prioritize
+  - User wants to understand brand voice standards
+  - User needs a reference for CTA or hashtag guidelines
+  - User is comparing platforms for a campaign
+  
+  What this skill provides:
+  - Platform quick reference tables
+  - Brand voice standards (do's and don'ts)
+  - Content type guidelines
+  - Links to load detailed platform-specific skills
+  - Quality checklist for brand content
+  
+  Note: For detailed platform guidance, load the specific platform skill (instagram, tiktok, linkedin, etc.).
+---
 
-This skill provides guidelines for creating engaging social media content that drives engagement and shares.
+# Enterprise Brand Social Media - Master Reference
 
-## When to Use This Skill
-Use this skill when asked to:
-- Write a LinkedIn post
-- Create a Twitter/X thread
-- Draft social media announcements
-- Repurpose blog content for social
+Premium brand content strategy for Fortune 500 consumer brands.
 
-## Research First (Required)
-**Before writing any social media content, you MUST delegate research:**
+## Brand Categories Supported
 
-1. Use the `task` tool with `subagent_type: "researcher"`
-2. In the description, specify BOTH the topic AND where to save:
+- **Fashion & Apparel**: Zara, H&M, Nike, Uniqlo
+- **Beauty & Cosmetics**: L'Oréal, Estée Lauder, MAC, Sephora
+- **Footwear & Sportswear**: Nike, Adidas, New Balance, Puma
+- **Luxury**: Louis Vuitton, Gucci, Chanel, Hermès
+- **Consumer Technology**: Apple, Samsung, Dyson
 
-```python
-task(
-    subagent_type="researcher",
-    description="Research [TOPIC]. Save findings to research/[slug].md"
-)
-```
+## Platform Skills
 
-Example:
-```python
-task(
-    subagent_type="researcher",
-    description="Research renewable energy trends in 2025. Save findings to research/renewable-energy.md"
-)
-```
+Load specific platform skills for detailed guidance:
 
-3. After research completes, read the findings file before writing
+| Skill | Use For |
+|-------|---------|
+| `instagram` | Product launches, campaigns, lifestyle |
+| `tiktok` | Brand video, product showcases |
+| `linkedin` | Corporate, B2B, employer brand |
+| `twitter` | Announcements, campaigns, engagement |
+| `youtube` | Product films, brand content |
+| `facebook` | Community, campaigns, service |
 
-## Output Structure (Required)
-**Every social media post MUST have both content AND an image:**
+## Media Prompt Skills
 
-**LinkedIn posts:**
-```
-linkedin/
-└── <slug>/
-    ├── post.md        # The post content
-    └── image.png      # REQUIRED: Generated visual
-```
+Load for visual content generation:
 
-**Twitter/X threads:**
-```
-tweets/
-└── <slug>/
-    ├── thread.md      # The thread content
-    └── image.png      # REQUIRED: Generated visual
-```
+| Skill | Use For |
+|-------|---------|
+| `google-imagen` | Premium product and lifestyle imagery |
+| `google-veo` | Commercial brand video |
+| `openai-sora` | Cinematic campaign content |
+| `openai-gpt-image` | Product and campaign visuals |
+| `runway-gen4` | Premium motion content |
 
-Example: A LinkedIn post about "prompt engineering" → `linkedin/prompt-engineering/`
+## Brand Voice Standards
 
-**You MUST complete both steps:**
-1. Write the content to the appropriate path
-2. Generate an image using `generate_social_image` and save alongside the post
+### Do:
+- Confident, professional messaging
+- Benefit-focused product descriptions
+- Aspirational but authentic tone
+- Consistent brand terminology
 
-**A social media post is NOT complete without its image.**
-
-## Platform Guidelines
-
-### LinkedIn
-**Format:**
-- 1,300 character limit (show more after ~210 chars)
-- First line is crucial - make it hook
-- Use line breaks for readability
-- 3-5 hashtags at the end
-
-**Tone:**
-- Professional but personal
-- Share insights and learnings
-- Ask questions to drive engagement
-- Use "I" and share experiences
-
-**Structure:**
-```
-[Hook - 1 compelling line]
-
-[Empty line]
-
-[Context - why this matters]
-
-[Empty line]
-
-[Main insight - 2-3 short paragraphs]
-
-[Empty line]
-
-[Call to action or question]
-
-#hashtag1 #hashtag2 #hashtag3
-```
-
-### Twitter/X
-**Format:**
-- 280 character limit per tweet
-- Threads for longer content (use 1/🧵 format)
-- No more than 2 hashtags per tweet
-
-**Thread Structure:**
-```
-1/🧵 [Hook - the main insight]
-
-2/ [Supporting point 1]
-
-3/ [Supporting point 2]
-
-4/ [Example or evidence]
-
-5/ [Conclusion + CTA]
-```
-
-## Image Generation
-Every social media post needs an eye-catching image. Use the `generate_social_image` tool:
-
-```python
-generate_social_image(prompt="A detailed description...", platform="linkedin", slug="your-post-slug")
-```
-
-The tool saves the image to `<platform>/<slug>/image.png`.
-
-### Social Image Best Practices
-Social images need to work at small sizes in crowded feeds:
-- **Bold, simple compositions** - one clear focal point
-- **High contrast** - stands out when scrolling
-- **No text in image** - too small to read, platforms add their own
-- **Square or 4:5 ratio** - works across platforms
-
-### Writing Effective Prompts
-Include these elements:
-
-1. **Single focal point**: One clear subject, not a busy scene
-2. **Bold style**: Vibrant colors, strong shapes, high contrast
-3. **Simple background**: Solid color, gradient, or subtle texture
-4. **Mood/energy**: Match the post tone (inspiring, urgent, thoughtful)
-
-### Example Prompts
-**For an insight/tip post:**
-```
-Single glowing lightbulb floating against a deep purple gradient background, lightbulb made of interconnected golden geometric lines, rays of soft light emanating outward. Minimal, striking, high contrast. Square composition.
-```
-
-**For announcements/news:**
-```
-Abstract rocket ship made of colorful geometric shapes launching upward with a trail of particles. Bright coral and teal color scheme against clean white background. Energetic, celebratory mood. Bold flat illustration style.
-```
-
-**For thought-provoking content:**
-```
-Two overlapping translucent circles, one blue one orange, creating a glowing intersection in the center. Represents collaboration or intersection of ideas. Dark charcoal background, soft ethereal glow. Minimalist and contemplative.
-```
+### Don't:
+- Viral slang ("POV:", "No cap", "Slay")
+- Excessive emojis
+- Engagement bait ("Tag a friend!")
+- Hyperbolic claims
 
 ## Content Types
 
-### Announcement Posts
-- Lead with the news
-- Explain the impact
-- Include link or next step
+### Product Content
+- Hero product shots with context
+- Feature-benefit storytelling
+- Collection overviews
+- New arrival announcements
 
-### Insight Posts
-- Share one specific learning
-- Explain the context briefly
-- Make it actionable
+### Campaign Content
+- Seasonal campaigns (SS, FW)
+- Holiday moments
+- Collaboration reveals
+- Limited editions
 
-### Question Posts
-- Ask a genuine question
-- Provide your take first
-- Keep it focused on one topic
+### Brand Content
+- Heritage and craftsmanship
+- Sustainability initiatives
+- Innovation stories
+- Ambassador features
+
+### Community Content
+- Customer spotlights (curated)
+- User-generated content
+- Milestone celebrations
+
+## Platform Quick Reference
+
+| Platform | Focus | Tone |
+|----------|-------|------|
+| Instagram | Visual storytelling | Aspirational |
+| TikTok | Product showcase | Brand-appropriate |
+| LinkedIn | Corporate/B2B | Professional |
+| Twitter | Announcements | Confident |
+| YouTube | Deep content | Informative |
+| Facebook | Community | Engaging |
+
+## Visual Standards
+
+### Photography
+- Professional, high-resolution
+- Clean compositions
+- Brand-consistent aesthetics
+- Premium production value
+
+### Video
+- Commercial quality
+- Stable, deliberate footage
+- Professional lighting
+- Brand-appropriate audio
+
+## Caption Structure
+
+### Standard Format
+```
+[Headline/Product name]
+
+[Value proposition or key message]
+
+[Details or story]
+
+[CTA and availability]
+
+#BrandName #ProductCategory
+```
+
+## CTA Standards
+
+### Professional CTAs
+- "Shop the collection → Link in bio"
+- "Available now at [brand].com"
+- "Discover more at the link above"
+- "Pre-order now"
+
+### Avoid
+- "Tag a friend!"
+- "Save this!"
+- "Like if you agree"
 
 ## Quality Checklist
-Before finishing:
-- [ ] Post saved to `linkedin/<slug>/post.md` or `tweets/<slug>/thread.md`
-- [ ] Image generated alongside the post
-- [ ] First line hooks attention
-- [ ] Content fits platform limits
-- [ ] Tone matches platform norms
-- [ ] Has clear CTA or question
-- [ ] Hashtags are relevant (not generic)
+
+Before publishing:
+- [ ] Brand-consistent voice and visual
+- [ ] Professional, premium aesthetic
+- [ ] Clear product/campaign message
+- [ ] Appropriate CTA
+- [ ] Platform-optimized format
+- [ ] Proofread copy

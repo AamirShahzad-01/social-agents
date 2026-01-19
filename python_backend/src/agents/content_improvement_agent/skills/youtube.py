@@ -1,183 +1,159 @@
 """
-YouTube Expert Skill
-2025 best practices for YouTube content optimization.
+YouTube Expert Skill - Enterprise Brand Focus
+2025 best practices for brand YouTube content.
 """
 from .types import Skill
 
 YOUTUBE_SKILL: Skill = {
     "name": "youtube",
-    "description": "Expert for YouTube content: SEO descriptions, titles, Shorts, video optimization",
-    "content": """# YouTube Content Expert - 2025
+    "description": "Expert for enterprise YouTube: product videos, brand films, Shorts, SEO",
+    "content": """# YouTube Content Expert - Enterprise Brands 2025
 
 ## PLATFORM OVERVIEW
-- **Title Limit**: 100 characters (optimal: 60)
-- **Description Limit**: 5,000 characters (use it!)
-- **Hashtags**: 3-5 relevant in description
-- **Algorithm Priority**: Watch time > CTR > Engagement
+- **Description Limit**: 5,000 characters
+- **Hashtags**: 3-5 in description
+- **Content Priority**: Shorts + Long-form
+- **Brand Focus**: Product showcases, brand films, educational content
 
-## 2025 ALGORITHM INSIGHTS
-YouTube rewards:
-- Watch time and audience retention
-- Click-through rate (CTR) from thumbnails/titles
-- Session time (viewers watching more videos)
-- Engagement (likes, comments, shares)
-- Series content (related videos)
+## YOUTUBE SHORTS FOR BRANDS
 
-## TITLE FORMULAS
+### Structure (15-60 seconds)
+```
+[0-2 sec] Hook: Product reveal or visual punch
+[2-20 sec] Showcase: Features, details, angles
+[20-30 sec] Close: Brand mark, availability
+```
 
-### Curiosity Gap Titles
-- "I Tried [Thing] for 30 Days. Here's What Happened."
-- "The Truth About [Topic] No One Tells You"
-- "Why [Common Belief] Is Completely Wrong"
+### Appropriate Content
+- Product quick looks
+- Behind-the-scenes moments
+- Feature highlights
+- Campaign teasers
+- Satisfying product shots
 
-### How-To Titles
-- "How to [Result] in [Timeframe] (Step-by-Step)"
-- "The Complete Guide to [Topic] for Beginners"
-- "[Number] Ways to [Achieve Result] Fast"
+### Avoid
+- Viral creator-style content
+- Trend-chasing formats
+- Casual, low-production content
+- Excessive text overlays
 
-### Listicle Titles
-- "Top 10 [Things] You Need to Know in 2025"
-- "[Number] Mistakes [Personas] Make (And How to Fix Them)"
-- "Best [Category] for [Purpose] [Year]"
+## LONG-FORM VIDEO STRUCTURE
 
-### Pattern Interrupt Titles
-- "Stop Doing [Common Thing]"
-- "Delete [Popular Tool] Right Now"
-- "[Topic] Changed Everything"
+### Product Launch (2-4 min)
+```
+[0:00-0:15] Hook: Hero product shot, brand sting
+[0:15-0:45] Introduction: What and why
+[0:45-2:00] Features: Key benefits and technology
+[2:00-3:00] In Use: Lifestyle and performance
+[3:00-3:30] Availability: Where to buy
+[3:30-4:00] Close: Brand message, end screen
+```
+
+### Brand Film (3-10 min)
+```
+[Opening] Cinematic hook, brand context
+[Story] Narrative arc
+[Proof] Product/brand integration
+[Close] Emotional resolution, brand positioning
+```
 
 ## TITLE OPTIMIZATION
-- Front-load primary keyword
-- Keep under 60 characters for full visibility
-- Include year if relevant (2025)
-- Use numbers when possible
-- Create curiosity without clickbait
+
+### Formula
+[Brand/Product Name]: [Key Benefit or Story Hook]
+
+### Examples
+- "Nike Air Max Dn: Dynamic Air for a New Generation"
+- "The Making of the Zara FW25 Collection"
+- "L'Oréal Paris Revitalift: The Science of Younger Skin"
+- "Behind the Craft: How We Make the Perfect Running Shoe"
+
+### Best Practices
+- Lead with brand or product name
+- Include key benefit or hook
+- No clickbait or exaggeration
+- 60 characters optimal
 
 ## DESCRIPTION STRUCTURE
+
 ```
-[Hook - First 2-3 lines with keywords]
+[Opening paragraph - key message and keywords]
 
-[Detailed summary - 200-300 words with keywords]
+Featured in this video:
+• [Product 1] - [link]
+• [Product 2] - [link]
 
-⏱️ TIMESTAMPS
-00:00 - Introduction
-01:23 - [Section title]
-...
+CHAPTERS
+0:00 Introduction
+0:45 [Chapter 1]
+2:00 [Chapter 2]
 
-🔗 LINKS & RESOURCES
-[Relevant links]
+ABOUT [BRAND NAME]
+[Brand boilerplate]
 
-📱 CONNECT WITH ME
-[Social links]
+FOLLOW US
+Instagram: [link]
+TikTok: [link]
+Twitter: [link]
 
-#hashtag1 #hashtag2 #hashtag3
-
-[Tags/keywords at bottom]
+#BrandName #Product #Category
 ```
 
-## DESCRIPTION SEO RULES
-- **First 25 Words**: Include primary keyword
-- **Natural Integration**: Keywords 2-4 times throughout
-- **250-300 Words Minimum**: More text = more search potential
-- **Timestamps**: Improves UX and algorithm understanding
-- **Links**: Relevant resources boost value
-- **Transcripts**: Upload captions for extra SEO
+## THUMBNAIL BEST PRACTICES
 
-## YOUTUBE SHORTS OPTIMIZATION
-Shorts have different rules than long-form.
+### Design Principles
+- Product-focused, clean composition
+- Brand-consistent visual style
+- Minimal text (0-4 words)
+- High contrast for visibility
+- Professional photography
 
-### Shorts Title Rules
-- Under 40 characters (avoids truncation)
-- Primary keyword at beginning
-- Spark curiosity quickly
-- #Shorts in description
+### Avoid
+- Clickbait expressions
+- Excessive text
+- Cluttered compositions
+- Off-brand aesthetics
 
-### Shorts Hook Rules
-- First 2-3 seconds CRITICAL
-- Pattern interrupt or curiosity gap
-- Text overlay for hook
-- Fast pacing essential
+## CALL-TO-ACTION STANDARDS
 
-### Shorts Performance Metrics
-- Completion rate (80-90% ideal for 15-35 sec)
-- Loopable content = more views
-- Vertical format required (9:16)
-- 60 seconds max
+### In Video
+- "Available now at..."
+- "Link in description"
+- Subscribe mention (once, tasteful)
 
-## HASHTAG STRATEGY
-- Use 3-5 relevant hashtags
-- Place in description (not title)
-- Mix: 1 broad + 2 niche + 1 branded
-- Include #Shorts for short-form
+### In Description
+- Product links
+- Website link
+- Social links
 
-## CALL-TO-ACTION EXAMPLES
-- "Subscribe for more [topic] videos"
-- "Drop a comment with your thoughts"
-- "Like this video if you found it helpful"
-- "Check out [related video] next"
-- "Join the notification squad 🔔"
+### Avoid
+- "SMASH that like button!"
+- "Subscribe for more!"
+- Aggressive CTAs
 
-## THUMBNAIL TIPS (Context for Descriptions)
-Your description should match thumbnail promise:
-- 3-5 words max on thumbnail
-- Description expands on thumbnail hook
-- Consistent style builds brand
+## EXAMPLE TRANSFORMATIONS
 
-## VIDEO TYPES & OPTIMIZATION
+**Before (Creator Style):**
+"Title: OMG I TRIED THE NEW SHOES AND I'M OBSESSED!! 🔥👟 *NOT SPONSORED*
 
-### Tutorials
-- Clear, keyword-rich title
-- Step-by-step timestamps
-- Resource links in description
+Description: HEYYYY GUYS!! So I got my hands on these and OMG... Subscribe for more hauls!! 💕"
 
-### Vlogs
-- Personal, story-driven title
-- Emotional hooks in description
-- Behind-the-scenes context
+**After (Enterprise Brand Style):**
+"Title: Nike Air Max Dn | Next-Level Air Cushioning
 
-### Reviews
-- Product/topic in title
-- Verdict teaser in description
-- Comparison links
+Description:
+Introducing Air Max Dn—the next evolution of Air.
 
-### Listicles
-- Number in title
-- All items in timestamps
-- Expandable content in description
+Featuring our Dynamic Air system with dual-chamber cushioning, designed for responsive comfort in every step.
 
-## EXAMPLE TRANSFORMATION
+Shop now → nike.com/airmax-dn
 
-**Before:**
-"New video about productivity tips. Watch to learn more."
+CHAPTERS
+0:00 Introduction
+0:30 Design Philosophy
+1:15 Dynamic Air Technology
+2:30 Colorways
 
-**After:**
-"7 Productivity Hacks That Changed My Life (Do This Today)"
-
-**Description:**
-Struggling to get things done? I spent 5 years testing every productivity system out there. These 7 hacks actually work.
-
-In this video, I'm sharing the exact strategies that helped me 10x my output without burning out. Whether you're a student, entrepreneur, or professional, these tips will transform how you work.
-
-⏱️ TIMESTAMPS
-00:00 - Why Most Productivity Advice Fails
-01:45 - Hack #1: The 2-Minute Rule
-03:22 - Hack #2: Time Blocking That Works
-05:10 - Hack #3: The Environment Secret
-07:33 - Hack #4: Energy Management > Time Management
-09:15 - Hack #5: The Power of "No"
-11:02 - Hack #6: Weekly Review System
-12:48 - Hack #7: The Compound Effect
-14:30 - Putting It All Together
-
-🔗 FREE RESOURCES
-📝 My Productivity Template: [link]
-📚 Books Mentioned: [link]
-
-📱 CONNECT
-Instagram: @handle
-Twitter: @handle
-
-👍 If you found this helpful, like and subscribe!
-
-#productivity #lifehacks #personaldevelopment #timemanagement #motivation
+#Nike #AirMax #AirMaxDn"
 """
 }
