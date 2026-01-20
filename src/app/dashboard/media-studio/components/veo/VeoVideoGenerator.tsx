@@ -74,6 +74,14 @@ export function VeoVideoGenerator({
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Use ref to track currentVideo for callbacks (avoids stale closure)
+  const currentVideoRef = useRef<GeneratedVeoVideo | null>(null);
+
+  // Keep ref in sync with state
+  React.useEffect(() => {
+    currentVideoRef.current = currentVideo;
+  }, [currentVideo]);
+
   // Get extendable videos (Veo videos with extension_count < 20)
   const extendableVideos = recentVideos.filter(
     v => v.status === 'completed' &&
@@ -123,14 +131,15 @@ export function VeoVideoGenerator({
               veoVideoId: data.video.veoVideoId,
             } : null);
 
-            // Save to database
-            if (canSaveToDb && videoUrl && currentVideo) {
+            // Save to database - use ref to get current value (avoids stale closure)
+            const videoToSave = currentVideoRef.current;
+            if (canSaveToDb && videoUrl && videoToSave) {
               const genTime = generationStartTime > 0 ? Date.now() - generationStartTime : undefined;
 
               // Calculate total duration - for extensions, use total_duration from config
-              const totalDuration = currentVideo.config.total_duration || currentVideo.config.duration || 8;
+              const totalDuration = videoToSave.config.total_duration || videoToSave.config.duration || 8;
               // For extensions, extensionCount is already the new count
-              const extensionCount = currentVideo.extensionCount || 0;
+              const extensionCount = videoToSave.extensionCount || 0;
               // Can extend if under 20 extensions
               const isExtendable = extensionCount < 20;
 
@@ -140,16 +149,16 @@ export function VeoVideoGenerator({
                   type: 'video',
                   source: `veo-${mode}` as any,
                   url: videoUrl,
-                  prompt: currentVideo.prompt,
-                  model: currentVideo.config.model,
+                  prompt: videoToSave.prompt,
+                  model: videoToSave.config.model,
                   config: {
-                    ...currentVideo.config,
+                    ...videoToSave.config,
                     veo_video_id: data.video.veoVideoId,
                     veo_operation_id: operationId,
                     extension_count: extensionCount,
                     is_extendable: isExtendable,
                     total_duration: totalDuration,
-                    parent_video_id: currentVideo.config.parent_video_id,
+                    parent_video_id: videoToSave.config.parent_video_id,
                   },
                 }, currentHistoryId, genTime);
                 console.log('Veo video saved to database:', result);
@@ -194,7 +203,7 @@ export function VeoVideoGenerator({
       }
     } catch (err) {
     }
-  }, [onVideoUpdate, canSaveToDb, currentVideo, currentHistoryId, generationStartTime, markGenerationFailed, mode, saveGeneratedMedia]);
+  }, [onVideoUpdate, canSaveToDb, currentHistoryId, generationStartTime, markGenerationFailed, mode, saveGeneratedMedia]);
 
   // Cleanup polling on unmount
   useEffect(() => {
