@@ -236,17 +236,12 @@ export function VeoVideoGenerator({
     setCurrentHistoryId(historyId);
 
     // Start global polling (persists across page navigation)
+    // NOTE: Using ONLY global polling per Google Veo docs recommendation (single polling loop)
+    // The global VideoGenerationContext handles status checks and downloads
     if (video.operationId && video.operationName) {
       startVeoPolling(video.operationId, video.operationName, video.prompt, video.config.model);
     }
-
-    // Also start local polling for immediate UI updates
-    if (video.operationId && video.operationName) {
-      pollIntervalRef.current = setInterval(() => {
-        pollVideoStatus(video.operationId!, video.operationName!);
-      }, 10000);
-    }
-  }, [canSaveToDb, createHistoryEntry, onVideoStarted, pollVideoStatus, startVeoPolling]);
+  }, [canSaveToDb, createHistoryEntry, onVideoStarted, startVeoPolling]);
 
   // Handle generation error from child components
   const handleGenerationError = useCallback(async (errorMsg: string) => {

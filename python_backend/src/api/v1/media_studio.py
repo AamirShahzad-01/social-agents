@@ -8,6 +8,7 @@ Uses Cloudinary for media storage and CDN delivery.
 from typing import Optional, Literal
 from datetime import datetime, timezone
 import logging
+import asyncio
 
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, Field
@@ -878,7 +879,7 @@ async def delete_media_item(workspace_id: str, media_id: str):
                     cloudinary = CloudinaryService()
                     # Determine resource type from URL
                     resource_type = "video" if "/video/" in url else "image"
-                    cloudinary.delete_media(cloudinary_public_id, resource_type=resource_type)
+                    await asyncio.to_thread(cloudinary.delete_media, cloudinary_public_id, resource_type)
                     logger.info(f"Deleted Cloudinary asset: {cloudinary_public_id}")
                 except Exception as cloud_err:
                     logger.warning(f"Failed to delete from Cloudinary: {cloud_err}")
@@ -891,10 +892,10 @@ async def delete_media_item(workspace_id: str, media_id: str):
                     resource_type = "video" if "/video/" in url else "image"
                     # Extract public_id from URL (format: .../upload/vXXXX/folder/public_id.ext)
                     import re
-                    match = re.search(r'/upload/(?:v\d+/)?(.+?)(?:\.[^.]+)?$', url)
+                    match = re.search(r'/upload/(?:v\\d+/)?(.+?)(?:\\.[^.]+)?$', url)
                     if match:
                         extracted_public_id = match.group(1)
-                        cloudinary.delete_media(extracted_public_id, resource_type=resource_type)
+                        await asyncio.to_thread(cloudinary.delete_media, extracted_public_id, resource_type)
                         logger.info(f"Deleted Cloudinary asset from URL: {extracted_public_id}")
                 except Exception as cloud_err:
                     logger.warning(f"Failed to delete from Cloudinary URL: {cloud_err}")

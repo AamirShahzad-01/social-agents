@@ -6,7 +6,8 @@ Supports: Text-to-video, Image-to-video, Video extension, Reference images, Fram
 import logging
 import time
 import base64
-from typing import Optional, List
+import asyncio
+from typing import Optional, List, Dict
 
 from google import genai
 from google.genai import types
@@ -32,6 +33,15 @@ logger = logging.getLogger(__name__)
 
 # Lazy client initialization
 _genai_client: Optional[genai.Client] = None
+
+# Download cache to prevent duplicate Cloudinary uploads
+# Key: operationId or veoVideoId prefix
+# Value: tuple of (cached_url_or_PENDING, timestamp)
+_download_cache: Dict[str, tuple] = {}
+_download_cache_lock = asyncio.Lock()
+_CACHE_PENDING = "__PENDING__"  # Marker for in-progress downloads
+_CACHE_MAX_SIZE = 10  # Max entries in cache
+_CACHE_TTL_SECONDS = 3600  # 1 hour TTL
 
 
 def get_genai_client() -> genai.Client:
@@ -559,9 +569,65 @@ async def download_video(request: VideoDownloadRequest) -> VideoDownloadResponse
     """
     try:
         import httpx
-        import base64
         
         veo_video_id = request.veoVideoId
+        
+        # Generate cache key from operationId (preferred) or veoVideoId prefix
+        cache_key = request.operationId or veo_video_id[:60]
+        current_time = time.time()
+        
+        # Check cache with proper locking to prevent race conditions
+        async with _download_cache_lock:
+            # Clean expired entries first
+            expired_keys = [k for k, v in _download_cache.items() 
+                           if isinstance(v, tuple) and len(v) == 2 and (current_time - v[1]) > _CACHE_TTL_SECONDS]
+            for k in expired_keys:
+                del _download_cache[k]
+                logger.info(f"[Veo] Cache expired: {k}")
+            
+            if cache_key in _download_cache:
+                cached_entry = _download_cache[cache_key]
+                # Handle tuple format: (value, timestamp)
+                if isinstance(cached_entry, tuple) and len(cached_entry) == 2:
+                    cached_value, cached_time = cached_entry
+                    # Check if expired
+                    if (current_time - cached_time) > _CACHE_TTL_SECONDS:
+                        del _download_cache[cache_key]
+                        logger.info(f"[Veo] Cache entry expired for {cache_key}")
+                    elif cached_value == _CACHE_PENDING:
+                        logger.info(f"[Veo] Download in progress for {cache_key}, waiting...")
+                    elif cached_value:
+                        logger.info(f"[Veo] Cache hit for {cache_key}: {cached_value[:60]}...")
+                        return VideoDownloadResponse(success=True, url=cached_value)
+            
+            # Not in cache or expired - mark as pending
+            if cache_key not in _download_cache:
+                # Enforce max size - remove oldest if needed
+                if len(_download_cache) >= _CACHE_MAX_SIZE:
+                    oldest_key = min(_download_cache.keys(), 
+                                    key=lambda k: _download_cache[k][1] if isinstance(_download_cache[k], tuple) else 0)
+                    del _download_cache[oldest_key]
+                    logger.info(f"[Veo] Cache full, removed oldest: {oldest_key}")
+                
+                _download_cache[cache_key] = (_CACHE_PENDING, current_time)
+                logger.info(f"[Veo] Cache miss, marked {cache_key} as pending")
+        
+        # If pending, wait for other request to complete
+        for _ in range(30):  # Wait up to 30 seconds
+            await asyncio.sleep(1)
+            async with _download_cache_lock:
+                if cache_key in _download_cache:
+                    entry = _download_cache[cache_key]
+                    if isinstance(entry, tuple) and len(entry) == 2:
+                        val, _ = entry
+                        if val != _CACHE_PENDING and val:
+                            logger.info(f"[Veo] Got URL after waiting: {val[:60]}...")
+                            return VideoDownloadResponse(success=True, url=val)
+                        elif val != _CACHE_PENDING:
+                            break  # Failed or removed
+                else:
+                    break  # Entry removed
+        
         logger.info(f"[Veo] Download: veoVideoId={veo_video_id[:80]}...")
         
         video_bytes = None
@@ -636,7 +702,19 @@ async def download_video(request: VideoDownloadRequest) -> VideoDownloadResponse
         if result.get("success"):
             video_url = result.get("secure_url") or result.get("url")
             logger.info(f"[Veo] Uploaded to Cloudinary: {video_url}")
+            
+            # Cache the successful URL with timestamp
+            async with _download_cache_lock:
+                _download_cache[cache_key] = (video_url, time.time())
+                logger.info(f"[Veo] Cached URL for operation {cache_key} (TTL: {_CACHE_TTL_SECONDS}s)")
+            
             return VideoDownloadResponse(success=True, url=video_url)
+        
+        # Cloudinary upload failed - remove pending marker
+        async with _download_cache_lock:
+            entry = _download_cache.get(cache_key)
+            if isinstance(entry, tuple) and entry[0] == _CACHE_PENDING:
+                del _download_cache[cache_key]
         
         # Fallback: return the original URL if Cloudinary upload fails
         if veo_video_id.startswith("http"):
@@ -649,6 +727,14 @@ async def download_video(request: VideoDownloadRequest) -> VideoDownloadResponse
         )
         
     except Exception as e:
+        # Clean up pending marker on error
+        try:
+            async with _download_cache_lock:
+                entry = _download_cache.get(cache_key)
+                if isinstance(entry, tuple) and entry[0] == _CACHE_PENDING:
+                    del _download_cache[cache_key]
+        except:
+            pass
         logger.error(f"[Veo] Download error: {e}", exc_info=True)
         return VideoDownloadResponse(success=False, error=str(e))
 
