@@ -70,10 +70,55 @@ async def chat_strategist(request: StrategistChatRequest):
 async def get_history(threadId: str):
     """
     Get history for a specific thread.
-    Forwards to the deep_agents implementation.
+    Returns messages from LangGraph checkpointer.
     """
-    from ...agents.deep_agents.router import get_thread_history
-    return await get_thread_history(threadId)
+    from ...agents.deep_agents.agent import get_agent
+    from langchain_core.messages import AIMessage, HumanMessage
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"Get strategist history - Thread: {threadId}")
+    
+    try:
+        agent = get_agent()
+        config = {"configurable": {"thread_id": threadId}}
+        
+        # Get state from checkpointer
+        state = await agent.aget_state(config)
+        
+        messages = []
+        if state and state.values and "messages" in state.values:
+            raw_messages = state.values["messages"]
+            
+            for msg in raw_messages:
+                # Format to UI expected structure
+                role = "assistant" if isinstance(msg, AIMessage) else "user" if isinstance(msg, HumanMessage) else "system"
+                
+                # Extract content string
+                content = msg.content
+                if isinstance(content, list):
+                    text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
+                    content = "\n".join(text_parts)
+                
+                messages.append({
+                    "role": role,
+                    "content": content,
+                    "timestamp": msg.additional_kwargs.get("timestamp", ""),
+                })
+        
+        return {
+            "success": True,
+            "threadId": threadId,
+            "messages": messages,
+        }
+    except Exception as e:
+        logger.error(f"Failed to get thread history: {e}")
+        return {
+            "success": False,
+            "threadId": threadId,
+            "messages": [],
+            "error": str(e),
+        }
 
 
 @router.get("/strategist/health")
