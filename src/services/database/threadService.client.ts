@@ -271,9 +271,9 @@ export class ThreadService {
    */
   static async getThreadMessages(langThreadId: string): Promise<ChatMessage[]> {
     try {
-      // Call Python backend for history (LangGraph stores checkpoints there)
-      const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000'
-      const response = await fetch(`${backendUrl}/api/v1/content/strategist/history?threadId=${langThreadId}`)
+      // Use centralized backend URL config for proper normalization
+      const { PYTHON_BACKEND_URL } = await import('@/lib/python-backend/config')
+      const response = await fetch(`${PYTHON_BACKEND_URL}/api/v1/content/strategist/history?threadId=${langThreadId}`)
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -308,8 +308,8 @@ export class ThreadService {
       // Delete LangGraph checkpoints from the backend
       if (thread?.lang_thread_id) {
         try {
-          const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000'
-          await fetch(`${backendUrl}/api/v1/deep-agents/threads/${thread.lang_thread_id}`, {
+          const { PYTHON_BACKEND_URL } = await import('@/lib/python-backend/config')
+          await fetch(`${PYTHON_BACKEND_URL}/api/v1/deep-agents/threads/${thread.lang_thread_id}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ workspaceId }),
