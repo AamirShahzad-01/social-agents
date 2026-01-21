@@ -690,7 +690,6 @@ async def download_video(request: VideoDownloadRequest) -> VideoDownloadResponse
         
         # Use Cloudinary service directly (sync method, wrap in thread)
         from src.services.cloudinary_service import CloudinaryService
-        import asyncio
         
         result = await asyncio.to_thread(
             CloudinaryService.upload_video_bytes,
