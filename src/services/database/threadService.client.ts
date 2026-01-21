@@ -32,6 +32,7 @@ export interface ContentThread {
 export class ThreadService {
   /**
    * Create a new conversation thread with LangGraph thread ID
+   * Uses upsert behavior to handle duplicate lang_thread_id gracefully
    */
   static async createThread(
     title: string,
@@ -42,6 +43,21 @@ export class ThreadService {
     try {
       const supabase = createClient()
 
+      // First, check if a thread with this lang_thread_id already exists
+      const { data: existingThread } = await (supabase
+        .from('content_threads') as any)
+        .select('*')
+        .eq('lang_thread_id', langThreadId)
+        .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
+        .single()
+
+      // If thread exists, return it (prevents duplicate key error)
+      if (existingThread) {
+        return existingThread as ContentThread
+      }
+
+      // Create new thread
       const { data, error } = await (supabase
         .from('content_threads') as any)
         .insert({
@@ -59,7 +75,22 @@ export class ThreadService {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        // Handle race condition - if another request created the thread, fetch it
+        if (error.code === '23505') {
+          const { data: raceThread } = await (supabase
+            .from('content_threads') as any)
+            .select('*')
+            .eq('lang_thread_id', langThreadId)
+            .eq('workspace_id', workspaceId)
+            .single()
+
+          if (raceThread) {
+            return raceThread as ContentThread
+          }
+        }
+        throw error
+      }
 
       return data as ContentThread
     } catch (error) {
