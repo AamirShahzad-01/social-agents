@@ -116,7 +116,19 @@ async def get_linkedin_credentials(
     if not account.get("is_connected"):
         raise HTTPException(status_code=400, detail="LinkedIn account is not connected")
     
-    credentials = account.get("credentials_encrypted", {})
+    raw_credentials = account.get("credentials_encrypted", {})
+    
+    # Parse credentials - could be dict (JSONB) or string (JSON)
+    if isinstance(raw_credentials, dict):
+        credentials = raw_credentials
+    elif isinstance(raw_credentials, str):
+        import json
+        try:
+            credentials = json.loads(raw_credentials)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Failed to parse LinkedIn credentials")
+    else:
+        raise HTTPException(status_code=400, detail="Invalid LinkedIn credentials format")
     
     # Check for profile ID - auth saves as userId, with fallback to profileId
     profile_id = credentials.get("userId") or credentials.get("profileId")

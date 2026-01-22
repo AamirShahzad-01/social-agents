@@ -100,7 +100,19 @@ async def get_twitter_credentials(
     if not account.get("is_connected"):
         raise HTTPException(status_code=400, detail="X account is not connected")
     
-    credentials = account.get("credentials_encrypted", {})
+    raw_credentials = account.get("credentials_encrypted", {})
+    
+    # Parse credentials - could be dict (JSONB) or string (JSON)
+    if isinstance(raw_credentials, dict):
+        credentials = raw_credentials
+    elif isinstance(raw_credentials, str):
+        import json
+        try:
+            credentials = json.loads(raw_credentials)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Failed to parse X credentials")
+    else:
+        raise HTTPException(status_code=400, detail="Invalid X credentials format")
     
     # OAuth 2.0 requires accessToken only
     # OAuth 1.0a also needs accessTokenSecret (for legacy media upload)
