@@ -164,10 +164,33 @@ async def get_platform_credentials(workspace_id: str, platform: str) -> Dict[str
     if not account.get("is_connected"):
         raise Exception(f"{platform} account is not connected")
     
-    credentials = account.get("credentials_encrypted", {})
+    raw_credentials = account.get("credentials_encrypted", {})
     
-    if not credentials:
+    if not raw_credentials:
         raise Exception(f"No credentials found for {platform}")
+    
+    # Parse credentials - could be dict (JSONB) or string (JSON/encrypted)
+    if isinstance(raw_credentials, dict):
+        credentials = raw_credentials
+    elif isinstance(raw_credentials, str):
+        # Try parsing as JSON
+        if raw_credentials.startswith("{"):
+            try:
+                credentials = json.loads(raw_credentials)
+            except json.JSONDecodeError:
+                raise Exception(f"Failed to parse credentials for {platform}")
+        else:
+            # Encrypted string - need to decrypt via MetaCredentialsService
+            logger.warning(f"Encrypted credentials for {platform}, attempting decryption")
+            try:
+                from ..services.meta_ads.meta_credentials_service import MetaCredentialsService
+                credentials = MetaCredentialsService._decrypt_credentials(raw_credentials, workspace_id)
+                if not credentials:
+                    raise Exception(f"Failed to decrypt credentials for {platform}")
+            except Exception as e:
+                raise Exception(f"Failed to decrypt credentials for {platform}: {e}")
+    else:
+        raise Exception(f"Invalid credentials format for {platform}")
     
     return credentials
 
