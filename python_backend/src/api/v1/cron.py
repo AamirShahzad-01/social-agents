@@ -22,6 +22,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request, Header
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ...services.supabase_service import get_supabase_admin_client
@@ -675,12 +676,15 @@ async def publish_scheduled_posts(
         # 1. Verify authentication
         if not verify_cron_auth(x_cron_secret):
             logger.warning("Cron auth failed - invalid or missing X-Cron-Secret")
-            return CronResponse(
-                success=False,
-                error="Unauthorized - invalid or missing X-Cron-Secret",
-                processed=0,
-                published=0,
-                failed=0
+            return JSONResponse(
+                status_code=401,
+                content=CronResponse(
+                    success=False,
+                    error="Unauthorized - invalid or missing X-Cron-Secret",
+                    processed=0,
+                    published=0,
+                    failed=0
+                ).model_dump(),
             )
         
         logger.info("Cron job started: publish-scheduled")
@@ -821,12 +825,15 @@ async def publish_scheduled_posts(
         
     except Exception as e:
         logger.error(f"Cron job error: {e}", exc_info=True)
-        return CronResponse(
-            success=False,
-            error=str(e),
-            processed=0,
-            published=0,
-            failed=0
+        return JSONResponse(
+            status_code=500,
+            content=CronResponse(
+                success=False,
+                error=str(e),
+                processed=0,
+                published=0,
+                failed=0
+            ).model_dump(),
         )
 
 

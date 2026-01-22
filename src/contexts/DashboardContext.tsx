@@ -332,8 +332,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         });
     }, []);
 
-    // Note: Scheduled post publishing is handled server-side by cron job
-    // See /api/cron/publish-scheduled - no client-side polling needed
+    // Note: Scheduled post publishing is handled server-side by an external cron trigger.
+    // In this codebase the canonical endpoint is the Python backend:
+    //   GET /api/v1/cron/publish-scheduled (called by cron-job.org)
+    // See docs/SCHEDULED_PUBLISHING.md for end-to-end flow.
 
     // Track which failed posts we've already notified about
     const notifiedFailedPostsRef = useRef<Set<string>>(new Set());

@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { PYTHON_BACKEND_URL } from '@/lib/backend-url';
+import { createServerClient } from '@/lib/supabase/server';
 
 // Configuration
 const CONFIG = {
@@ -47,7 +48,7 @@ function getSupabaseAdmin() {
 }
 
 // Authentication
-function verifyAuth(request: NextRequest): { authorized: boolean; error?: string } {
+async function verifyAuth(request: NextRequest): Promise<{ authorized: boolean; error?: string }> {
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
@@ -67,6 +68,18 @@ function verifyAuth(request: NextRequest): { authorized: boolean; error?: string
         return { authorized: true };
     }
 
+    // Allow authenticated app users to trigger manually from the UI
+    // (Comments page calls POST without cron headers)
+    try {
+        const supabase = await createServerClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            return { authorized: true };
+        }
+    } catch {
+        // ignore and fall through to unauthorized
+    }
+
     return { authorized: false, error: 'Invalid or missing CRON_SECRET' };
 }
 
@@ -74,7 +87,7 @@ async function handleProcessComments(request: NextRequest) {
     const startTime = Date.now();
 
     // Verify authentication
-    const auth = verifyAuth(request);
+    const auth = await verifyAuth(request);
     if (!auth.authorized) {
         return NextResponse.json({ error: auth.error }, { status: 401 });
     }
@@ -83,8 +96,9 @@ async function handleProcessComments(request: NextRequest) {
         const supabase = getSupabaseAdmin();
 
         // Get workspaces with connected social accounts
+        // NOTE: Table name aligned with supabase/projectdb.sql
         const { data: connections, error: connectionsError } = await supabase
-            .from('social_connections')
+            .from('social_accounts')
             .select('workspace_id, platform, is_connected, credentials_encrypted')
             .in('platform', CONFIG.PLATFORMS)
             .eq('is_connected', true)

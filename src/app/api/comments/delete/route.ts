@@ -101,7 +101,8 @@ async function hideMetaComment(
 }
 
 /**
- * Get platform credentials from social_connections table
+ * Get platform credentials from social_accounts table
+ * (aligned with supabase/projectdb.sql)
  */
 async function getPlatformCredentials(
     supabase: any,
@@ -110,7 +111,7 @@ async function getPlatformCredentials(
 ): Promise<{ accessToken?: string } | null> {
     try {
         const { data } = await supabase
-            .from('social_connections')
+            .from('social_accounts')
             .select('credentials_encrypted')
             .eq('workspace_id', workspaceId)
             .eq('platform', platform)

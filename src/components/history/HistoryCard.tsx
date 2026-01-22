@@ -42,6 +42,17 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
     const [publishError, setPublishError] = useState<string | null>(null);
     const [publishSuccess, setPublishSuccess] = useState(false);
 
+    const publishLog = (post.content as any)?._publishLog as
+        | { lastAttempt?: string; retryCount?: number; error?: string }
+        | undefined;
+
+    const formatDateTime = (iso?: string) => {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return iso;
+        return d.toLocaleString();
+    };
+
     const handlePublish = async () => {
         if (!onPublishPost || isPublishing) return;
 
@@ -289,6 +300,22 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                     )}
                 </div>
 
+                {/* Badges - Under Status: Schedule/Audit info */}
+                {(post.status === 'scheduled' || post.status === 'failed') && (
+                    <div className="absolute top-12 right-2 z-10 flex flex-col gap-1 items-end">
+                        {post.scheduledAt && (
+                            <Badge className="bg-black/60 hover:bg-black/70 text-white border-0 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px]">
+                                {post.status === 'scheduled' ? 'Publish' : 'Scheduled'}: {formatDateTime(post.scheduledAt)}
+                            </Badge>
+                        )}
+                        {post.status === 'failed' && (publishLog?.lastAttempt || publishLog?.retryCount != null) && (
+                            <Badge className="bg-black/60 hover:bg-black/70 text-white border-0 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px]">
+                                Last attempt: {formatDateTime(publishLog?.lastAttempt)}{publishLog?.retryCount != null ? ` • Retry ${publishLog.retryCount}` : ''}
+                            </Badge>
+                        )}
+                    </div>
+                )}
+
                 {/* Badges - Bottom Left: Post Type */}
                 <div className="absolute bottom-2 left-2 z-10 opacity-100 group-hover:opacity-0 transition-opacity duration-200">
                     <Badge className="bg-black/50 hover:bg-black/60 text-white border-0 backdrop-blur-sm flex items-center gap-1.5 rounded-lg">
@@ -388,6 +415,14 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                         <div className="mt-2 text-[10px] text-white bg-red-500/80 p-1.5 rounded backdrop-blur-sm flex items-center gap-1.5 animate-in slide-in-from-bottom-1 fade-in">
                             <AlertCircle className="w-3 h-3 flex-shrink-0" />
                             <span className="truncate">{publishError}</span>
+                        </div>
+                    )}
+
+                    {/* Cron failure detail (from server-side publish log) */}
+                    {post.status === 'failed' && !publishError && publishLog?.error && (
+                        <div className="mt-2 text-[10px] text-white bg-red-500/70 p-1.5 rounded backdrop-blur-sm flex items-center gap-1.5 animate-in slide-in-from-bottom-1 fade-in">
+                            <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{publishLog.error}</span>
                         </div>
                     )}
                 </div>
