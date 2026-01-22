@@ -80,6 +80,7 @@ class CronResponse(BaseModel):
     failed: int
     results: Optional[List[ProcessedPost]] = None
     error: Optional[str] = None
+    debug_now: Optional[str] = None
 
 
 class CommentsCronWorkspaceResult(BaseModel):
@@ -961,22 +962,39 @@ async def publish_scheduled_posts(
         
         # 2. Get Supabase client
         supabase = get_supabase_admin_client()
-        now = datetime.now(timezone.utc).isoformat()
         
         # 3. Fetch scheduled posts that are due
+        # Use UTC for consistency
+        utc_now = datetime.now(timezone.utc)
+        now_string = utc_now.strftime('%Y-%m-%dT%H:%M:%SZ')
+        
+        # Debug: Check all scheduled posts to see why they might be skipped
+        all_scheduled_query = supabase.table("posts").select("id, status, scheduled_at, publish_retry_count").eq(
+            "status", "scheduled"
+        ).execute()
+        
+        all_scheduled = all_scheduled_query.data or []
+        logger.info(f"DEBUG: Total posts with status='scheduled' in DB: {len(all_scheduled)}")
+        for p in all_scheduled:
+            logger.info(f"DEBUG: Post {p.get('id')} scheduled_at: {p.get('scheduled_at')}, now: {now_string}")
+
+        # Improved query: Only fetch posts that are due AND haven't exceeded retry count
+        # This prevents failed posts from blocking the queue
         query = supabase.table("posts").select("*").eq(
             "status", "scheduled"
-        ).lte("scheduled_at", now)
+        ).lte("scheduled_at", now_string)
         
-        # Filter by retry count (less than max)
-        # Using raw filter since .lt on nullable column needs different handling
+        # Filter out posts that already reached max retries. 
+        # We use a filter that includes rows where publish_retry_count is NULL or < 3
+        query = query.or_(f"publish_retry_count.is.null,publish_retry_count.lt.{CONFIG['MAX_RETRY_COUNT']}")
+        
         result = query.order(
             "scheduled_at", desc=False
         ).limit(CONFIG["MAX_POSTS_PER_RUN"]).execute()
         
         scheduled_posts = result.data or []
         
-        # Filter out posts that have exceeded retry count
+        # Filter again in Python to be 100% sure and handle NULLs
         scheduled_posts = [
             p for p in scheduled_posts 
             if (p.get("publish_retry_count") or 0) < CONFIG["MAX_RETRY_COUNT"]
@@ -1090,7 +1108,8 @@ async def publish_scheduled_posts(
             processed=len(processed_results),
             published=published,
             failed=failed,
-            results=processed_results
+            results=processed_results,
+            debug_now=now_string
         )
         
     except Exception as e:

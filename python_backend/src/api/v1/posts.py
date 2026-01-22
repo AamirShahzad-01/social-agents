@@ -6,7 +6,7 @@ CRUD operations for social media posts
 import re
 import logging
 from typing import Optional, Literal, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -189,7 +189,7 @@ async def create_post(user_id: str, request: CreatePostRequest):
             "post_type": post_type,
             "content": content_data,
             "status": post.status,
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
         
         if post.id:
@@ -212,7 +212,7 @@ async def create_post(user_id: str, request: CreatePostRequest):
             "resource_type": "post",
             "resource_id": result.data[0]["id"],
             "details": {},
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }).execute()
         
         return {
@@ -284,7 +284,7 @@ async def update_post(user_id: str, post_id: str, request: UpdatePostRequest):
             "post_type": post_type,
             "content": content_data,
             "status": post.status,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
         
         if post.scheduled_at:
@@ -304,7 +304,7 @@ async def update_post(user_id: str, post_id: str, request: UpdatePostRequest):
             "resource_type": "post",
             "resource_id": post_id,
             "details": {},
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }).execute()
         
         return transform_db_post(result.data[0]) if result.data else {"success": True}
@@ -339,7 +339,7 @@ async def delete_post(
             "resource_type": "post",
             "resource_id": post_id,
             "details": {},
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }).execute()
         
         return {"success": True}
