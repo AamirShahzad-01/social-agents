@@ -61,7 +61,7 @@ async def get_youtube_credentials(
     """Get YouTube credentials from database"""
     result = await db_select(
         table="social_accounts",
-        columns="credentials,is_active",
+        columns="credentials_encrypted,is_connected",
         filters={
             "workspace_id": workspace_id,
             "platform": "youtube"
@@ -74,8 +74,8 @@ async def get_youtube_credentials(
     
     account = result["data"][0]
     
-    if not account.get("is_active"):
-        raise HTTPException(status_code=400, detail="YouTube account is inactive")
+    if not account.get("is_connected"):
+        raise HTTPException(status_code=400, detail="YouTube account is not connected")
     
     credentials = account.get("credentials_encrypted", {})
     

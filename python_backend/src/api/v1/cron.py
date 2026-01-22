@@ -153,7 +153,7 @@ async def get_platform_credentials(workspace_id: str, platform: str) -> Dict[str
     supabase = get_supabase_admin_client()
     
     result = supabase.table("social_accounts").select(
-        "credentials_encrypted,is_active"
+        "credentials_encrypted,is_connected"
     ).eq("workspace_id", workspace_id).eq("platform", platform).limit(1).execute()
     
     if not result.data:
@@ -161,8 +161,8 @@ async def get_platform_credentials(workspace_id: str, platform: str) -> Dict[str
     
     account = result.data[0]
     
-    if not account.get("is_active"):
-        raise Exception(f"{platform} account is inactive")
+    if not account.get("is_connected"):
+        raise Exception(f"{platform} account is not connected")
     
     credentials = account.get("credentials_encrypted", {})
     
