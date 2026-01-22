@@ -111,18 +111,82 @@ async def create_advantage_plus_campaign(
             else:
                 end_time_str = str(body.end_time)
         
+        # Phase 4: Objective-specific validation for all campaign types (aligned with Meta Ads Manager)
+        objective_value = body.objective.value
+        promoted_object_dict = body.promoted_object.model_dump() if body.promoted_object else None
+        bid_strategy_value = body.bid_strategy.value if body.bid_strategy else None
+        
+        if objective_value == "OUTCOME_SALES":
+            # Sales campaigns: promoted_object with pixel_id is recommended for conversion tracking
+            if promoted_object_dict and promoted_object_dict.get("pixel_id"):
+                logger.info(f"Sales campaign with pixel_id: {promoted_object_dict.get('pixel_id')}")
+            else:
+                logger.warning("Sales campaign created without pixel_id - conversion tracking may be limited")
+        
+        elif objective_value == "OUTCOME_LEADS":
+            # Leads campaigns: promoted_object with lead_gen_form_id or pixel_id recommended
+            if promoted_object_dict:
+                if promoted_object_dict.get("lead_gen_form_id"):
+                    logger.info(f"Leads campaign with lead_gen_form_id: {promoted_object_dict.get('lead_gen_form_id')}")
+                elif promoted_object_dict.get("pixel_id"):
+                    logger.info(f"Leads campaign with pixel_id: {promoted_object_dict.get('pixel_id')}")
+                else:
+                    logger.warning("Leads campaign created without lead_gen_form_id or pixel_id - lead tracking may be limited")
+            else:
+                logger.warning("Leads campaign created without promoted_object - lead tracking may be limited")
+        
+        elif objective_value == "OUTCOME_APP_PROMOTION":
+            # App promotion: promoted_object with application_id is required
+            if promoted_object_dict and promoted_object_dict.get("application_id"):
+                logger.info(f"App promotion campaign with application_id: {promoted_object_dict.get('application_id')}")
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="App promotion campaigns require promoted_object with application_id. "
+                           "Please provide an application_id in the promoted_object."
+                )
+        
+        elif objective_value == "OUTCOME_TRAFFIC":
+            # Traffic campaigns: promoted_object with pixel_id optional but recommended
+            if promoted_object_dict and promoted_object_dict.get("pixel_id"):
+                logger.info(f"Traffic campaign with pixel_id: {promoted_object_dict.get('pixel_id')}")
+            else:
+                logger.info("Traffic campaign - pixel_id optional but recommended for conversion tracking")
+        
+        elif objective_value == "OUTCOME_ENGAGEMENT":
+            # Engagement campaigns: promoted_object optional, depends on optimization goal
+            if promoted_object_dict:
+                logger.info("Engagement campaign with promoted_object configured")
+            else:
+                logger.info("Engagement campaign - promoted_object optional")
+        
+        elif objective_value == "OUTCOME_AWARENESS":
+            # Awareness campaigns: promoted_object not typically required
+            if promoted_object_dict:
+                logger.info("Awareness campaign with promoted_object configured")
+            else:
+                logger.info("Awareness campaign - promoted_object not required")
+        
+        # Phase 5: Bid strategy validation - LOWEST_COST_WITH_MIN_ROAS only for Sales
+        if bid_strategy_value == "LOWEST_COST_WITH_MIN_ROAS" and objective_value != "OUTCOME_SALES":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Bid strategy LOWEST_COST_WITH_MIN_ROAS is only available for Sales campaigns. "
+                       f"Current objective: {objective_value}"
+            )
+        
         result = await service.create_advantage_plus_campaign(
             account_id=credentials["account_id"],
             access_token=credentials["access_token"],
             name=body.name,
-            objective=body.objective.value,
+            objective=objective_value,
             status=body.status.value,
             special_ad_categories=body.special_ad_categories,
             daily_budget=body.daily_budget,
             lifetime_budget=body.lifetime_budget,
             bid_strategy=body.bid_strategy.value if body.bid_strategy else None,
             geo_locations=body.geo_locations.model_dump() if body.geo_locations else None,
-            promoted_object=body.promoted_object.model_dump() if body.promoted_object else None,
+            promoted_object=promoted_object_dict,
             start_time=start_time_str,
             end_time=end_time_str,
             skip_adset=body.skip_adset

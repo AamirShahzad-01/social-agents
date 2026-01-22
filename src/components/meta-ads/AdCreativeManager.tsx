@@ -104,6 +104,7 @@ const initialFormData: AdFormData = {
   name: '',
   adset_id: '',
   status: 'PAUSED',
+  page_id: '', // v24.0 2026: Required for object_story_spec (preferred method)
   creative: {
     title: '',
     body: '',
@@ -171,6 +172,151 @@ export default function AdCreativeManager({ ads, adSets, onRefresh, showCreate, 
   const handleCreateAd = async () => {
     setIsSubmitting(true);
     try {
+      // Phase 3: Frontend validation - ensure creative aligns with ad set (all objectives)
+      const selectedAdSet = adSets.find(a => a.id === formData.adset_id);
+      
+      if (selectedAdSet) {
+        const optimizationGoal = selectedAdSet.optimization_goal;
+        const campaignObjective = selectedAdSet.campaign?.objective;
+        
+        // Conversion-based optimizations require link_url
+        if (['OFFSITE_CONVERSIONS', 'ONSITE_CONVERSIONS', 'VALUE'].includes(optimizationGoal)) {
+          if (!formData.creative.link_url) {
+            toast.error(`${optimizationGoal} optimization requires a link_url. Please provide a destination URL.`);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        
+        // Traffic optimizations require link_url
+        if (['LINK_CLICKS', 'LANDING_PAGE_VIEWS'].includes(optimizationGoal)) {
+          if (!formData.creative.link_url) {
+            toast.error(`${optimizationGoal} optimization requires a link_url. Please provide a destination URL.`);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        
+        // Lead generation requires link_url or lead form
+        if (optimizationGoal === 'LEAD_GENERATION') {
+          if (!formData.creative.link_url && !selectedAdSet.promoted_object?.lead_gen_form_id) {
+            toast.error('LEAD_GENERATION optimization requires a link_url or lead form. Please provide a destination URL.');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        
+        // App installs validation
+        if (optimizationGoal === 'APP_INSTALLS') {
+          if (!selectedAdSet.promoted_object?.application_id) {
+            toast.error('APP_INSTALLS optimization requires application_id in ad set promoted_object.');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        
+        // App installs and conversions requires both
+        if (optimizationGoal === 'APP_INSTALLS_AND_OFFSITE_CONVERSIONS') {
+          if (!selectedAdSet.promoted_object?.application_id) {
+            toast.error('APP_INSTALLS_AND_OFFSITE_CONVERSIONS requires application_id in promoted_object.');
+            setIsSubmitting(false);
+            return;
+          }
+          if (!selectedAdSet.promoted_object?.pixel_id) {
+            toast.error('APP_INSTALLS_AND_OFFSITE_CONVERSIONS requires pixel_id in promoted_object.');
+            setIsSubmitting(false);
+            return;
+          }
+          if (!formData.creative.link_url) {
+            toast.error('APP_INSTALLS_AND_OFFSITE_CONVERSIONS requires link_url in creative.');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        
+        // Video optimizations require video content
+        if (['THRUPLAY', 'VIDEO_VIEWS', 'TWO_SECOND_CONTINUOUS_VIDEO_VIEWS'].includes(optimizationGoal)) {
+          if (!formData.creative.video_id && !formData.creative.video_url) {
+            toast.error(`${optimizationGoal} optimization requires video content. Please provide a video.`);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        
+        // Phase 4: Objective-specific creative validation (all campaign types)
+        if (campaignObjective === 'OUTCOME_SALES') {
+          if (!formData.creative.link_url) {
+            toast.error('Sales campaigns require a link_url. Please provide a destination URL.');
+            setIsSubmitting(false);
+            return;
+          }
+          
+          const salesCTAs = ['SHOP_NOW', 'BUY_NOW', 'ORDER_NOW', 'LEARN_MORE', 'GET_OFFER', 'GET_PROMOTIONS'];
+          const currentCTA = formData.creative.call_to_action_type || 'LEARN_MORE';
+          if (!salesCTAs.includes(currentCTA)) {
+            toast.error('Sales campaigns should use SHOP_NOW, BUY_NOW, or ORDER_NOW for better performance.');
+            setIsSubmitting(false);
+            return;
+          }
+        } else if (campaignObjective === 'OUTCOME_LEADS') {
+          const leadsCTAs = ['SIGN_UP', 'CONTACT_US', 'GET_QUOTE', 'APPLY_NOW', 'LEARN_MORE', 'SEND_MESSAGE', 'CALL_NOW'];
+          const currentCTA = formData.creative.call_to_action_type || 'LEARN_MORE';
+          if (!leadsCTAs.includes(currentCTA)) {
+            toast.error('Leads campaigns should use SIGN_UP, CONTACT_US, or GET_QUOTE for better performance.');
+            setIsSubmitting(false);
+            return;
+          }
+        } else if (campaignObjective === 'OUTCOME_APP_PROMOTION') {
+          const appCTAs = ['INSTALL_APP', 'USE_APP', 'PLAY_GAME', 'DOWNLOAD', 'LEARN_MORE'];
+          const currentCTA = formData.creative.call_to_action_type || 'LEARN_MORE';
+          if (!appCTAs.includes(currentCTA)) {
+            toast.error('App promotion campaigns should use INSTALL_APP or USE_APP for better performance.');
+            setIsSubmitting(false);
+            return;
+          }
+        } else if (campaignObjective === 'OUTCOME_TRAFFIC') {
+          if (!formData.creative.link_url) {
+            toast.error('Traffic campaigns require a link_url. Please provide a destination URL.');
+            setIsSubmitting(false);
+            return;
+          }
+          
+          const trafficCTAs = ['LEARN_MORE', 'SHOP_NOW', 'SIGN_UP', 'DOWNLOAD', 'WATCH_MORE'];
+          const currentCTA = formData.creative.call_to_action_type || 'LEARN_MORE';
+          if (!trafficCTAs.includes(currentCTA)) {
+            toast.error('Traffic campaigns should use LEARN_MORE or SHOP_NOW for better performance.');
+            setIsSubmitting(false);
+            return;
+          }
+        } else if (campaignObjective === 'OUTCOME_ENGAGEMENT') {
+          if (optimizationGoal === 'CONVERSATIONS') {
+            const conversationCTAs = ['SEND_MESSAGE', 'MESSAGE_PAGE', 'WHATSAPP_MESSAGE'];
+            const currentCTA = formData.creative.call_to_action_type || 'LEARN_MORE';
+            if (!conversationCTAs.includes(currentCTA)) {
+              toast.error('Conversations campaigns should use SEND_MESSAGE or MESSAGE_PAGE for better performance.');
+              setIsSubmitting(false);
+              return;
+            }
+          }
+          
+          if (['THRUPLAY', 'VIDEO_VIEWS'].includes(optimizationGoal)) {
+            if (!formData.creative.video_id && !formData.creative.video_url) {
+              toast.error(`${optimizationGoal} optimization requires video content. Please provide a video.`);
+              setIsSubmitting(false);
+              return;
+            }
+          }
+        } else if (campaignObjective === 'OUTCOME_AWARENESS') {
+          const awarenessCTAs = ['LEARN_MORE', 'WATCH_MORE', 'LIKE_PAGE'];
+          const currentCTA = formData.creative.call_to_action_type || 'LEARN_MORE';
+          if (!awarenessCTAs.includes(currentCTA)) {
+            toast.error('Awareness campaigns should use LEARN_MORE or WATCH_MORE for better performance.');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+      
       // Prepare request data - carousel items should already be in formData.creative.carousel_items
       // from the CreateAdModal component
       const requestData = { ...formData };
@@ -700,6 +846,22 @@ function CreateAdModal({
               </div>
 
               <div>
+                <Label htmlFor="page-id">
+                  Facebook Page ID <span className="text-muted-foreground text-xs">(Optional)</span>
+                </Label>
+                <Input
+                  id="page-id"
+                  value={(formData as any).page_id || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, page_id: e.target.value } as any))}
+                  placeholder="Enter Facebook Page ID"
+                  className="mt-2"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Optional. Link ads to a specific Facebook Page. Required for object_story_spec (v24.0 2026 preferred method).
+                </p>
+              </div>
+
+              <div>
                 <Label>Creative Type</Label>
                 <div className="grid grid-cols-3 gap-3 mt-2">
                   {[
@@ -787,7 +949,7 @@ function CreateAdModal({
                   <div className="ml-6 space-y-3 p-4 border-l-2 border-[#00c4cc] bg-[#00c4cc]/5 rounded-r-xl">
                     <p className="text-xs font-semibold text-[#00c4cc] uppercase flex items-center gap-2">
                       <Sparkles className="w-3 h-3" />
-                      AI Enhancement Levers (v25.0 2026)
+                      AI Enhancement Levers (v24.0 2026)
                     </p>
                     <div className="grid grid-cols-2 gap-4">
                       {[
@@ -875,7 +1037,7 @@ function CreateAdModal({
                   </div>
                 </div>
 
-                {/* Format Automation (v25.0+) - Only for Carousel/Catalog */}
+                {/* Format Automation (v24.0 2026) - Only for Carousel/Catalog */}
                 {creativeType === 'carousel' && (
                   <div className="flex items-center space-x-2 border p-3 rounded-lg bg-muted/40">
                     <Checkbox

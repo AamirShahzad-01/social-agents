@@ -105,7 +105,6 @@ export const DestinationTypeSchema = z.enum([
   'WHATSAPP',
   'INSTAGRAM_DIRECT',
   'INSTAGRAM_PROFILE',
-  'WHATSAPP',
   'PHONE_CALL',
   'SHOP',
   'ON_AD',
@@ -113,6 +112,7 @@ export const DestinationTypeSchema = z.enum([
   'ON_EVENT',
   'ON_VIDEO',
   'ON_PAGE',
+  'APPLINKS_AUTOMATIC',
 ]);
 
 // Bid strategy types

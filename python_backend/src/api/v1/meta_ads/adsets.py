@@ -86,6 +86,9 @@ async def create_adset(request: Request, body: CreateAdSetRequest):
                     "window_days": spec.window_days
                 })
         
+        # Phase 5: Attribution spec validation based on optimization goal (will be set later)
+        # This will be validated after we determine the optimization_goal
+        
         service = get_meta_ads_service()
         
         # Check if campaign uses Campaign Budget Optimization (CBO)
@@ -99,6 +102,7 @@ async def create_adset(request: Request, body: CreateAdSetRequest):
         campaign_uses_cbo = False
         campaign_bid_strategy = None
         inherited_promoted_object = None
+        campaign_objective = None
         
         if campaigns_result.get("data"):
             campaign_data = next((c for c in campaigns_result["data"] if c.get("id") == body.campaign_id), None)
@@ -106,7 +110,188 @@ async def create_adset(request: Request, body: CreateAdSetRequest):
                 campaign_uses_cbo = bool(campaign_data.get("daily_budget") or campaign_data.get("lifetime_budget"))
                 campaign_bid_strategy = campaign_data.get("bid_strategy")
                 inherited_promoted_object = campaign_data.get("promoted_object")
-                logger.info(f"Campaign {body.campaign_id} info: CBO={campaign_uses_cbo}, bid_strategy={campaign_bid_strategy}, promoted_object={inherited_promoted_object}")
+                campaign_objective = campaign_data.get("objective")
+                logger.info(f"Campaign {body.campaign_id} info: objective={campaign_objective}, CBO={campaign_uses_cbo}, bid_strategy={campaign_bid_strategy}, promoted_object={inherited_promoted_object}")
+        
+        # Phase 2: Validate optimization goal matches campaign objective (workflow alignment)
+        optimization_goal = body.optimization_goal
+        if campaign_objective:
+            from ....services.meta_ads.meta_ads_service import OBJECTIVE_VALID_GOALS, RESTRICTED_ATTRIBUTION_GOALS
+            valid_goals = OBJECTIVE_VALID_GOALS.get(campaign_objective, [])
+            
+            if not optimization_goal:
+                # Use default based on campaign objective
+                if valid_goals:
+                    optimization_goal = valid_goals[0]
+                else:
+                    optimization_goal = "LINK_CLICKS"
+            
+            if optimization_goal not in valid_goals:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid optimization goal '{optimization_goal}' for campaign objective '{campaign_objective}'. "
+                           f"Valid goals for {campaign_objective} are: {', '.join(valid_goals)}. "
+                           f"Please select an optimization goal that aligns with your campaign objective."
+                )
+            
+            # Phase 4: Objective-specific validation for all campaign types (aligned with Meta Ads Manager)
+            if campaign_objective == "OUTCOME_SALES":
+                # Sales campaigns: OFFSITE_CONVERSIONS requires pixel_id
+                if optimization_goal == "OFFSITE_CONVERSIONS":
+                    if not promoted_object_dict or not promoted_object_dict.get("pixel_id"):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="For sales campaigns with OFFSITE_CONVERSIONS optimization, promoted_object with pixel_id is required. "
+                                   "Please provide a pixel_id in the promoted_object to track conversions."
+                        )
+                # Sales campaigns: VALUE optimization also benefits from pixel_id
+                elif optimization_goal == "VALUE":
+                    if not promoted_object_dict or not promoted_object_dict.get("pixel_id"):
+                        logger.warning("VALUE optimization for sales campaigns benefits from pixel_id for conversion value tracking")
+                
+                # Validate placement_soft_opt_out is only used for Sales/Leads
+                if body.placement_soft_opt_out is not None and body.placement_soft_opt_out:
+                    logger.info("placement_soft_opt_out enabled for sales campaign (v24.0 2026)")
+            
+            elif campaign_objective == "OUTCOME_LEADS":
+                # Leads campaigns: LEAD_GENERATION requires lead_gen_form_id or pixel_id
+                if optimization_goal == "LEAD_GENERATION":
+                    if not promoted_object_dict or (not promoted_object_dict.get("lead_gen_form_id") and not promoted_object_dict.get("pixel_id")):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="For leads campaigns with LEAD_GENERATION optimization, promoted_object with lead_gen_form_id or pixel_id is required. "
+                                   "Please provide a lead form or pixel for lead tracking."
+                        )
+                # Leads campaigns: QUALITY_LEAD also requires lead form
+                elif optimization_goal == "QUALITY_LEAD":
+                    if not promoted_object_dict or not promoted_object_dict.get("lead_gen_form_id"):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="QUALITY_LEAD optimization requires lead_gen_form_id in promoted_object. "
+                                   "Please provide a lead form ID."
+                        )
+                # Leads campaigns: CONVERSATIONS requires destination_type
+                elif optimization_goal == "CONVERSATIONS":
+                    if not body.destination_type:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="CONVERSATIONS optimization for leads campaigns requires destination_type. "
+                                   "Please specify MESSENGER, WHATSAPP, or INSTAGRAM_DIRECT."
+                        )
+                
+                # Validate placement_soft_opt_out is only used for Sales/Leads
+                if body.placement_soft_opt_out is not None and body.placement_soft_opt_out:
+                    logger.info("placement_soft_opt_out enabled for leads campaign (v24.0 2026)")
+            
+            elif campaign_objective == "OUTCOME_APP_PROMOTION":
+                # App promotion: APP_INSTALLS requires application_id
+                if optimization_goal == "APP_INSTALLS":
+                    if not promoted_object_dict or not promoted_object_dict.get("application_id"):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="For app promotion campaigns with APP_INSTALLS optimization, promoted_object with application_id is required. "
+                                   "Please provide an application_id in the promoted_object."
+                        )
+                # App promotion: APP_INSTALLS_AND_OFFSITE_CONVERSIONS requires both app_id and pixel_id
+                elif optimization_goal == "APP_INSTALLS_AND_OFFSITE_CONVERSIONS":
+                    if not promoted_object_dict:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="APP_INSTALLS_AND_OFFSITE_CONVERSIONS requires promoted_object with both application_id and pixel_id."
+                        )
+                    if not promoted_object_dict.get("application_id"):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="APP_INSTALLS_AND_OFFSITE_CONVERSIONS requires application_id in promoted_object."
+                        )
+                    if not promoted_object_dict.get("pixel_id"):
+                        raise HTTPException(
+                            status_code=400,
+                            detail="APP_INSTALLS_AND_OFFSITE_CONVERSIONS requires pixel_id in promoted_object for conversion tracking."
+                        )
+                # App promotion: destination_type should be APP
+                if not body.destination_type or body.destination_type.value != "APP":
+                    logger.warning("App promotion campaigns should use destination_type=APP for optimal performance")
+            
+            elif campaign_objective == "OUTCOME_TRAFFIC":
+                # Traffic campaigns: LANDING_PAGE_VIEWS requires link_url (validated at creative level)
+                if optimization_goal == "LANDING_PAGE_VIEWS":
+                    logger.info("LANDING_PAGE_VIEWS optimization - ensure creative has link_url")
+                # Traffic campaigns: LINK_CLICKS also requires link_url
+                elif optimization_goal == "LINK_CLICKS":
+                    logger.info("LINK_CLICKS optimization - ensure creative has link_url")
+                # Traffic campaigns: destination_type should be WEBSITE
+                if not body.destination_type or body.destination_type.value not in ["WEBSITE", "APPLINKS_AUTOMATIC"]:
+                    logger.warning("Traffic campaigns should use destination_type=WEBSITE for optimal performance")
+            
+            elif campaign_objective == "OUTCOME_ENGAGEMENT":
+                # Engagement campaigns: POST_ENGAGEMENT doesn't require link_url
+                if optimization_goal == "POST_ENGAGEMENT":
+                    logger.info("POST_ENGAGEMENT optimization - link_url optional, can use page posts")
+                # Engagement campaigns: THRUPLAY requires video
+                elif optimization_goal == "THRUPLAY":
+                    logger.info("THRUPLAY optimization - ensure creative has video content")
+                # Engagement campaigns: CONVERSATIONS requires destination_type
+                elif optimization_goal == "CONVERSATIONS":
+                    if not body.destination_type:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="CONVERSATIONS optimization for engagement campaigns requires destination_type. "
+                                   "Please specify MESSENGER, WHATSAPP, or INSTAGRAM_DIRECT."
+                        )
+                # Engagement campaigns: PAGE_LIKES doesn't require link_url
+                elif optimization_goal == "PAGE_LIKES":
+                    logger.info("PAGE_LIKES optimization - link_url not required")
+            
+            elif campaign_objective == "OUTCOME_AWARENESS":
+                # Awareness campaigns: REACH and IMPRESSIONS don't require link_url
+                if optimization_goal in ["REACH", "IMPRESSIONS"]:
+                    logger.info(f"{optimization_goal} optimization - link_url optional for awareness campaigns")
+                # Awareness campaigns: AD_RECALL_LIFT requires video
+                elif optimization_goal == "AD_RECALL_LIFT":
+                    logger.info("AD_RECALL_LIFT optimization - video content recommended for better recall")
+            
+            # Phase 5: Feature dependency enforcement - placement_soft_opt_out only for Sales/Leads
+            if body.placement_soft_opt_out is not None and body.placement_soft_opt_out:
+                if campaign_objective not in ["OUTCOME_SALES", "OUTCOME_LEADS"]:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"placement_soft_opt_out is only available for Sales and Leads campaigns. "
+                               f"Current campaign objective: {campaign_objective}"
+                    )
+            
+            # Phase 5: Bid strategy validation
+            if body.bid_strategy:
+                bid_strategy_value = body.bid_strategy.value if hasattr(body.bid_strategy, 'value') else body.bid_strategy
+                # LOWEST_COST_WITH_MIN_ROAS only for Sales/Conversions objectives
+                if bid_strategy_value == "LOWEST_COST_WITH_MIN_ROAS":
+                    if campaign_objective not in ["OUTCOME_SALES"]:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Bid strategy LOWEST_COST_WITH_MIN_ROAS is only available for Sales campaigns. "
+                                   f"Current campaign objective: {campaign_objective}"
+                        )
+            
+            # Phase 5: Attribution spec validation for non-conversion goals
+            if attribution_spec and optimization_goal:
+                if optimization_goal in RESTRICTED_ATTRIBUTION_GOALS:
+                    # For restricted goals, only allow click-through: 1 day, no view-through
+                    has_view_through = any(s.get("event_type") == "VIEW_THROUGH" for s in attribution_spec)
+                    if has_view_through:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Optimization goal '{optimization_goal}' only supports click-through attribution (1-day). "
+                                   f"View-through attribution is not available for this goal."
+                        )
+        elif not body.campaign_id:
+            raise HTTPException(
+                status_code=400,
+                detail="campaign_id is required to create an ad set."
+            )
+        else:
+            logger.warning(f"Campaign {body.campaign_id} not found - skipping optimization goal validation")
+            if not optimization_goal:
+                optimization_goal = "LINK_CLICKS"
         
         # Use inherited promoted_object if not provided in body
         promoted_object_dict = body.promoted_object.model_dump() if body.promoted_object else inherited_promoted_object
@@ -141,13 +326,25 @@ async def create_adset(request: Request, body: CreateAdSetRequest):
                     detail="Either daily_budget or lifetime_budget must be provided with a positive amount. Please set budget_type and budget_amount > 0. (Note: If campaign uses Campaign Budget Optimization, budget is set at campaign level)"
                 )
         
+        # Determine default optimization goal based on campaign objective if not provided
+        optimization_goal = body.optimization_goal
+        if not optimization_goal and campaign_objective:
+            from ....services.meta_ads.meta_ads_service import OBJECTIVE_VALID_GOALS, RESTRICTED_ATTRIBUTION_GOALS
+            valid_goals = OBJECTIVE_VALID_GOALS.get(campaign_objective, [])
+            if valid_goals:
+                # Use first valid goal as default (typically the recommended one)
+                optimization_goal = valid_goals[0]
+                logger.info(f"Using default optimization goal '{optimization_goal}' for campaign objective '{campaign_objective}'")
+        if not optimization_goal:
+            optimization_goal = "LINK_CLICKS"  # Fallback default
+        
         result = await service.create_adset(
             account_id=credentials["account_id"],
             access_token=credentials["access_token"],
             name=body.name,
             campaign_id=body.campaign_id,
             targeting=targeting or {"geo_locations": {"countries": ["US"]}},
-            optimization_goal=body.optimization_goal or "LINK_CLICKS",
+            optimization_goal=optimization_goal,
             billing_event=body.billing_event.value if body.billing_event else "IMPRESSIONS",
             status=body.status.value if body.status else "PAUSED",
             daily_budget=daily_budget,
@@ -182,7 +379,7 @@ async def create_adset(request: Request, body: CreateAdSetRequest):
                 "meta_campaign_id": body.campaign_id,
                 "name": body.name,
                 "status": body.status.value if body.status else "PAUSED",
-                "optimization_goal": body.optimization_goal or "LINK_CLICKS",
+                "optimization_goal": optimization_goal,
                 "billing_event": body.billing_event.value if body.billing_event else "IMPRESSIONS",
                 "bid_strategy": body.bid_strategy.value if body.bid_strategy else None,
                 "bid_amount": int(body.bid_amount * 100) if body.bid_amount else None,

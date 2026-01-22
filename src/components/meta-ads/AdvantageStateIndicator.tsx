@@ -11,9 +11,9 @@ import {
 } from '@/components/ui/tooltip';
 
 /**
- * v25.0+ Advantage+ State Info Interface
+ * v24.0 2026 Advantage+ State Info Interface
  * 
- * Matches the Meta Marketing API v25.0+ advantage_state_info structure.
+ * Matches the Meta Marketing API v24.0 2026 advantage_state_info structure.
  * All fields are returned from the API as ENABLED or DISABLED.
  */
 export interface AdvantageStateInfo {

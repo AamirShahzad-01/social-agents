@@ -25,6 +25,17 @@ logger = logging.getLogger(__name__)
 # Meta API Configuration - v24.0 (2026 standards)
 META_API_VERSION = "v24.0"
 
+# Attribution restrictions - v24.0 2026 standards
+# Goals that only support 1-day click-through attribution (no view-through)
+RESTRICTED_ATTRIBUTION_GOALS = [
+    "LANDING_PAGE_VIEWS",
+    "LINK_CLICKS",
+    "POST_ENGAGEMENT",
+    "REACH",
+    "IMPRESSIONS",
+    "THRUPLAY"
+]
+
 # Objective mapping - strictly OUTCOME-based (v24.0 2026 standards)
 # Legacy objectives (LINK_CLICKS, TRAFFIC, etc.) are purged for 2026 compliance.
 OBJECTIVE_MAPPING: Dict[str, str] = {
@@ -37,11 +48,12 @@ OBJECTIVE_MAPPING: Dict[str, str] = {
 }
 
 # Valid optimization goals per objective - v24.0 2026 ODAX
+# Aligned with Meta Ads Manager official workflow
 OBJECTIVE_VALID_GOALS: Dict[str, List[str]] = {
-    "OUTCOME_AWARENESS": ["REACH", "IMPRESSIONS", "AD_RECALL_LIFT"],
+    "OUTCOME_AWARENESS": ["REACH", "IMPRESSIONS", "AD_RECALL_LIFT", "THRUPLAY"],
     "OUTCOME_TRAFFIC": ["LINK_CLICKS", "LANDING_PAGE_VIEWS", "REACH", "IMPRESSIONS"],
     "OUTCOME_ENGAGEMENT": ["POST_ENGAGEMENT", "THRUPLAY", "VIDEO_VIEWS", "TWO_SECOND_CONTINUOUS_VIDEO_VIEWS", "LINK_CLICKS", "PAGE_LIKES", "EVENT_RESPONSES", "CONVERSATIONS"],
-    "OUTCOME_LEADS": ["LEAD_GENERATION", "QUALITY_LEAD", "CONVERSATIONS", "LINK_CLICKS", "OFFSITE_CONVERSIONS", "ONSITE_CONVERSIONS"],
+    "OUTCOME_LEADS": ["LEAD_GENERATION", "QUALITY_LEAD", "CONVERSATIONS", "QUALITY_CALL", "LINK_CLICKS", "OFFSITE_CONVERSIONS", "ONSITE_CONVERSIONS"],
     "OUTCOME_SALES": ["LINK_CLICKS", "LANDING_PAGE_VIEWS", "OFFSITE_CONVERSIONS", "ONSITE_CONVERSIONS", "VALUE"],
     "OUTCOME_APP_PROMOTION": ["APP_INSTALLS", "APP_INSTALLS_AND_OFFSITE_CONVERSIONS", "LINK_CLICKS", "REACH"],
 }
@@ -261,15 +273,6 @@ class MetaAdsService:
             # Non-conversion goals often only support (1, 0) attribution: 1-day click, 0-day view
             if attribution_spec:
                 # Goals requiring (1, 0) attribution window based on 2026 standards
-                RESTRICTED_ATTRIBUTION_GOALS = [
-                    "LANDING_PAGE_VIEWS", 
-                    "LINK_CLICKS", 
-                    "POST_ENGAGEMENT", 
-                    "REACH", 
-                    "IMPRESSIONS",
-                    "THRUPLAY"
-                ]
-                
                 if optimization_goal in RESTRICTED_ATTRIBUTION_GOALS:
                     # For restricted goals, only allow click-through: 1 day, no view-through
                     attribution_spec = [
@@ -1680,24 +1683,48 @@ class MetaAdsService:
                 adset_params["is_adset_budget_sharing_enabled"] = True
                 
                 # Placement Soft Opt Out: Allow 5% spend on excluded placements
+                # Only available for Sales and Leads objectives (v24.0 2026)
                 # For Advantage+ Placements (Lever 3), NO placement exclusions are set
-                # This parameter only applies if placements are excluded, so it's not relevant here
-                # However, Meta API may require this parameter, so set to False for strict Advantage+ compliance
-                # Note: Since no placement exclusions are set, this parameter doesn't affect Advantage+ status
                 # Setting to False ensures strict compliance with Advantage+ Placements requirement (Lever 3)
-                adset_params["placement_soft_opt_out"] = False
+                # Note: This parameter only applies if placements are excluded, so False is correct for Advantage+
+                if objective in ["OUTCOME_SALES", "OUTCOME_LEADS"]:
+                    # Sales/Leads can use placement_soft_opt_out, but for Advantage+ we keep it False
+                    adset_params["placement_soft_opt_out"] = False
+                else:
+                    # Other objectives don't support placement_soft_opt_out
+                    adset_params["placement_soft_opt_out"] = False
                 
-                # Attribution Spec (v24.0 2026): Updated windows per Jan 12, 2026 changes
+                # Attribution Spec (v24.0 2026): Objective-specific attribution based on optimization goal
                 # - View-through deprecated: 7-day and 28-day view windows removed (Jan 12, 2026)
                 # - Only 1-day view-through remains allowed
                 # - Click-through still supports 1, 7, 28 days
-                # Default attribution for Advantage+ campaigns: 1-day click, 7-day click, 1-day view
-                attribution_spec = [
-                    {"event_type": "CLICK_THROUGH", "window_days": 1},
-                    {"event_type": "CLICK_THROUGH", "window_days": 7},
-                    {"event_type": "VIEW_THROUGH", "window_days": 1}  # Only 1-day view allowed per 2026 standards
-                ]
+                # - Non-conversion goals only support click-through (1-day)
+                if optimization_goal in RESTRICTED_ATTRIBUTION_GOALS:
+                    # For restricted goals, only allow click-through: 1 day, no view-through
+                    attribution_spec = [
+                        {"event_type": "CLICK_THROUGH", "window_days": 1}
+                    ]
+                else:
+                    # For conversion goals, default attribution: 1-day click, 7-day click, 1-day view
+                    attribution_spec = [
+                        {"event_type": "CLICK_THROUGH", "window_days": 1},
+                        {"event_type": "CLICK_THROUGH", "window_days": 7},
+                        {"event_type": "VIEW_THROUGH", "window_days": 1}  # Only 1-day view allowed per 2026 standards
+                    ]
                 adset_params["attribution_spec"] = attribution_spec
+                
+                # Objective-specific promoted_object validation
+                if objective == "OUTCOME_APP_PROMOTION" and optimization_goal == "APP_INSTALLS":
+                    if not promoted_object or not promoted_object.get("application_id"):
+                        logger.warning("App promotion campaign with APP_INSTALLS - application_id in promoted_object is recommended")
+                
+                if objective == "OUTCOME_SALES" and optimization_goal == "OFFSITE_CONVERSIONS":
+                    if not promoted_object or not promoted_object.get("pixel_id"):
+                        logger.warning("Sales campaign with OFFSITE_CONVERSIONS - pixel_id in promoted_object is recommended for conversion tracking")
+                
+                if objective == "OUTCOME_LEADS" and optimization_goal == "LEAD_GENERATION":
+                    if not promoted_object or (not promoted_object.get("lead_gen_form_id") and not promoted_object.get("pixel_id")):
+                        logger.warning("Leads campaign with LEAD_GENERATION - lead_gen_form_id or pixel_id in promoted_object is recommended")
                 
                 # Schedule for ad set (convert to timestamp)
                 if start_time:
@@ -1870,18 +1897,26 @@ class MetaAdsService:
             advantage_placement_state == "ENABLED"
         )
         
-        # Map objective to advantage_state
+        # Map objective to advantage_state (v24.0 2026)
+        # Only OUTCOME_SALES, OUTCOME_APP_PROMOTION, and OUTCOME_LEADS support Advantage+
         objective_to_state = {
             "OUTCOME_SALES": "ADVANTAGE_PLUS_SALES",
             "OUTCOME_APP_PROMOTION": "ADVANTAGE_PLUS_APP",
-            "APP_INSTALLS": "ADVANTAGE_PLUS_APP",
             "OUTCOME_LEADS": "ADVANTAGE_PLUS_LEADS",
         }
         
-        if all_enabled and not special_ad_categories:
+        # Check if objective is eligible for Advantage+
+        is_advantage_eligible = objective in objective_to_state
+        
+        if all_enabled and not special_ad_categories and is_advantage_eligible:
             expected_state = objective_to_state.get(objective, "DISABLED")
         else:
             expected_state = "DISABLED"
+        
+        # Add objective-specific recommendations
+        if not is_advantage_eligible:
+            recommendations.append(f"Objective {objective} is not eligible for Advantage+ status. "
+                                 f"Only OUTCOME_SALES, OUTCOME_APP_PROMOTION, and OUTCOME_LEADS support Advantage+.")
         
         recommendations = []
         if not has_campaign_budget:
@@ -1894,12 +1929,13 @@ class MetaAdsService:
             recommendations.append("Special Ad Categories may limit Advantage+ features")
         
         return {
-            "is_eligible": all_enabled and not special_ad_categories,
+            "is_eligible": all_enabled and not special_ad_categories and is_advantage_eligible,
             "expected_advantage_state": expected_state,
             "requirements_met": {
                 "advantage_budget_state": advantage_budget_state == "ENABLED",
                 "advantage_audience_state": advantage_audience_state == "ENABLED",
                 "advantage_placement_state": advantage_placement_state == "ENABLED",
+                "objective_eligible": is_advantage_eligible,
             },
             "recommendations": recommendations
         }

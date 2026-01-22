@@ -159,6 +159,33 @@ export default function AdSetManager({ adSets, campaigns, onRefresh, showCreate,
       const selectedCampaign = campaigns.find(c => c.id === formData.campaign_id);
       const campaignUsesCBO = !!(selectedCampaign?.daily_budget || selectedCampaign?.lifetime_budget);
 
+      // Phase 2: Frontend validation - ensure optimization goal matches campaign objective
+      if (selectedCampaign?.objective) {
+        const validGoals = OBJECTIVE_OPTIMIZATION_GOALS[selectedCampaign.objective] || [];
+        const isValidGoal = validGoals.some(g => g.value === formData.optimization_goal);
+        
+        if (!isValidGoal && formData.optimization_goal) {
+          toast.error(
+            `Invalid optimization goal for ${selectedCampaign.objective} campaign. ` +
+            `Please select a valid goal from the dropdown.`
+          );
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Phase 4: Sales campaign validation - check for required promoted_object
+      if (selectedCampaign?.objective === 'OUTCOME_SALES' && formData.optimization_goal === 'OFFSITE_CONVERSIONS') {
+        if (!formData.promoted_object?.pixel_id) {
+          toast.error(
+            'Sales campaigns with OFFSITE_CONVERSIONS require a pixel_id in promoted_object. ' +
+            'Please configure conversion tracking.'
+          );
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // Prepare form data - exclude budget if CBO is active
       const submitData: any = { ...formData };
       if (campaignUsesCBO) {
@@ -175,15 +202,17 @@ export default function AdSetManager({ adSets, campaigns, onRefresh, showCreate,
       const data = await response.json();
 
       if (response.ok && data.success) {
+        toast.success('Ad set created successfully');
         handleModalChange(false);
         setFormData(initialFormData);
         onRefresh();
       } else {
         // Show error to user
-        alert(`Failed to create ad set: ${data.message || data.error || 'Unknown error'}`);
+        toast.error(`Failed to create ad set: ${data.message || data.error || 'Unknown error'}`);
       }
     } catch (error) {
-      alert('Failed to create ad set. Please try again.');
+      toast.error('Failed to create ad set. Please try again.');
+      console.error('Ad set creation error:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -704,6 +733,156 @@ function CreateAdSetModal({
                   })()}
                 </div>
               </div>
+
+              {/* Conversion Tracking / Promoted Object - Show based on optimization goal */}
+              {(() => {
+                const selectedCampaign = campaigns.find(c => c.id === formData.campaign_id);
+                const optimizationGoal = formData.optimization_goal;
+                const needsPixel = ['OFFSITE_CONVERSIONS', 'ONSITE_CONVERSIONS', 'VALUE'].includes(optimizationGoal || '');
+                const needsAppId = ['APP_INSTALLS', 'APP_INSTALLS_AND_OFFSITE_CONVERSIONS'].includes(optimizationGoal || '');
+                const needsLeadForm = optimizationGoal === 'LEAD_GENERATION';
+                const needsDestination = optimizationGoal === 'CONVERSATIONS';
+
+                if (!needsPixel && !needsAppId && !needsLeadForm && !needsDestination) return null;
+
+                return (
+                  <div className="space-y-4 pt-4 border-t">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-4 h-4 text-primary" />
+                      <Label className="text-base font-semibold">Conversion Tracking</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Configure tracking based on your optimization goal
+                    </p>
+
+                    {/* Pixel ID for Conversions */}
+                    {needsPixel && (
+                      <div>
+                        <Label htmlFor="pixel-id">
+                          Pixel ID <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="pixel-id"
+                          value={formData.promoted_object?.pixel_id || ''}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            promoted_object: {
+                              ...prev.promoted_object,
+                              pixel_id: e.target.value
+                            }
+                          }))}
+                          placeholder="Enter your Meta Pixel ID"
+                          className="mt-2"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Required for conversion tracking. Get your Pixel ID from Events Manager.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Application ID for App Installs */}
+                    {needsAppId && (
+                      <div>
+                        <Label htmlFor="app-id">
+                          Application ID <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="app-id"
+                          value={formData.promoted_object?.application_id || ''}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            promoted_object: {
+                              ...prev.promoted_object,
+                              application_id: e.target.value
+                            }
+                          }))}
+                          placeholder="Enter your App ID"
+                          className="mt-2"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Required for app install campaigns. Get your App ID from App Dashboard.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Lead Form ID for Lead Generation */}
+                    {needsLeadForm && (
+                      <div>
+                        <Label htmlFor="lead-form-id">Lead Form ID</Label>
+                        <Input
+                          id="lead-form-id"
+                          value={formData.promoted_object?.lead_gen_form_id || ''}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            promoted_object: {
+                              ...prev.promoted_object,
+                              lead_gen_form_id: e.target.value
+                            }
+                          }))}
+                          placeholder="Enter Lead Form ID (optional)"
+                          className="mt-2"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Optional. Use a lead form ID for lead generation campaigns.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Destination Type for Conversations */}
+                    {needsDestination && (
+                      <div>
+                        <Label htmlFor="destination-type">
+                          Destination Type <span className="text-red-500">*</span>
+                        </Label>
+                        <Select
+                          value={formData.destination_type || ''}
+                          onValueChange={(value) => setFormData(prev => ({
+                            ...prev,
+                            destination_type: value as any
+                          }))}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue placeholder="Select destination" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="MESSENGER">Messenger</SelectItem>
+                            <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
+                            <SelectItem value="INSTAGRAM_DIRECT">Instagram Direct</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Required for CONVERSATIONS optimization. Choose where conversations will happen.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Page ID (optional, for all) */}
+                    <div>
+                      <Label htmlFor="page-id">Page ID (Optional)</Label>
+                      <Input
+                        id="page-id"
+                        value={formData.promoted_object?.page_id || formData.page_id || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData(prev => ({
+                            ...prev,
+                            promoted_object: {
+                              ...prev.promoted_object,
+                              page_id: value
+                            },
+                            page_id: value
+                          }));
+                        }}
+                        placeholder="Enter Facebook Page ID"
+                        className="mt-2"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Optional. Link ads to a specific Facebook Page.
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1170,6 +1349,48 @@ function CreateAdSetModal({
                 </div>
               )}
 
+              {/* Budget Controls - Only show if not CBO */}
+              {!campaignUsesCBO && formData.budget_type === 'daily' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="daily-min-spend">Daily Min Spend Target (Optional)</Label>
+                    <div className="relative mt-2">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="daily-min-spend"
+                        type="number"
+                        value={(formData as any).daily_min_spend_target || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, daily_min_spend_target: parseFloat(e.target.value) || undefined } as any))}
+                        className="pl-10"
+                        min={0}
+                        placeholder="Min daily spend"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Minimum amount to spend per day
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="daily-spend-cap">Daily Spend Cap (Optional)</Label>
+                    <div className="relative mt-2">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="daily-spend-cap"
+                        type="number"
+                        value={(formData as any).daily_spend_cap || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, daily_spend_cap: parseFloat(e.target.value) || undefined } as any))}
+                        className="pl-10"
+                        min={0}
+                        placeholder="Max daily spend"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Maximum amount to spend per day
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Schedule */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1182,13 +1403,19 @@ function CreateAdSetModal({
                   />
                 </div>
                 <div>
-                  <Label>End Date (Optional)</Label>
+                  <Label>End Date {formData.budget_type === 'lifetime' && <span className="text-red-500">*</span>}</Label>
                   <Input
                     type="datetime-local"
                     value={formData.end_time || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
                     className="mt-2"
+                    required={formData.budget_type === 'lifetime'}
                   />
+                  {formData.budget_type === 'lifetime' && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Required for lifetime budget campaigns
+                    </p>
+                  )}
                 </div>
               </div>
 

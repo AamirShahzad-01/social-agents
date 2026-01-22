@@ -1,7 +1,7 @@
 /**
  * META ADS MANAGER TYPES - Professional Edition
- * Complete type definitions for Meta Marketing API v25.0+ (2025)
- * STRICT v25.0+ COMPLIANCE - No deprecated fields
+ * Complete type definitions for Meta Marketing API v24.0 (2026 standards)
+ * STRICT v24.0 2026 COMPLIANCE - No deprecated fields
  * @see https://developers.facebook.com/docs/marketing-api
  */
 
@@ -54,7 +54,7 @@ export type BuyingType = 'AUCTION' | 'RESERVED';
 export type SpecialAdCategory = 'NONE' | 'EMPLOYMENT' | 'HOUSING' | 'FINANCIAL_PRODUCTS_SERVICES' | 'ISSUES_ELECTIONS_POLITICS';
 
 // ============================================
-// ADVANTAGE+ STATE (v25.0+)
+// ADVANTAGE+ STATE (v24.0 2026)
 // ============================================
 
 export type AdvantageState =
@@ -66,7 +66,7 @@ export type AdvantageState =
 export type AdvantageComponentState = 'ENABLED' | 'DISABLED';
 
 /**
- * Advantage+ State Info - v25.0+
+ * Advantage+ State Info - v24.0 2026
  * Read-only field returned by API showing which automation levers are enabled.
  */
 export interface AdvantageStateInfo {
@@ -97,7 +97,7 @@ export interface Campaign {
   insights?: CampaignInsights;
   adsets_count?: number;
   ads_count?: number;
-  // v25.0+ Advantage+ state
+  // v24.0 2026 Advantage+ state
   advantage_state_info?: AdvantageStateInfo;
 }
 
@@ -137,7 +137,7 @@ export type OptimizationGoal =
   | 'VISIT_INSTAGRAM_PROFILE' | 'AD_RECALL_LIFT' | 'ENGAGED_USERS'
   | 'EVENT_RESPONSES' | 'REMINDERS_SET';
 
-// Official billing events from Meta API docs v25.0+
+// Official billing events from Meta API docs v24.0 2026
 export type BillingEvent =
   | 'IMPRESSIONS'
   | 'LINK_CLICKS'
@@ -151,7 +151,7 @@ export type BillingEvent =
   | 'QUALIFIED_LEAD'
   | 'NONE'; // For certain optimization goals
 
-// Destination types for ad sets (v25.0+)
+// Destination types for ad sets (v24.0 2026)
 export type DestinationType =
   | 'WEBSITE'
   | 'APP'
@@ -329,10 +329,10 @@ export interface AdCreative {
   object_story_spec?: ObjectStorySpec;
   degrees_of_freedom_spec?: DegreesOfFreedomSpec;
   carousel_items?: CarouselItem[];
-  // v25.0+ Advantage+ Creative & Gen AI
+  // v24.0 2026 Advantage+ Creative & Gen AI
   advantage_plus_creative: boolean;
   gen_ai_disclosure: boolean;
-  // v25.0+ Format Automation for Catalog Ads
+  // v24.0 2026 Format Automation for Catalog Ads
   format_automation?: boolean;
   product_set_id?: string;
 
@@ -360,7 +360,7 @@ export interface DegreesOfFreedomSpec {
     text_optimizations?: { enroll_status: 'OPT_IN' | 'OPT_OUT' };
     image_templates?: { enroll_status: 'OPT_IN' | 'OPT_OUT' };
     adapt_to_placement?: { enroll_status: 'OPT_IN' | 'OPT_OUT' };
-    // v25.0+ 2026 Additional Advantage+ Creative Features
+    // v24.0 2026 Additional Advantage+ Creative Features
     inline_comment?: { enroll_status: 'OPT_IN' | 'OPT_OUT' };
     expand_image?: { enroll_status: 'OPT_IN' | 'OPT_OUT' };
     dynamic_media?: { enroll_status: 'OPT_IN' | 'OPT_OUT' };
@@ -710,13 +710,13 @@ export interface AdSetFormData {
   end_time?: string;
   targeting: TargetingSpec;
   promoted_object?: PromotedObject;
-  // v25.0+ Advantage+ Audience - defaults to true
+  // v24.0 2026 Advantage+ Audience - defaults to true
   advantage_audience?: boolean;
-  // v25.0+ Advantage+ Placements - defaults to true
+  // v24.0 2026 Advantage+ Placements - defaults to true
   advantage_placements?: boolean;
-  // v25.0+ Attribution Settings
+  // v24.0 2026 Attribution Settings
   attribution_spec?: AttributionSpec[];
-  // v25.0+ 2026 Required Parameters (Jan 6, 2026+)
+  // v24.0 2026 Required Parameters (Jan 6, 2026+)
   is_adset_budget_sharing_enabled?: boolean;  // Share up to 20% budget between ad sets
   placement_soft_opt_out?: boolean;           // Allow 5% spend on excluded placements
   destination_type?: DestinationType;         // Where ads send people
@@ -726,6 +726,7 @@ export interface AdFormData {
   name: string;
   adset_id: string;
   status: AdStatus;
+  page_id?: string; // v24.0 2026: Required for object_story_spec (preferred method)
   creative: AdCreative;
 }
 
@@ -770,7 +771,7 @@ export const CAMPAIGN_OBJECTIVES: {
   description: string;
   icon: string;
   /**
-   * v25.0+ Advantage+ state this objective maps to.
+   * v24.0 2026 Advantage+ state this objective maps to.
    * null means the objective is not eligible for Advantage+ campaigns.
    * Only OUTCOME_SALES, OUTCOME_APP_PROMOTION, and OUTCOME_LEADS support Advantage+.
    */
@@ -821,7 +822,7 @@ export const CAMPAIGN_OBJECTIVES: {
   ];
 
 /**
- * Objectives eligible for Advantage+ campaigns (v25.0+)
+ * Objectives eligible for Advantage+ campaigns (v24.0 2026)
  * These objectives can achieve Advantage+ status via automation levers.
  */
 export const ADVANTAGE_PLUS_OBJECTIVES = CAMPAIGN_OBJECTIVES.filter(obj => obj.advantageState !== null);
@@ -866,7 +867,7 @@ export const BID_STRATEGIES: {
   ];
 
 /**
- * Optimization goals mapped by campaign objective (v25.0+)
+ * Optimization goals mapped by campaign objective (v24.0 2026)
  * Used for populating ad set optimization goal dropdowns.
  */
 export const OBJECTIVE_OPTIMIZATION_GOALS: Record<CampaignObjective, { value: OptimizationGoal; label: string; description: string }[]> = {
@@ -886,6 +887,8 @@ export const OBJECTIVE_OPTIMIZATION_GOALS: Record<CampaignObjective, { value: Op
     { value: 'POST_ENGAGEMENT', label: 'Post Engagement', description: 'Get likes, comments, shares' },
     { value: 'THRUPLAY', label: 'ThruPlay', description: 'Get video views (15+ seconds)' },
     { value: 'VIDEO_VIEWS', label: 'Video Views', description: 'Maximize video views' },
+    { value: 'TWO_SECOND_CONTINUOUS_VIDEO_VIEWS', label: '2-Second Video Views', description: 'Get 2+ second video views' },
+    { value: 'LINK_CLICKS', label: 'Link Clicks', description: 'Get people to click your link' },
     { value: 'PAGE_LIKES', label: 'Page Likes', description: 'Get more Page followers' },
     { value: 'EVENT_RESPONSES', label: 'Event Responses', description: 'Get people interested in your event' },
     { value: 'CONVERSATIONS', label: 'Conversations', description: 'Start messaging conversations' },
@@ -895,10 +898,13 @@ export const OBJECTIVE_OPTIMIZATION_GOALS: Record<CampaignObjective, { value: Op
     { value: 'QUALITY_LEAD', label: 'Quality Leads', description: 'Find higher quality leads' },
     { value: 'CONVERSATIONS', label: 'Conversations', description: 'Start messaging conversations' },
     { value: 'QUALITY_CALL', label: 'Quality Calls', description: 'Get quality phone calls' },
+    { value: 'LINK_CLICKS', label: 'Link Clicks', description: 'Get people to click your link' },
     { value: 'OFFSITE_CONVERSIONS', label: 'Website Conversions', description: 'Track website conversions' },
+    { value: 'ONSITE_CONVERSIONS', label: 'On-Site Conversions', description: 'Track on-site conversions' },
   ],
   'OUTCOME_SALES': [
     { value: 'OFFSITE_CONVERSIONS', label: 'Conversions', description: 'Optimize for purchases' },
+    { value: 'ONSITE_CONVERSIONS', label: 'On-Site Conversions', description: 'Track on-site conversions' },
     { value: 'VALUE', label: 'Value', description: 'Maximize conversion value' },
     { value: 'LINK_CLICKS', label: 'Link Clicks', description: 'Get people to click your link' },
     { value: 'LANDING_PAGE_VIEWS', label: 'Landing Page Views', description: 'Drive visits to your website' },
@@ -978,7 +984,7 @@ export const OBJECTIVE_CONFIGS: Record<CampaignObjective, ObjectiveConfig> = {
   },
 };
 
-// Updated for Meta Marketing API v25.0+
+// Updated for Meta Marketing API v24.0 2026
 export const OPTIMIZATION_GOALS: { value: OptimizationGoal; label: string; objectives: CampaignObjective[]; billingEvent: BillingEvent }[] = [
   // Awareness objectives
   { value: 'REACH', label: 'Reach', objectives: ['OUTCOME_AWARENESS'], billingEvent: 'IMPRESSIONS' },
@@ -1196,7 +1202,7 @@ export function formatPercentage(value: number): string {
 
 
 // =============================================================================
-// INSIGHTS API TYPES (v25.0+)
+// INSIGHTS API TYPES (v24.0 2026)
 // Uses existing DatePreset type from above
 // =============================================================================
 
@@ -1252,7 +1258,7 @@ export function parseInsightValue(value?: string): number {
 }
 
 // =============================================================================
-// A/B TESTING TYPES (v25.0+ - Split Testing)
+// A/B TESTING TYPES (v24.0 2026 - Split Testing)
 // Per Meta docs: https://developers.facebook.com/docs/marketing-api/guides/split-testing
 // =============================================================================
 
