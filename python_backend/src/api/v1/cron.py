@@ -183,7 +183,7 @@ async def get_platform_credentials(workspace_id: str, platform: str) -> Dict[str
             # Encrypted string - need to decrypt via MetaCredentialsService
             logger.warning(f"Encrypted credentials for {platform}, attempting decryption")
             try:
-                from ..services.meta_ads.meta_credentials_service import MetaCredentialsService
+                # MetaCredentialsService is already imported at top of file
                 credentials = MetaCredentialsService._decrypt_credentials(raw_credentials, workspace_id)
                 if not credentials:
                     raise Exception(f"Failed to decrypt credentials for {platform}")
