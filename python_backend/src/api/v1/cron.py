@@ -486,6 +486,9 @@ async def publish_to_platform(
             person_id = credentials.get("personId") or credentials.get("profileId", "")
             organization_id = credentials.get("organizationId")
             post_to_page = credentials.get("postToPage", False)
+            if isinstance(raw_content, dict):
+                post_to_page = raw_content.get("postToPage", post_to_page)
+            post_to_page = post.get("linkedInPostToPage", post_to_page)
             is_organization = post_to_page and organization_id
             
             # Determine target URN
