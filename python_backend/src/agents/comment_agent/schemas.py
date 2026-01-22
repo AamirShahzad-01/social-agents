@@ -58,7 +58,7 @@ class KnowledgeEntry(BaseModel):
 
 class CommentAgentCredentials(BaseModel):
     """Credentials for social media platforms"""
-    accessToken: str = Field(..., description="Meta platforms access token")
+    accessToken: str = Field(default="", description="Meta platforms access token (optional for YouTube-only)")
     instagramUserId: Optional[str] = None
     facebookPageId: Optional[str] = None
     pageAccessToken: Optional[str] = None
