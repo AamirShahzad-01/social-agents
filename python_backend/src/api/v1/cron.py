@@ -26,6 +26,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ...services.supabase_service import get_supabase_admin_client
+from ...services.meta_ads.meta_credentials_service import MetaCredentialsService
+from ...agents.comment_agent import (
+    process_comments,
+    ProcessCommentsRequest,
+    CommentAgentCredentials,
+)
 from ...config import settings
 
 logger = logging.getLogger(__name__)
@@ -72,6 +78,26 @@ class CronResponse(BaseModel):
     published: int
     failed: int
     results: Optional[List[ProcessedPost]] = None
+    error: Optional[str] = None
+
+
+class CommentsCronWorkspaceResult(BaseModel):
+    workspaceId: str
+    userId: str
+    success: bool
+    commentsFetched: int = 0
+    autoReplied: int = 0
+    escalated: int = 0
+    errors: int = 0
+    errorMessage: Optional[str] = None
+
+
+class CommentsCronResponse(BaseModel):
+    success: bool
+    processed: int
+    succeeded: int
+    failed: int
+    results: Optional[List[CommentsCronWorkspaceResult]] = None
     error: Optional[str] = None
 
 
@@ -538,6 +564,7 @@ async def publish_to_platform(
                         error=result.get("error", "Failed to upload")
                     )
             except Exception as e:
+                logger.error(f"Error publishing to {platform}: {e}", exc_info=True)
                 return PublishResult(
                     platform=platform,
                     success=False,
@@ -644,6 +671,144 @@ async def log_publish_activity(
 # ============================================================================
 # API ENDPOINTS
 # ============================================================================
+
+async def _pick_workspace_user_id(supabase, workspace_id: str) -> Optional[str]:
+    admin = supabase.table("users").select(
+        "id"
+    ).eq("workspace_id", workspace_id).eq("is_active", True).eq("role", "admin").order(
+        "created_at", desc=False
+    ).limit(1).execute()
+    if admin.data:
+        return admin.data[0].get("id")
+
+    any_user = supabase.table("users").select(
+        "id"
+    ).eq("workspace_id", workspace_id).eq("is_active", True).order(
+        "created_at", desc=False
+    ).limit(1).execute()
+    if any_user.data:
+        return any_user.data[0].get("id")
+    return None
+
+
+async def _build_comment_agent_credentials(
+    supabase,
+    workspace_id: str,
+    platforms: List[str],
+) -> Optional[CommentAgentCredentials]:
+    credentials: Dict[str, Any] = {}
+
+    if any(p in ["instagram", "facebook"] for p in platforms):
+        meta = await MetaCredentialsService.get_meta_credentials(workspace_id)
+        if meta and meta.get("access_token"):
+            credentials["accessToken"] = meta.get("access_token")
+            credentials["instagramUserId"] = meta.get("ig_user_id")
+            credentials["facebookPageId"] = meta.get("page_id")
+            credentials["pageAccessToken"] = meta.get("page_access_token")
+
+    if "youtube" in platforms:
+        yt = supabase.table("social_accounts").select(
+            "account_id,credentials_encrypted"
+        ).eq("workspace_id", workspace_id).eq("platform", "youtube").eq("is_connected", True).limit(1).execute()
+        if yt.data:
+            row = yt.data[0]
+            raw = row.get("credentials_encrypted") or {}
+            if isinstance(raw, dict):
+                credentials["youtubeAccessToken"] = raw.get("accessToken")
+            credentials["youtubeChannelId"] = row.get("account_id")
+
+    if not credentials:
+        return None
+    return CommentAgentCredentials(**credentials)
+
+
+@router.get("/process-comments", response_model=CommentsCronResponse)
+async def cron_process_comments(
+    request: Request,
+    x_cron_secret: Optional[str] = Header(default=None),
+    workspace_id: Optional[str] = None,
+    platforms: Optional[str] = None,
+):
+    if not verify_cron_auth(x_cron_secret):
+        return JSONResponse(
+            status_code=401,
+            content=CommentsCronResponse(
+                success=False,
+                processed=0,
+                succeeded=0,
+                failed=0,
+                error="Unauthorized - invalid or missing X-Cron-Secret",
+            ).model_dump(),
+        )
+
+    try:
+        supabase = get_supabase_admin_client()
+        platform_list = [p.strip() for p in (platforms or "instagram,facebook,youtube").split(",") if p.strip()]
+
+        workspaces: List[str] = []
+        if workspace_id:
+            workspaces = [workspace_id]
+        else:
+            ws = supabase.table("workspaces").select("id").eq("is_active", True).execute()
+            workspaces = [w.get("id") for w in (ws.data or []) if w.get("id")]
+
+        results: List[CommentsCronWorkspaceResult] = []
+
+        for ws_id in workspaces:
+            user_id = await _pick_workspace_user_id(supabase, ws_id)
+            if not user_id:
+                results.append(CommentsCronWorkspaceResult(
+                    workspaceId=ws_id,
+                    userId="",
+                    success=False,
+                    errors=1,
+                    errorMessage="No active user found for workspace",
+                ))
+                continue
+
+            creds = await _build_comment_agent_credentials(supabase, ws_id, platform_list)
+            resp = await process_comments(ProcessCommentsRequest(
+                workspaceId=ws_id,
+                userId=user_id,
+                platforms=platform_list,
+                runType="cron",
+                credentials=creds,
+            ))
+
+            results.append(CommentsCronWorkspaceResult(
+                workspaceId=ws_id,
+                userId=user_id,
+                success=resp.success,
+                commentsFetched=resp.commentsFetched,
+                autoReplied=resp.autoReplied,
+                escalated=resp.escalated,
+                errors=resp.errors,
+                errorMessage=getattr(resp, "errorMessage", None),
+            ))
+
+        succeeded = sum(1 for r in results if r.success)
+        failed = len(results) - succeeded
+        return CommentsCronResponse(
+            success=failed == 0,
+            processed=len(results),
+            succeeded=succeeded,
+            failed=failed,
+            results=results,
+        )
+
+    except Exception as e:
+        logger.error(f"Cron comments error: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content=CommentsCronResponse(
+                success=False,
+                processed=0,
+                succeeded=0,
+                failed=0,
+                error=str(e),
+            ).model_dump(),
+        )
+
 
 @router.get("/publish-scheduled", response_model=CronResponse)
 async def publish_scheduled_posts(
