@@ -151,25 +151,56 @@ async def get_platform_credentials(workspace_id: str, platform: str) -> Dict[str
     Raises:
         Exception: If credentials not found
     """
+    if platform in ["facebook", "instagram"]:
+        if platform == "instagram":
+            meta_credentials = await MetaCredentialsService.get_instagram_credentials(workspace_id)
+            if not meta_credentials:
+                raise Exception(f"{platform} not connected for workspace {workspace_id}")
+            if meta_credentials.get("is_expired"):
+                raise Exception("Instagram access token expired")
+            if not meta_credentials.get("access_token") or not meta_credentials.get("ig_user_id"):
+                raise Exception("Invalid Instagram configuration")
+            return {
+                "accessToken": meta_credentials.get("access_token"),
+                "userId": meta_credentials.get("ig_user_id"),
+                "pageId": meta_credentials.get("page_id"),
+                "expiresAt": meta_credentials.get("expires_at"),
+            }
+
+        meta_credentials = await MetaCredentialsService.get_meta_credentials(workspace_id)
+        if not meta_credentials:
+            raise Exception(f"{platform} not connected for workspace {workspace_id}")
+        if meta_credentials.get("is_expired"):
+            raise Exception("Facebook access token expired")
+        if not meta_credentials.get("access_token") or not meta_credentials.get("page_id"):
+            raise Exception("Invalid Facebook configuration")
+        return {
+            "accessToken": meta_credentials.get("access_token"),
+            "pageId": meta_credentials.get("page_id"),
+            "pageName": meta_credentials.get("page_name"),
+            "pageAccessToken": meta_credentials.get("page_access_token") or meta_credentials.get("access_token"),
+            "expiresAt": meta_credentials.get("expires_at"),
+        }
+
     supabase = get_supabase_admin_client()
-    
+
     result = supabase.table("social_accounts").select(
         "credentials_encrypted,is_connected"
     ).eq("workspace_id", workspace_id).eq("platform", platform).limit(1).execute()
-    
+
     if not result.data:
         raise Exception(f"{platform} not connected for workspace {workspace_id}")
-    
+
     account = result.data[0]
-    
+
     if not account.get("is_connected"):
         raise Exception(f"{platform} account is not connected")
-    
+
     raw_credentials = account.get("credentials_encrypted", {})
-    
+
     if not raw_credentials:
         raise Exception(f"No credentials found for {platform}")
-    
+
     # Parse credentials - could be dict (JSONB) or string (JSON/encrypted)
     if isinstance(raw_credentials, dict):
         credentials = raw_credentials
@@ -192,7 +223,7 @@ async def get_platform_credentials(workspace_id: str, platform: str) -> Dict[str
                 raise Exception(f"Failed to decrypt credentials for {platform}: {e}")
     else:
         raise Exception(f"Invalid credentials format for {platform}")
-    
+
     return credentials
 
 

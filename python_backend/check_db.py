@@ -1,31 +1,56 @@
 
 import os
+import sys
+import json
 import asyncio
-from dotenv import load_dotenv
+from datetime import datetime, timezone
 
-# Load env vars from ..\python_backend\.env but we are running from migrations folder maybe?
-# Let's just adjust path or assume env vars are loaded if running with uv/dotenv
+# Add src to path
+sys.path.append(os.getcwd())
+
 from src.services.supabase_service import get_supabase_admin_client
+from src.config import settings
 
-async def check_entries():
+async def check_posts():
+    print("Checking Supabase Connection...")
     try:
         supabase = get_supabase_admin_client()
-        # Query for all entries
-        result = supabase.table("content_calendar_entries").select("*").execute()
         
-        print("\n=== CALENDAR ENTRIES ===")
-        print(f"Total entries found: {len(result.data)}")
+        # 1. Total counts
+        result = supabase.table("posts").select("status", count="exact").execute()
+        print(f"Total posts in DB: {len(result.data) if result.data else 0}")
         
+        # 2. Status breakdown
+        from collections import Counter
+        statuses = [p.get("status") for p in (result.data or [])]
+        breakdown = Counter(statuses)
+        print("\nSTATUS BREAKDOWN:")
+        for status, count in breakdown.items():
+            print(f"- {status}: {count}")
+        
+        # 3. Details for all posts
+        result = supabase.table("posts").select("id, status, topic, scheduled_at, workspace_id, publish_retry_count").execute()
         if result.data:
-            print("\nFirst 5 entries:")
-            for entry in result.data[:5]:
-                print(f"- [{entry.get('scheduled_date')}] {entry.get('title')} (ID: {entry.get('id')})")
-                print(f"  Platform: {entry.get('platform')}, Workspace: {entry.get('workspace_id')}")
-        else:
-            print("No entries found in table 'content_calendar_entries'.")
+            first_post = result.data[0]
+            print(f"\nTESTING: Attempting to update post {first_post['id']} to 'scheduled' status...")
+            update_result = supabase.table("posts").update({
+                "status": "scheduled",
+                "scheduled_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", first_post["id"]).execute()
+            
+            if update_result.data:
+                print(f"SUCCESS: Post {first_post['id']} updated. Status is now {update_result.data[0].get('status')}")
+            else:
+                print(f"FAILED: Could not update post {first_post['id']}. Result data is empty.")
+
+        # 4. Final check for any post with status='scheduled'
+        scheduled = supabase.table("posts").select("*").eq("status", "scheduled").execute()
+        print(f"\nVERIFICATION: Found {len(scheduled.data)} posts with status='scheduled'")
+        for p in scheduled.data:
+            print(f"Post {p.get('id')}: Scheduled at {p.get('scheduled_at')}")
             
     except Exception as e:
-        print(f"Error checking entries: {e}")
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(check_entries())
+    asyncio.run(check_posts())
