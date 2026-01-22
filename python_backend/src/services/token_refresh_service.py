@@ -137,7 +137,7 @@ class TokenRefreshService:
             supabase = get_supabase_client()
             
             query = supabase.table("social_accounts").select(
-                "id, account_id, account_name, credentials, expires_at, is_connected, refresh_error_count"
+                "id, account_id, account_name, credentials_encrypted, expires_at, is_connected, refresh_error_count"
             ).filter(
                 "workspace_id", "eq", workspace_id
             ).filter(
