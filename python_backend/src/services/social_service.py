@@ -256,6 +256,48 @@ class SocialMediaService:
     # INSTAGRAM API - Using InstagramService from platforms
     # ============================================================================
     
+    async def instagram_get_accounts(self, access_token: str) -> Dict[str, Any]:
+        """Get Instagram Business Accounts linked to the user's Facebook Pages."""
+        try:
+            pages_result = await self.facebook_get_pages(access_token)
+            if not pages_result.get("success"):
+                return {
+                    "success": False,
+                    "error": pages_result.get("error", "Failed to fetch Facebook pages")
+                }
+
+            pages = pages_result.get("pages", [])
+            if not pages:
+                return {"success": False, "error": "No Facebook pages found"}
+
+            accounts = []
+            for page in pages:
+                page_id = page.get("id")
+                page_token = page.get("access_token") or access_token
+                if not page_id or not page_token:
+                    continue
+
+                ig_result = await self.instagram_get_business_account(page_id, page_token)
+                if not ig_result.get("success"):
+                    continue
+
+                ig_account_id = ig_result.get("instagram_account_id")
+                if ig_account_id:
+                    accounts.append({
+                        "id": ig_account_id,
+                        "username": ig_result.get("username"),
+                        "name": ig_result.get("name"),
+                        "page_id": page_id,
+                        "page_name": page.get("name")
+                    })
+
+            if not accounts:
+                return {"success": False, "error": "No Instagram accounts found"}
+
+            return {"success": True, "accounts": accounts}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
     async def instagram_get_business_account(
         self,
         page_id: str,
