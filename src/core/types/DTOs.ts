@@ -287,16 +287,17 @@ export interface CreateActivityLogDTO {
 export interface WorkspaceInviteDTO {
   id: string
   workspace_id: string
-  email: string
+  email: string | null
   role: 'admin' | 'editor' | 'viewer'
   is_accepted: boolean
   accepted_at: string | null
   expires_at: string
+  status?: 'pending' | 'accepted' | 'revoked' | 'expired' | string
   created_at: string
 }
 
 export interface CreateWorkspaceInviteDTO {
-  email: string
+  email?: string
   role?: 'admin' | 'editor' | 'viewer'
 }
 

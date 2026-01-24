@@ -120,7 +120,9 @@ export interface WorkspaceInvite {
   token: string // Unique cryptographic token
   expires_at: string | null // NULL = never expires
   invited_by: string // User ID who created invite
+  status?: 'pending' | 'accepted' | 'revoked' | 'expired' | string
   created_at: string
+  updated_at?: string
   used_at: string | null // NULL = not used yet
   used_by: string | null // User ID who accepted
 }

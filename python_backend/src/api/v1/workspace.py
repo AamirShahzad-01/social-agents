@@ -19,6 +19,7 @@ from src.services.supabase_service import (
     is_workspace_full,
     log_activity
 )
+from src.services.email_service import send_invitation_email
 from src.config import settings
 from src.middleware.auth import get_current_user
 
@@ -411,13 +412,13 @@ async def get_invites(user: Dict[str, Any] = Depends(get_current_user)):
         workspace_id, role = await get_user_workspace_role(user)
         require_admin(role)
         
-        supabase = get_supabase_client()
-        
-        # Use status field if available, otherwise fall back to is_accepted
-        result = supabase.table("workspace_invites").select("*").eq(
+        supabase_admin = get_supabase_admin_client()
+        now_iso = datetime.now().isoformat()
+
+        result = supabase_admin.table("workspace_invites").select("*").eq(
             "workspace_id", workspace_id
-        ).or_("status.eq.pending,is_accepted.eq.false").gte(
-            "expires_at", datetime.now().isoformat()
+        ).eq("status", "pending").gte(
+            "expires_at", now_iso
         ).order("created_at", desc=True).execute()
         
         return {"data": result.data or []}
@@ -446,11 +447,10 @@ async def create_invite(
         if not user_id:
             raise HTTPException(status_code=401, detail="User ID not found in token")
         
-        supabase = get_supabase_client()
         supabase_admin = get_supabase_admin_client()
         
         # Check if workspace is full
-        members_result = supabase.table("users").select(
+        members_result = supabase_admin.table("users").select(
             "id", count="exact"
         ).eq("workspace_id", workspace_id).eq("is_active", True).execute()
         
@@ -476,7 +476,7 @@ async def create_invite(
         
         # Check if email is already invited or is a member
         if request.email:
-            existing_member = supabase.table("users").select("id").eq(
+            existing_member = supabase_admin.table("users").select("id").eq(
                 "email", request.email
             ).eq("workspace_id", workspace_id).execute()
             
@@ -487,10 +487,10 @@ async def create_invite(
                 )
             
             # Check for pending invites
-            pending_invite = supabase.table("workspace_invites").select("id").eq(
+            pending_invite = supabase_admin.table("workspace_invites").select("id").eq(
                 "workspace_id", workspace_id
-            ).eq("email", request.email).or_(
-                "status.eq.pending,is_accepted.eq.false"
+            ).eq("email", request.email).eq(
+                "status", "pending"
             ).gte("expires_at", datetime.now().isoformat()).execute()
             
             if pending_invite.data:
@@ -514,7 +514,8 @@ async def create_invite(
             "status": "pending",
             "is_accepted": False,
             "expires_at": expires_at.isoformat(),
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
         }
         
         result = supabase_admin.table("workspace_invites").insert(invite_data).execute()
@@ -524,11 +525,27 @@ async def create_invite(
         
         invite = result.data[0]
         invite_url = f"{APP_URL}/invite/{token}"
-        
+
+        email_sent = None
+        if request.email:
+            try:
+                email_sent = await send_invitation_email(
+                    to_email=request.email,
+                    workspace_id=workspace_id,
+                    role=request.role,
+                    invitation_url=invite_url,
+                    expires_at=invite.get("expires_at"),
+                    inviter_id=user_id
+                )
+            except Exception as email_error:
+                logger.warning("Failed to send invitation email: %s", email_error)
+                email_sent = False
+
         return {
             "data": {
                 "invite": invite,
-                "inviteUrl": invite_url
+                "inviteUrl": invite_url,
+                "emailSent": email_sent
             }
         }
         
@@ -555,10 +572,10 @@ async def revoke_invite(
         workspace_id, role = await get_user_workspace_role(user)
         require_admin(role)
         
-        supabase = get_supabase_client()
-        
+        supabase_admin = get_supabase_admin_client()
+
         # Update invite status to revoked
-        supabase.table("workspace_invites").update({
+        supabase_admin.table("workspace_invites").update({
             "status": "revoked",
             "updated_at": datetime.now().isoformat()
         }).eq("id", invite_id).eq("workspace_id", workspace_id).execute()
@@ -586,12 +603,12 @@ async def accept_invite(
         if not user_id:
             raise HTTPException(status_code=401, detail="User ID not found in token")
         
-        supabase = get_supabase_client()
-        
+        supabase_admin = get_supabase_admin_client()
+
         # Find the invite
-        invite_result = supabase.table("workspace_invites").select("*").eq(
+        invite_result = supabase_admin.table("workspace_invites").select("*").eq(
             "token", request.token
-        ).or_("status.eq.pending,is_accepted.eq.false").single().execute()
+        ).eq("status", "pending").single().execute()
         
         if not invite_result.data:
             raise HTTPException(
@@ -616,19 +633,42 @@ async def accept_invite(
                 detail="This invitation is for a different email address"
             )
         
+        # Ensure workspace has capacity at acceptance time
+        workspace_result = supabase_admin.table("workspaces").select(
+            "max_users"
+        ).eq("id", invite["workspace_id"]).maybe_single().execute()
+
+        if not workspace_result.data:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+
+        max_members = workspace_result.data.get("max_users", 10)
+        members_result = supabase_admin.table("users").select(
+            "id", count="exact"
+        ).eq("workspace_id", invite["workspace_id"]).eq("is_active", True).execute()
+
+        current_members = members_result.count or 0
+        if current_members >= max_members:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Workspace is at maximum capacity ({max_members} members)"
+            )
+
         # Update user's workspace and role
-        supabase.table("users").update({
+        supabase_admin.table("users").update({
             "workspace_id": invite["workspace_id"],
             "role": invite["role"],
             "updated_at": datetime.now().isoformat()
         }).eq("id", user_id).execute()
         
         # Mark invite as accepted
-        supabase.table("workspace_invites").update({
+        supabase_admin.table("workspace_invites").update({
             "status": "accepted",
             "is_accepted": True,
             "accepted_by": user_id,
             "accepted_by_user_id": user_id,  # For backwards compatibility
+            "used_at": datetime.now().isoformat(),
+            "used_by": user_id,
+            "updated_at": datetime.now().isoformat(),
             "accepted_at": datetime.now().isoformat()
         }).eq("id", invite["id"]).execute()
         
@@ -648,10 +688,9 @@ async def get_invite_by_token(token: str):
     Get invitation details by token (public endpoint for invite preview).
     """
     try:
-        supabase = get_supabase_client()
         supabase_admin = get_supabase_admin_client()
-        
-        result = supabase.table("workspace_invites").select(
+
+        result = supabase_admin.table("workspace_invites").select(
             "id, role, email, expires_at, status, workspace_id"
         ).eq("token", token).maybe_single().execute()
         
@@ -668,7 +707,7 @@ async def get_invite_by_token(token: str):
         invite["workspace_name"] = workspace_result.data.get("name") if workspace_result.data else "Unknown"
         
         # Check if valid
-        is_valid = invite.get("status") == "pending" or invite.get("is_accepted") == False
+        is_valid = invite.get("status") == "pending"
         if is_valid:
             expires_at = datetime.fromisoformat(invite["expires_at"].replace("Z", "+00:00"))
             is_valid = expires_at > datetime.now(expires_at.tzinfo)

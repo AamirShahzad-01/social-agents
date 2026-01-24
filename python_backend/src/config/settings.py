@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     SUPABASE_URL: Optional[str] = Field(default=None, description="Supabase project URL")
     SUPABASE_KEY: Optional[str] = Field(default=None, description="Supabase anon key")
     SUPABASE_SERVICE_KEY: Optional[str] = Field(default=None, description="Supabase service role key")
+
+    # Email (Resend)
+    RESEND_API_KEY: Optional[str] = Field(default=None, description="Resend API key for transactional email")
+    SMTP_FROM_EMAIL: Optional[str] = Field(default=None, description="From email address")
+    SMTP_FROM_NAME: Optional[str] = Field(default=None, description="From display name")
     
     # Database Configuration
     DATABASE_URL: Optional[str] = Field(default=None, description="PostgreSQL connection string")

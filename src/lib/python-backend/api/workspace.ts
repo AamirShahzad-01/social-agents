@@ -160,9 +160,9 @@ export async function getInvites(): Promise<WorkspaceInvite[]> {
  */
 export async function createInvite(
   invite: CreateInviteRequest
-): Promise<{ invite: WorkspaceInvite; inviteUrl: string }> {
+): Promise<{ invite: WorkspaceInvite; inviteUrl: string; emailSent?: boolean | null }> {
   const result = await post<{
-    data?: { invite: WorkspaceInvite; inviteUrl: string }
+    data?: { invite: WorkspaceInvite; inviteUrl: string; emailSent?: boolean | null }
   }>(ENDPOINTS.workspace.invites, {
     email: invite.email,
     role: invite.role,

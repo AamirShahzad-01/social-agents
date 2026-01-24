@@ -80,7 +80,16 @@ export default function InviteMemberModal({
         expiresInDays: expiresInDays || undefined,
       })
 
-      addNotification('post_published', 'Invitation Sent', `Invitation sent to ${email}`)
+      if (result.emailSent === false) {
+        addNotification(
+          'error',
+          'Email Failed',
+          'Invite created but email could not be sent. You can copy the invite link.'
+        )
+      } else {
+        addNotification('post_published', 'Invitation Sent', `Invitation sent to ${email}`)
+      }
+
       setGeneratedLink(result.inviteUrl)
       onSuccess()
 

@@ -253,7 +253,7 @@ CREATE TABLE oauth_states (
 CREATE TABLE workspace_invites (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    email VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
     invited_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role user_role NOT NULL DEFAULT 'viewer',
     token VARCHAR(255) NOT NULL UNIQUE,
@@ -261,9 +261,13 @@ CREATE TABLE workspace_invites (
     accepted_at TIMESTAMPTZ,
     accepted_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     expires_at TIMESTAMPTZ NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending',
     used_at TIMESTAMPTZ,
+    used_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    accepted_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(workspace_id, email)
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Post Library (Published Posts Archive)
@@ -377,6 +381,10 @@ CREATE INDEX idx_workspace_invites_token ON workspace_invites(token);
 CREATE INDEX idx_workspace_invites_expires_at ON workspace_invites(expires_at);
 CREATE INDEX idx_workspace_invites_is_accepted ON workspace_invites(is_accepted);
 CREATE INDEX idx_workspace_invites_email ON workspace_invites(email);
+CREATE INDEX idx_workspace_invites_status ON workspace_invites(status);
+CREATE UNIQUE INDEX idx_workspace_invites_workspace_email_unique
+  ON workspace_invites(workspace_id, email)
+  WHERE email IS NOT NULL;
 
 -- Post Library
 CREATE INDEX idx_post_library_workspace ON post_library(workspace_id);

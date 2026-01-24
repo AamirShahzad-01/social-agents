@@ -373,12 +373,16 @@ export interface WorkspaceMember {
 export interface WorkspaceInvite {
     id: string;
     workspace_id: string;
-    email: string;
+    email: string | null;
     role: 'admin' | 'editor' | 'viewer';
     token: string;
     expires_at: string;
+    status?: 'pending' | 'accepted' | 'revoked' | 'expired' | string;
     created_at?: string;
+    updated_at?: string;
     accepted_at?: string;
+    used_at?: string | null;
+    used_by?: string | null;
 }
 
 /** Create invitation request */

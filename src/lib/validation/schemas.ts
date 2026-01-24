@@ -88,7 +88,7 @@ export type UpdateUserRoleInput = z.infer<typeof UpdateUserRoleSchema>
 // ============================================================================
 
 export const CreateWorkspaceInviteSchema = z.object({
-  email: EmailSchema,
+  email: EmailSchema.optional(),
   role: UserRoleSchema.default('viewer')
 })
 
