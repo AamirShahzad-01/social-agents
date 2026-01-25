@@ -263,6 +263,24 @@ class MetaSDKClient:
         if not result.get("success"):
             raise MetaSDKError(message=result.get("error", "Failed to fetch comments"))
         return result.get("comments", [])
+
+    async def reply_to_comment(self, comment_id: str, message: str) -> Dict[str, Any]:
+        """Reply to a comment via CommentsService."""
+        self._ensure_access_token()
+        service = CommentsService(self._access_token)
+        result = await service.reply_to_comment(comment_id, message)
+        if not result.get("success"):
+            raise MetaSDKError(message=result.get("error", "Failed to reply to comment"))
+        return result
+
+    async def like_object(self, object_id: str) -> Dict[str, Any]:
+        """Like a comment or post via CommentsService."""
+        self._ensure_access_token()
+        service = CommentsService(self._access_token)
+        result = await service.like_object(object_id)
+        if not result.get("success"):
+            raise MetaSDKError(message=result.get("error", "Failed to like object"))
+        return result
     
     # =========================================================================
     # BASIC ACCOUNT OPERATIONS (kept for backward compatibility)
