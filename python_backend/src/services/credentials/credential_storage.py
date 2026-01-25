@@ -47,6 +47,11 @@ class CredentialStorage:
                     ).eq("workspace_id", workspace_id).eq("platform", platform).eq("is_connected", True).order("updated_at", desc=True).limit(1).execute()
                     
                     if not result.data or len(result.data) == 0:
+                        logger.info(
+                            "No credential rows found for %s (workspace=%s)",
+                            platform,
+                            workspace_id,
+                        )
                         continue
                     
                     row = result.data[0]

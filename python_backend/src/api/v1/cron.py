@@ -774,9 +774,15 @@ async def _build_comment_agent_credentials(
             )
             
             if meta_creds:
+                logger.info(
+                    "Comment agent Meta credentials source for workspace %s: %s",
+                    workspace_id,
+                    meta_creds.get("source"),
+                )
                 # Extract Meta credentials
-                if meta_creds.get("access_token"):
-                    credentials["accessToken"] = meta_creds["access_token"]
+                page_token = meta_creds.get("page_access_token") or meta_creds.get("access_token")
+                if page_token:
+                    credentials["accessToken"] = page_token
                 
                 if meta_creds.get("page_id"):
                     credentials["facebookPageId"] = meta_creds["page_id"]
