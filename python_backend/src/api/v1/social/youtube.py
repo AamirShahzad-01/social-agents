@@ -67,7 +67,9 @@ async def get_youtube_credentials(
 
     if not refresh_result.success or not refresh_result.credentials:
         logger.error(
-            "YouTube credentials refresh failed",
+            "YouTube credentials refresh failed: %s (needs_reconnect=%s)",
+            refresh_result.error,
+            refresh_result.needs_reconnect,
             extra={
                 "workspace_id": workspace_id,
                 "error": refresh_result.error,
