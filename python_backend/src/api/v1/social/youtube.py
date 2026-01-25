@@ -66,16 +66,12 @@ async def get_youtube_credentials(
     )
 
     if not refresh_result.success or not refresh_result.credentials:
+        error_type = getattr(refresh_result.error_type, "value", refresh_result.error_type)
         logger.error(
-            "YouTube credentials refresh failed: %s (needs_reconnect=%s)",
+            "YouTube credentials refresh failed: %s (needs_reconnect=%s, error_type=%s)",
             refresh_result.error,
             refresh_result.needs_reconnect,
-            extra={
-                "workspace_id": workspace_id,
-                "error": refresh_result.error,
-                "error_type": getattr(refresh_result.error_type, "value", refresh_result.error_type),
-                "needs_reconnect": refresh_result.needs_reconnect,
-            },
+            error_type,
         )
         if refresh_result.needs_reconnect:
             raise HTTPException(
