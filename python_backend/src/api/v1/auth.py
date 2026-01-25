@@ -33,8 +33,8 @@ Platform = Literal["facebook", "instagram", "linkedin", "twitter", "tiktok", "yo
 OAUTH_URLS = {
     "twitter": "https://twitter.com/i/oauth2/authorize",
     "linkedin": "https://www.linkedin.com/oauth/v2/authorization",
-    "facebook": "https://www.facebook.com/v21.0/dialog/oauth",
-    "instagram": "https://www.facebook.com/v21.0/dialog/oauth",
+    "facebook": "https://www.facebook.com/v24.0/dialog/oauth",
+    "instagram": "https://www.facebook.com/v24.0/dialog/oauth",
     "tiktok": "https://www.tiktok.com/v2/auth/authorize/",
     "youtube": "https://accounts.google.com/o/oauth2/v2/auth",
 }
@@ -294,7 +294,10 @@ async def _save_social_account(
     username: str = None
 ) -> None:
     """
-    Save or update social account credentials with token expiration tracking.
+    Save or update social account credentials using centralized storage.
+    
+    For Meta platforms (facebook, instagram, meta_ads), uses centralized credential service.
+    For other platforms, uses direct database storage.
     
     Args:
         workspace_id: Workspace UUID
@@ -307,6 +310,38 @@ async def _save_social_account(
         page_name: Facebook/Instagram page name (optional)
         username: Username for display (optional, used by Instagram/Twitter)
     """
+    # For Meta platforms, use centralized credential storage
+    if platform in ["facebook", "instagram", "meta_ads"]:
+        from ...services.credentials import CredentialStorage
+        
+        # Add expiration to credentials
+        if expires_at:
+            credentials["expiresAt"] = expires_at.isoformat()
+        
+        metadata = {
+            "page_id": page_id,
+            "page_name": page_name,
+            "account_id": account_id,
+            "account_name": account_name,
+            "username": username,
+            "expires_at": expires_at.isoformat() if expires_at else None,
+        }
+        
+        CredentialStorage.save_credentials(
+            workspace_id,
+            platform,
+            credentials,
+            metadata
+        )
+        
+        # Invalidate cache to force refresh
+        from ...services.credentials import get_credential_cache
+        cache = get_credential_cache()
+        cache.invalidate(workspace_id)
+        
+        return
+    
+    # For non-Meta platforms, use direct database storage
     now = datetime.now(timezone.utc)
     
     data = {
@@ -323,7 +358,7 @@ async def _save_social_account(
         "updated_at": now.isoformat()
     }
     
-    # Add page info if provided (for Facebook/Instagram)
+    # Add page info if provided
     if page_id:
         data["page_id"] = page_id
     if page_name:
@@ -334,7 +369,6 @@ async def _save_social_account(
     # Add token expiration if provided
     if expires_at:
         data["expires_at"] = expires_at.isoformat()
-        # Also store in credentials for frontend access
         credentials["expiresAt"] = expires_at.isoformat()
         data["credentials_encrypted"] = credentials
     

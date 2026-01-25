@@ -10,7 +10,7 @@ import hashlib
 from fastapi import HTTPException, Request
 
 from ....services.supabase_service import ensure_user_workspace
-from ....services.meta_ads.meta_credentials_service import MetaCredentialsService
+from ....services.credentials import MetaCredentialsService
 from ....config import settings
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,10 @@ async def get_user_context(request: Request) -> Tuple[str, str]:
 
 async def get_verified_credentials(workspace_id: str, user_id: str):
     """Get and verify Meta Ads credentials"""
-    credentials = await MetaCredentialsService.get_ads_credentials(workspace_id, user_id)
+    credentials = await MetaCredentialsService.get_ads_credentials(
+        workspace_id,
+        refresh_if_needed=False  # Status check doesn't need refresh
+    )
     
     if not credentials or not credentials.get('access_token'):
         raise HTTPException(

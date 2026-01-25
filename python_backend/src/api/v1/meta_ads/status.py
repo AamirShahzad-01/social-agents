@@ -8,7 +8,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from ._helpers import get_user_context
-from ....services.meta_ads.meta_credentials_service import MetaCredentialsService
+from ....services.credentials import MetaCredentialsService
 from ....services.meta_ads.meta_ads_service import get_meta_ads_service
 
 logger = logging.getLogger(__name__)
@@ -34,11 +34,25 @@ async def get_status(request: Request):
         # Get connection status
         connection_status = await MetaCredentialsService.get_connection_status(workspace_id)
         
-        # Get ads capability
-        capability = await MetaCredentialsService.check_ads_capability(workspace_id, user_id)
+        # Get credentials for additional info (NO refresh for status check)
+        credentials = await MetaCredentialsService.get_ads_credentials(
+            workspace_id,
+            refresh_if_needed=False
+        )
         
-        # Get credentials for additional info
-        credentials = await MetaCredentialsService.get_ads_credentials(workspace_id, user_id)
+        # Check ads capability
+        has_ads_access = bool(credentials and credentials.get("account_id"))
+        missing_permissions = []
+        if not has_ads_access:
+            if not credentials:
+                missing_permissions = ["No Meta platform connected"]
+            elif not credentials.get("account_id"):
+                missing_permissions = ["No Ad Account found. Please ensure your Facebook account has access to an Ad Account."]
+        
+        capability = {
+            "has_ads_access": has_ads_access,
+            "missing_permissions": missing_permissions
+        }
         
         if not credentials or not credentials.get('access_token'):
             return JSONResponse(content={

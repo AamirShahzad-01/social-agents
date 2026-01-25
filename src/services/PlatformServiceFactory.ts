@@ -134,8 +134,8 @@ export class PlatformServiceFactory {
     const urls: Record<SupportedPlatform, string> = {
       twitter: 'https://twitter.com/i/oauth2/authorize',
       linkedin: 'https://www.linkedin.com/oauth/v2/authorization',
-      facebook: 'https://www.facebook.com/v18.0/dialog/oauth',
-      instagram: 'https://www.facebook.com/v18.0/dialog/oauth',
+      facebook: 'https://www.facebook.com/v24.0/dialog/oauth',
+      instagram: 'https://www.facebook.com/v24.0/dialog/oauth',
       tiktok: 'https://www.tiktok.com/v3/oauth/authorize',
       youtube: 'https://accounts.google.com/o/oauth2/v2/auth'
     }
@@ -150,8 +150,8 @@ export class PlatformServiceFactory {
     const urls: Record<SupportedPlatform, string> = {
       twitter: 'https://twitter.com/2/oauth2/token',
       linkedin: 'https://www.linkedin.com/oauth/v2/accessToken',
-      facebook: 'https://graph.facebook.com/v18.0/oauth/access_token',
-      instagram: 'https://graph.instagram.com/v18.0/oauth/access_token',
+      facebook: 'https://graph.facebook.com/v24.0/oauth/access_token',
+      instagram: 'https://graph.instagram.com/v24.0/oauth/access_token',
       tiktok: 'https://open.tiktokapis.com/v1/oauth/token',
       youtube: 'https://oauth2.googleapis.com/token'
     }

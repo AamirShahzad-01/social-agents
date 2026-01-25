@@ -7,13 +7,11 @@ NOTE: Facebook Pages, Instagram, and Comments services have moved to:
 
 Usage:
     from src.services.meta_ads import get_meta_ads_service
-    from src.services.meta_ads import MetaCredentialsService
     from src.services.meta_ads import create_meta_sdk_client
 """
 
 # Core services
 from .meta_ads_service import get_meta_ads_service, MetaAdsService
-from .meta_credentials_service import MetaCredentialsService
 from .meta_sdk_client import create_meta_sdk_client, get_meta_sdk_client, MetaSDKClient
 
 # SDK Feature services (Ads/Marketing related)
@@ -42,7 +40,6 @@ __all__ = [
     # Core
     "get_meta_ads_service",
     "MetaAdsService",
-    "MetaCredentialsService",
     "create_meta_sdk_client",
     "get_meta_sdk_client",
     "MetaSDKClient",

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 
 from ._helpers import get_user_context
-from ....services.meta_ads.meta_credentials_service import MetaCredentialsService
+from ....services.credentials import MetaCredentialsService
 from ....schemas.meta_ads import SwitchBusinessRequest
 
 logger = logging.getLogger(__name__)
@@ -28,10 +28,16 @@ async def list_businesses(request: Request):
         user_id, workspace_id = await get_user_context(request)
         
         # Get available businesses with ad accounts
-        businesses = await MetaCredentialsService.get_available_businesses(workspace_id, user_id)
+        businesses = await MetaCredentialsService.get_available_businesses(
+            workspace_id,
+            user_id
+        )
         
         # Get current credentials to find active business/ad account
-        credentials = await MetaCredentialsService.get_meta_credentials(workspace_id, user_id)
+        credentials = await MetaCredentialsService.get_meta_credentials(
+            workspace_id,
+            refresh_if_needed=False
+        )
         
         active_business = None
         if credentials:

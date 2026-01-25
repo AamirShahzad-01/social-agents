@@ -6,13 +6,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { decryptCredentials, getOrCreateWorkspaceEncryptionKey } from '@/lib/auth/encryptionManager';
 import { createHmac } from 'crypto';
 
 interface UserData {
     workspace_id: string;
 }
 
-const GRAPH_API_VERSION = 'v25.0';
+const GRAPH_API_VERSION = 'v24.0';
 const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
@@ -122,9 +123,12 @@ async function getPlatformCredentials(
             return null;
         }
 
-        const creds = typeof data.credentials_encrypted === 'string'
-            ? JSON.parse(data.credentials_encrypted)
-            : data.credentials_encrypted;
+        const encryptionKey = await getOrCreateWorkspaceEncryptionKey(workspaceId);
+        const creds = await decryptCredentials(data.credentials_encrypted, encryptionKey);
+
+        if (!creds) {
+            return null;
+        }
 
         return {
             accessToken: creds.access_token || creds.accessToken,

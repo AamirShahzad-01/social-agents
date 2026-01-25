@@ -19,7 +19,7 @@ import { logAuditEvent } from '@/services/database/auditLogService'
 import type { Platform } from '@/types'
 import crypto from 'crypto'
 
-const META_API_VERSION = 'v25.0'
+const META_API_VERSION = 'v24.0'
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
 
 // Token is considered expiring soon if less than 7 days remain

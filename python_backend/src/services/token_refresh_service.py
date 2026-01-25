@@ -163,17 +163,11 @@ class TokenRefreshService:
             account = response.data[0]
             credentials = account.get("credentials_encrypted", {})
             if isinstance(credentials, str):
-                if credentials.startswith("{"):
-                    try:
-                        credentials = json.loads(credentials)
-                    except json.JSONDecodeError:
-                        credentials = {}
-                else:
-                    try:
-                        from .meta_ads.meta_credentials_service import MetaCredentialsService
-                        credentials = MetaCredentialsService._decrypt_credentials(credentials, workspace_id) or {}
-                    except Exception:
-                        credentials = {}
+                try:
+                    from .credentials.credential_encryption import CredentialEncryption
+                    credentials = CredentialEncryption.decrypt(credentials, workspace_id) or {}
+                except Exception:
+                    credentials = {}
             db_id = account["id"]
             
             if not credentials:

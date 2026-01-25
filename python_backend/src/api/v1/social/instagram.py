@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from ....services.social_service import social_service
 from ....services.supabase_service import verify_jwt, db_select, db_update
-from ....services.meta_ads.meta_credentials_service import MetaCredentialsService
+from ....services.credentials import MetaCredentialsService
 from ....services.storage_service import storage_service
 from ....services.rate_limit_service import get_rate_limit_service
 from ....config import settings
@@ -76,12 +76,12 @@ async def get_instagram_credentials(
     is_cron: bool = False
 ):
     """
-    Get Instagram credentials using SDK-based MetaCredentialsService
+    Get Instagram credentials using centralized MetaCredentialsService
     
     Args:
         user_id: User ID
         workspace_id: Workspace ID
-        is_cron: Whether this is a cron request
+        is_cron: Whether this is a cron request (False = refresh if needed, True = use cache)
         
     Returns:
         Instagram credentials dict
@@ -89,8 +89,13 @@ async def get_instagram_credentials(
     Raises:
         HTTPException: If credentials not found or expired
     """
-    # Use SDK-based credentials service
-    credentials = await MetaCredentialsService.get_instagram_credentials(workspace_id, user_id)
+    # Use centralized credentials service
+    # refresh_if_needed=True for publish button, False for cron jobs
+    refresh_if_needed = not is_cron
+    credentials = await MetaCredentialsService.get_instagram_credentials(
+        workspace_id,
+        refresh_if_needed=refresh_if_needed
+    )
     
     if not credentials:
         raise HTTPException(status_code=400, detail="Instagram not connected")

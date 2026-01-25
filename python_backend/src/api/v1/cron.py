@@ -27,7 +27,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ...services.supabase_service import get_supabase_admin_client
-from ...services.meta_ads.meta_credentials_service import MetaCredentialsService
+from ...services.credentials import MetaCredentialsService
 from ...services.token_refresh_service import token_refresh_service
 from ...agents.comment_agent import (
     process_comments,
@@ -153,10 +153,12 @@ async def get_platform_credentials(workspace_id: str, platform: str) -> Dict[str
         Exception: If credentials not found
     """
     if platform in ["facebook", "instagram"]:
-        # Auto-refresh Meta tokens if expiring
-        await MetaCredentialsService.auto_refresh_if_needed(workspace_id)
+        # Use centralized service with refresh_if_needed=False (cron uses cached tokens)
         if platform == "instagram":
-            meta_credentials = await MetaCredentialsService.get_instagram_credentials(workspace_id)
+            meta_credentials = await MetaCredentialsService.get_instagram_credentials(
+                workspace_id, 
+                refresh_if_needed=False
+            )
             if not meta_credentials:
                 raise Exception(f"{platform} not connected for workspace {workspace_id}")
             if meta_credentials.get("is_expired"):
@@ -170,7 +172,10 @@ async def get_platform_credentials(workspace_id: str, platform: str) -> Dict[str
                 "expiresAt": meta_credentials.get("expires_at"),
             }
 
-        meta_credentials = await MetaCredentialsService.get_meta_credentials(workspace_id)
+        meta_credentials = await MetaCredentialsService.get_meta_credentials(
+            workspace_id,
+            refresh_if_needed=False
+        )
         if not meta_credentials:
             raise Exception(f"{platform} not connected for workspace {workspace_id}")
         if meta_credentials.get("is_expired"):
@@ -185,7 +190,7 @@ async def get_platform_credentials(workspace_id: str, platform: str) -> Dict[str
             "expiresAt": meta_credentials.get("expires_at"),
         }
 
-    # Auto-refresh non-Meta credentials if expiring
+    # For non-Meta platforms, use token_refresh_service
     refresh_result = await token_refresh_service.get_valid_credentials(
         platform=platform,
         workspace_id=workspace_id
@@ -196,48 +201,6 @@ async def get_platform_credentials(workspace_id: str, platform: str) -> Dict[str
     credentials = refresh_result.credentials or {}
     if not credentials:
         raise Exception(f"No credentials found for {platform}")
-
-    supabase = get_supabase_admin_client()
-
-    result = supabase.table("social_accounts").select(
-        "credentials_encrypted,is_connected"
-    ).eq("workspace_id", workspace_id).eq("platform", platform).limit(1).execute()
-
-    if not result.data:
-        raise Exception(f"{platform} not connected for workspace {workspace_id}")
-
-    account = result.data[0]
-
-    if not account.get("is_connected"):
-        raise Exception(f"{platform} account is not connected")
-
-    raw_credentials = credentials or account.get("credentials_encrypted", {})
-
-    if not raw_credentials:
-        raise Exception(f"No credentials found for {platform}")
-
-    # Parse credentials - could be dict (JSONB) or string (JSON/encrypted)
-    if isinstance(raw_credentials, dict):
-        credentials = raw_credentials
-    elif isinstance(raw_credentials, str):
-        # Try parsing as JSON
-        if raw_credentials.startswith("{"):
-            try:
-                credentials = json.loads(raw_credentials)
-            except json.JSONDecodeError:
-                raise Exception(f"Failed to parse credentials for {platform}")
-        else:
-            # Encrypted string - need to decrypt via MetaCredentialsService
-            logger.warning(f"Encrypted credentials for {platform}, attempting decryption")
-            try:
-                # MetaCredentialsService is already imported at top of file
-                credentials = MetaCredentialsService._decrypt_credentials(raw_credentials, workspace_id)
-                if not credentials:
-                    raise Exception(f"Failed to decrypt credentials for {platform}")
-            except Exception as e:
-                raise Exception(f"Failed to decrypt credentials for {platform}: {e}")
-    else:
-        raise Exception(f"Invalid credentials format for {platform}")
 
     if platform == "linkedin":
         profile_id = credentials.get("profileId") or credentials.get("userId")
@@ -793,103 +756,45 @@ async def _build_comment_agent_credentials(
     platforms: List[str],
 ) -> Optional[CommentAgentCredentials]:
     """
-    Build credentials for comment agent by directly fetching from social_accounts.
-    Matches the Next.js cron approach for consistency.
+    Build credentials for comment agent using ONLY centralized service (NO fallbacks)
+    
+    Cron jobs use refresh_if_needed=False - they use cached tokens refreshed by publish button
     """
     credentials: Dict[str, Any] = {}
     
     try:
-        # Fetch all connected social accounts for this workspace
-        result = supabase.table("social_accounts").select(
-            "platform, credentials_encrypted, account_id, page_id"
-        ).eq("workspace_id", workspace_id).eq("is_connected", True).in_(
-            "platform", ["instagram", "facebook", "youtube", "meta_ads"]
-        ).execute()
+        # Use centralized Meta credentials service ONLY (NO fallbacks)
+        has_meta_platforms = any(p in ["instagram", "facebook"] for p in platforms)
         
-        if not result.data:
-            logger.warning(f"No connected social accounts for workspace {workspace_id}")
-        rows = result.data or []
+        if has_meta_platforms:
+            # Get Meta credentials from centralized service (NO refresh for cron)
+            meta_creds = await MetaCredentialsService.get_meta_credentials(
+                workspace_id,
+                refresh_if_needed=False  # Cron jobs use cached token
+            )
+            
+            if meta_creds:
+                # Extract Meta credentials
+                if meta_creds.get("access_token"):
+                    credentials["accessToken"] = meta_creds["access_token"]
+                
+                if meta_creds.get("page_id"):
+                    credentials["facebookPageId"] = meta_creds["page_id"]
+                
+                if meta_creds.get("page_access_token"):
+                    credentials["pageAccessToken"] = meta_creds["page_access_token"]
+                
+                # Get Instagram user ID if needed
+                if "instagram" in platforms:
+                    ig_creds = await MetaCredentialsService.get_instagram_credentials(
+                        workspace_id,
+                        refresh_if_needed=False  # Cron jobs use cached token
+                    )
+                    if ig_creds and ig_creds.get("ig_user_id"):
+                        credentials["instagramUserId"] = ig_creds["ig_user_id"]
         
-        for row in rows:
-            platform = row.get("platform")
-            raw_creds = row.get("credentials_encrypted")
-            
-            # Parse credentials (could be dict/JSONB or JSON string)
-            if raw_creds is None:
-                continue
-            
-            creds: Dict[str, Any] = {}
-            if isinstance(raw_creds, dict):
-                creds = raw_creds
-            elif isinstance(raw_creds, str):
-                try:
-                    # Try parsing as JSON first
-                    if raw_creds.startswith("{"):
-                        creds = json.loads(raw_creds)
-                    else:
-                        # Encrypted string - decrypt via MetaCredentialsService
-                        logger.debug(f"Encrypted credentials for {platform}, attempting decryption")
-                        creds = MetaCredentialsService._decrypt_credentials(raw_creds, workspace_id) or {}
-                except json.JSONDecodeError:
-                    logger.warning(f"Failed to parse credentials for {platform}")
-                    continue
-            
-            # Extract Meta credentials (Instagram/Facebook)
-            if platform in ["instagram", "facebook", "meta_ads"]:
-                # Support both camelCase and snake_case
-                access_token = creds.get("accessToken") or creds.get("access_token") or ""
-                if access_token:
-                    credentials["accessToken"] = access_token
-                
-                # Instagram user ID
-                ig_user_id = creds.get("igUserId") or creds.get("ig_user_id") or creds.get("userId") or creds.get("user_id")
-                if ig_user_id and platform == "instagram":
-                    credentials["instagramUserId"] = ig_user_id
-                
-                # Facebook page ID
-                page_id = creds.get("pageId") or creds.get("page_id") or row.get("page_id")
-                if page_id:
-                    credentials["facebookPageId"] = page_id
-                
-                # Page access token
-                page_token = creds.get("pageAccessToken") or creds.get("page_access_token")
-                if page_token:
-                    credentials["pageAccessToken"] = page_token
-            
-            # Extract YouTube credentials
-            if platform == "youtube":
-                yt_token = creds.get("accessToken") or creds.get("access_token")
-                if yt_token:
-                    credentials["youtubeAccessToken"] = yt_token
-                
-                channel_id = creds.get("channelId") or creds.get("channel_id") or row.get("account_id")
-                if channel_id:
-                    credentials["youtubeChannelId"] = channel_id
-        
-        # Fallback to MetaCredentialsService if no direct credentials found
-        if not credentials.get("accessToken") and any(p in ["instagram", "facebook"] for p in platforms):
-            try:
-                await MetaCredentialsService.auto_refresh_if_needed(workspace_id)
-                meta = await MetaCredentialsService.get_meta_credentials(workspace_id)
-                if meta and meta.get("access_token"):
-                    credentials["accessToken"] = meta.get("access_token")
-                    credentials["facebookPageId"] = meta.get("page_id")
-                    credentials["pageAccessToken"] = meta.get("page_access_token") or meta.get("access_token")
-                    logger.info(f"Got Meta credentials via MetaCredentialsService for workspace {workspace_id}")
-
-                ig = await MetaCredentialsService.get_instagram_credentials(workspace_id)
-                if ig and ig.get("ig_user_id"):
-                    credentials["instagramUserId"] = ig.get("ig_user_id")
-                    if not credentials.get("accessToken") and ig.get("access_token"):
-                        credentials["accessToken"] = ig.get("access_token")
-                    if not credentials.get("facebookPageId") and ig.get("page_id"):
-                        credentials["facebookPageId"] = ig.get("page_id")
-                    if not credentials.get("pageAccessToken") and ig.get("page_access_token"):
-                        credentials["pageAccessToken"] = ig.get("page_access_token")
-            except Exception as e:
-                logger.warning(f"MetaCredentialsService fallback failed: {e}")
-
-        if "youtube" in platforms and not credentials.get("youtubeAccessToken"):
+        # Get YouTube credentials (non-Meta platform)
+        if "youtube" in platforms:
             try:
                 refresh_result = await token_refresh_service.get_valid_credentials(
                     platform="youtube",
@@ -902,7 +807,7 @@ async def _build_comment_agent_credentials(
                     if channel_id:
                         credentials["youtubeChannelId"] = channel_id
             except Exception as e:
-                logger.warning(f"YouTube credentials fallback failed: {e}")
+                logger.warning(f"YouTube credentials failed: {e}")
         
         if not credentials:
             logger.warning(f"No valid credentials found for workspace {workspace_id}")
@@ -912,7 +817,7 @@ async def _build_comment_agent_credentials(
         return CommentAgentCredentials(**credentials)
         
     except Exception as e:
-        logger.error(f"Error building credentials for workspace {workspace_id}: {e}")
+        logger.error(f"Error building credentials for workspace {workspace_id}: {e}", exc_info=True)
         return None
 
 

@@ -12,7 +12,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends
 
 from src.services.supabase_service import get_supabase_client, get_supabase_admin_client
-from src.services.meta_ads.meta_credentials_service import MetaCredentialsService
+from src.services.credentials import MetaCredentialsService
 from src.middleware.auth import get_current_user
 
 
@@ -222,10 +222,16 @@ async def get_meta_capabilities(
             raise HTTPException(status_code=404, detail="Workspace not found")
         
         # Check ads capability
-        ads_cap = await MetaCredentialsService.check_ads_capability(workspace_id)
+        ads_cap = await MetaCredentialsService.check_ads_capability(
+            workspace_id,
+            user.get("id")
+        )
         
         # Check Instagram capability
-        ig_cap = await MetaCredentialsService.check_instagram_capability(workspace_id)
+        ig_cap = await MetaCredentialsService.check_instagram_capability(
+            workspace_id,
+            user.get("id")
+        )
         
         return {
             "ads": ads_cap,
@@ -255,7 +261,8 @@ async def get_available_businesses(
             raise HTTPException(status_code=404, detail="Workspace not found")
         
         businesses = await MetaCredentialsService.get_available_businesses(
-            workspace_id, user_id
+            workspace_id,
+            user_id
         )
         
         return {
@@ -369,6 +376,11 @@ async def refresh_meta_token(
         
         if not workspace_id:
             raise HTTPException(status_code=404, detail="Workspace not found")
+
+        raise HTTPException(
+            status_code=403,
+            detail="Meta token refresh is only allowed during publish actions"
+        )
         
         # Only admins can refresh tokens
         if role != "admin":
@@ -376,28 +388,6 @@ async def refresh_meta_token(
                 status_code=403,
                 detail="Only workspace admins can refresh tokens"
             )
-        
-        # Get current credentials
-        credentials = await MetaCredentialsService.get_meta_credentials(workspace_id)
-        
-        if not credentials or not credentials.get("access_token"):
-            raise HTTPException(status_code=404, detail="No Meta credentials found")
-        
-        # Refresh token
-        result = await MetaCredentialsService.refresh_access_token(
-            credentials["access_token"],
-            workspace_id
-        )
-        
-        if not result.get("success"):
-            raise HTTPException(status_code=400, detail=result.get("error"))
-        
-        return {
-            "success": True,
-            "message": "Token refreshed successfully",
-            "expiresAt": result.get("expires_at"),
-            "expiresIn": result.get("expires_in")
-        }
         
     except HTTPException:
         raise

@@ -20,7 +20,7 @@ from ...services.token_refresh_service import (
     CredentialsResult,
     RefreshErrorType
 )
-from ...services.meta_ads.meta_credentials_service import MetaCredentialsService
+from ...services.credentials import MetaCredentialsService
 from ...services import verify_jwt, get_supabase_client
 
 logger = logging.getLogger(__name__)
@@ -120,59 +120,12 @@ async def get_valid_credentials(
         workspace_id = user_info["workspace_id"]
         user_id = user_info["user_id"]
         
-        # Use SDK-based service for Meta platforms
-        if platform in META_PLATFORMS:
-            # Auto-refresh if needed
-            credentials = await MetaCredentialsService.auto_refresh_if_needed(
-                workspace_id, user_id
+        # Meta refresh is only allowed via publish actions for Facebook/Instagram
+        if platform in ["facebook", "instagram"]:
+            raise HTTPException(
+                status_code=403,
+                detail="Meta token refresh is only allowed during publish actions"
             )
-            
-            if not credentials:
-                return JSONResponse(
-                    status_code=404,
-                    content={
-                        "success": False,
-                        "platform": platform,
-                        "error": f"No connected {platform} account",
-                        "needs_reconnect": True
-                    }
-                )
-            
-            # Check if expired
-            if credentials.get("is_expired"):
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "platform": platform,
-                        "error": "Token expired and could not be refreshed",
-                        "needs_reconnect": True
-                    }
-                )
-            
-            # Get platform-specific credentials
-            if platform == "meta_ads":
-                creds = await MetaCredentialsService.get_ads_credentials(workspace_id, user_id)
-            elif platform == "instagram":
-                creds = await MetaCredentialsService.get_instagram_credentials(workspace_id, user_id)
-            else:
-                creds = credentials
-            
-            return {
-                "success": True,
-                "platform": platform,
-                "was_refreshed": False,  # Auto-refresh handles this
-                "credentials": {
-                    "accessToken": creds.get("access_token"),
-                    "expiresAt": creds.get("expires_at"),
-                    "pageId": creds.get("page_id"),
-                    "pageName": creds.get("page_name"),
-                    "accountId": creds.get("account_id"),
-                    "accountName": creds.get("account_name"),
-                    "igUserId": creds.get("ig_user_id"),
-                    "username": creds.get("username"),
-                }
-            }
         
         # Use standard token refresh service for non-Meta platforms
         result = await token_refresh_service.get_valid_credentials(
@@ -227,36 +180,12 @@ async def force_refresh_token(
         user_info = await get_user_workspace(request)
         workspace_id = user_info["workspace_id"]
         
-        # Use SDK-based service for Meta platforms
-        if platform in META_PLATFORMS:
-            credentials = await MetaCredentialsService.get_meta_credentials(workspace_id)
-            
-            if not credentials or not credentials.get("access_token"):
-                raise HTTPException(status_code=404, detail=f"No connected {platform} account")
-            
-            # Refresh token
-            result = await MetaCredentialsService.refresh_access_token(
-                credentials["access_token"],
-                workspace_id
+        # Meta refresh is only allowed via publish actions for Facebook/Instagram
+        if platform in ["facebook", "instagram"]:
+            raise HTTPException(
+                status_code=403,
+                detail="Meta token refresh is only allowed during publish actions"
             )
-            
-            if result.get("success"):
-                return {
-                    "success": True,
-                    "message": f"Token for {platform} refreshed successfully",
-                    "was_refreshed": True,
-                    "expires_at": result.get("expires_at"),
-                    "expires_in": result.get("expires_in")
-                }
-            else:
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "error": result.get("error"),
-                        "needs_reconnect": True
-                    }
-                )
         
         # Standard refresh for non-Meta platforms
         supabase = get_supabase_client()

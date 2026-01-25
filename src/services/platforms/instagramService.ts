@@ -9,6 +9,7 @@
  */
 
 import { BasePlatformService } from './BasePlatformService'
+import { createHmac } from 'crypto'
 import {
   OAuthCallbackData,
   OAuthTokenResponse,
@@ -29,7 +30,13 @@ import { ExternalAPIError } from '@/core/errors/AppError'
  * Uses Facebook's OAuth + long-lived tokens (same as Facebook service)
  */
 export class InstagramService extends BasePlatformService {
-  private apiBaseUrl = 'https://graph.instagram.com/v18.0'
+  private apiBaseUrl = 'https://graph.instagram.com/v24.0'
+
+  private getAppSecretProof(accessToken: string): string {
+    const appSecret = process.env.FACEBOOK_CLIENT_SECRET || ''
+    if (!appSecret) return ''
+    return createHmac('sha256', appSecret).update(accessToken).digest('hex')
+  }
 
   constructor() {
     super('instagram', PLATFORM_CONFIGS.instagram.name, PLATFORM_CONFIGS.instagram.icon)
@@ -48,7 +55,7 @@ export class InstagramService extends BasePlatformService {
       response_type: 'code'
     })
 
-    return `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`
+    return `https://www.facebook.com/v24.0/dialog/oauth?${params.toString()}`
   }
 
   /**
@@ -65,7 +72,7 @@ export class InstagramService extends BasePlatformService {
         code: callbackData.code
       })
 
-      const shortLivedUrl = `https://graph.instagram.com/v18.0/oauth/access_token?${params.toString()}`
+      const shortLivedUrl = `https://graph.instagram.com/v24.0/oauth/access_token?${params.toString()}`
       const shortLivedFetch = await fetch(shortLivedUrl, {
         method: 'GET',
         headers: { 'User-Agent': 'SocialMediaOS/1.0' }
@@ -85,7 +92,7 @@ export class InstagramService extends BasePlatformService {
         fb_exchange_token: shortLivedData.access_token
       })
 
-      const longLivedUrl = `https://graph.instagram.com/v18.0/oauth/access_token?${longLivedParams.toString()}`
+      const longLivedUrl = `https://graph.instagram.com/v24.0/oauth/access_token?${longLivedParams.toString()}`
       const longLivedResponse = await fetch(longLivedUrl, {
         method: 'GET',
         headers: { 'User-Agent': 'SocialMediaOS/1.0' }
@@ -151,8 +158,10 @@ export class InstagramService extends BasePlatformService {
    */
   async getUserProfile(accessToken: string): Promise<OAuthUserProfile> {
     try {
+      const appsecretProof = this.getAppSecretProof(accessToken)
+      const proofParam = appsecretProof ? `&appsecret_proof=${appsecretProof}` : ''
       const response = await fetch(
-        `${this.apiBaseUrl}/me?fields=id,username,name,profile_picture_url,biography,followers_count&access_token=${accessToken}`,
+        `${this.apiBaseUrl}/me?fields=id,username,name,profile_picture_url,biography,followers_count&access_token=${accessToken}${proofParam}`,
         {
           method: 'GET',
           headers: { 'User-Agent': 'SocialMediaOS/1.0' }
@@ -202,12 +211,17 @@ export class InstagramService extends BasePlatformService {
 
       const userId = credentials.userId
       const media = post.media[0]
+      const appsecretProof = this.getAppSecretProof(credentials.accessToken)
 
       // Step 1: Create media container
       const containerBody = {
         image_url: media.url,
         caption: post.content,
         access_token: credentials.accessToken
+      }
+
+      if (appsecretProof) {
+        (containerBody as any).appsecret_proof = appsecretProof
       }
 
       const containerResponse = await fetch(
@@ -237,6 +251,10 @@ export class InstagramService extends BasePlatformService {
       const publishBody = {
         creation_id: mediaId,
         access_token: credentials.accessToken
+      }
+
+      if (appsecretProof) {
+        (publishBody as any).appsecret_proof = appsecretProof
       }
 
       const publishResponse = await fetch(
@@ -317,12 +335,17 @@ export class InstagramService extends BasePlatformService {
       const userId = credentials.userId
       const media = post.media[0]
       const unixTime = Math.floor(scheduledTime.getTime() / 1000)
+      const appsecretProof = this.getAppSecretProof(credentials.accessToken)
 
       const body = {
         image_url: media.url,
         caption: post.content,
         scheduled_publish_time: unixTime,
         access_token: credentials.accessToken
+      }
+
+      if (appsecretProof) {
+        (body as any).appsecret_proof = appsecretProof
       }
 
       const response = await fetch(
@@ -359,8 +382,10 @@ export class InstagramService extends BasePlatformService {
    */
   async verifyCredentials(credentials: PlatformCredentials): Promise<boolean> {
     try {
+      const appsecretProof = this.getAppSecretProof(credentials.accessToken)
+      const proofParam = appsecretProof ? `&appsecret_proof=${appsecretProof}` : ''
       const response = await fetch(
-        `${this.apiBaseUrl}/me?fields=id&access_token=${credentials.accessToken}`,
+        `${this.apiBaseUrl}/me?fields=id&access_token=${credentials.accessToken}${proofParam}`,
         {
           method: 'GET',
           headers: { 'User-Agent': 'SocialMediaOS/1.0' }
@@ -381,8 +406,10 @@ export class InstagramService extends BasePlatformService {
     postId: string
   ): Promise<PlatformAnalytics> {
     try {
+      const appsecretProof = this.getAppSecretProof(credentials.accessToken)
+      const proofParam = appsecretProof ? `&appsecret_proof=${appsecretProof}` : ''
       const response = await fetch(
-        `${this.apiBaseUrl}/${postId}/insights?metric=engagement,impressions,reach,saved&access_token=${credentials.accessToken}`,
+        `${this.apiBaseUrl}/${postId}/insights?metric=engagement,impressions,reach,saved&access_token=${credentials.accessToken}${proofParam}`,
         {
           method: 'GET',
           headers: { 'User-Agent': 'SocialMediaOS/1.0' }

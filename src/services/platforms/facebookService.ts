@@ -6,6 +6,7 @@
  */
 
 import { BasePlatformService } from './BasePlatformService'
+import { createHmac } from 'crypto'
 import {
   OAuthCallbackData,
   OAuthTokenResponse,
@@ -26,7 +27,13 @@ import { ExternalAPIError } from '@/core/errors/AppError'
  * Long-lived tokens: https://developers.facebook.com/docs/facebook-login/access-tokens/long-lived
  */
 export class FacebookService extends BasePlatformService {
-  private apiBaseUrl = 'https://graph.facebook.com/v18.0'
+  private apiBaseUrl = 'https://graph.facebook.com/v24.0'
+
+  private getAppSecretProof(accessToken: string): string {
+    const appSecret = process.env.FACEBOOK_CLIENT_SECRET || ''
+    if (!appSecret) return ''
+    return createHmac('sha256', appSecret).update(accessToken).digest('hex')
+  }
 
   constructor() {
     super('facebook', PLATFORM_CONFIGS.facebook.name, PLATFORM_CONFIGS.facebook.icon)
@@ -44,7 +51,7 @@ export class FacebookService extends BasePlatformService {
       response_type: 'code'
     })
 
-    return `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`
+    return `https://www.facebook.com/v24.0/dialog/oauth?${params.toString()}`
   }
 
   /**
@@ -158,8 +165,10 @@ export class FacebookService extends BasePlatformService {
    */
   async getUserProfile(accessToken: string): Promise<OAuthUserProfile> {
     try {
+      const appsecretProof = this.getAppSecretProof(accessToken)
+      const proofParam = appsecretProof ? `&appsecret_proof=${appsecretProof}` : ''
       const response = await fetch(
-        `${this.apiBaseUrl}/me?fields=id,name,email,picture&access_token=${accessToken}`,
+        `${this.apiBaseUrl}/me?fields=id,name,email,picture&access_token=${accessToken}${proofParam}`,
         {
           method: 'GET',
           headers: { 'User-Agent': 'SocialMediaOS/1.0' }
@@ -203,6 +212,11 @@ export class FacebookService extends BasePlatformService {
       const body: any = {
         message: post.content,
         access_token: credentials.accessToken
+      }
+
+      const appsecretProof = this.getAppSecretProof(credentials.accessToken)
+      if (appsecretProof) {
+        body.appsecret_proof = appsecretProof
       }
 
       // Add media if present
@@ -295,6 +309,11 @@ export class FacebookService extends BasePlatformService {
         access_token: credentials.accessToken
       }
 
+      const appsecretProof = this.getAppSecretProof(credentials.accessToken)
+      if (appsecretProof) {
+        body.appsecret_proof = appsecretProof
+      }
+
       if (post.media && post.media.length > 0) {
         body.source = post.media[0].url
       }
@@ -333,8 +352,10 @@ export class FacebookService extends BasePlatformService {
    */
   async verifyCredentials(credentials: PlatformCredentials): Promise<boolean> {
     try {
+      const appsecretProof = this.getAppSecretProof(credentials.accessToken)
+      const proofParam = appsecretProof ? `&appsecret_proof=${appsecretProof}` : ''
       const response = await fetch(
-        `${this.apiBaseUrl}/me?fields=id&access_token=${credentials.accessToken}`,
+        `${this.apiBaseUrl}/me?fields=id&access_token=${credentials.accessToken}${proofParam}`,
         {
           method: 'GET',
           headers: { 'User-Agent': 'SocialMediaOS/1.0' }
@@ -355,8 +376,10 @@ export class FacebookService extends BasePlatformService {
     postId: string
   ): Promise<PlatformAnalytics> {
     try {
+      const appsecretProof = this.getAppSecretProof(credentials.accessToken)
+      const proofParam = appsecretProof ? `&appsecret_proof=${appsecretProof}` : ''
       const response = await fetch(
-        `${this.apiBaseUrl}/${postId}?fields=shares,likes.summary(total_count).limit(0),comments.summary(total_count).limit(0)&access_token=${credentials.accessToken}`,
+        `${this.apiBaseUrl}/${postId}?fields=shares,likes.summary(total_count).limit(0),comments.summary(total_count).limit(0)&access_token=${credentials.accessToken}${proofParam}`,
         {
           method: 'GET',
           headers: { 'User-Agent': 'SocialMediaOS/1.0' }
