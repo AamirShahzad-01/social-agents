@@ -43,8 +43,8 @@ class CredentialStorage:
                     result = client.table("social_accounts").select(
                         "id, platform, credentials_encrypted, page_id, page_name, "
                         "account_id, account_name, username, expires_at, access_token_expires_at, "
-                        "is_connected"
-                    ).eq("workspace_id", workspace_id).eq("platform", platform).eq("is_connected", True).limit(1).execute()
+                        "is_connected, updated_at"
+                    ).eq("workspace_id", workspace_id).eq("platform", platform).eq("is_connected", True).order("updated_at", desc=True).limit(1).execute()
                     
                     if not result.data or len(result.data) == 0:
                         continue
@@ -52,6 +52,12 @@ class CredentialStorage:
                     row = result.data[0]
                     
                     if not row.get("credentials_encrypted"):
+                        logger.warning(
+                            "Credentials row missing encrypted payload for %s (workspace=%s, account_id=%s)",
+                            platform,
+                            workspace_id,
+                            row.get("account_id"),
+                        )
                         continue
                     
                     # Decrypt credentials
@@ -62,6 +68,12 @@ class CredentialStorage:
                         )
                         
                         if not credentials or not credentials.get("accessToken"):
+                            logger.warning(
+                                "Decrypted credentials missing accessToken for %s (workspace=%s, account_id=%s)",
+                                platform,
+                                workspace_id,
+                                row.get("account_id"),
+                            )
                             continue
                         
                         # Return with metadata
@@ -173,10 +185,10 @@ class CredentialStorage:
             
             # Find social account
             result = client.table("social_accounts").select(
-                "id, credentials_encrypted"
+                "id, credentials_encrypted, updated_at"
             ).eq("workspace_id", workspace_id).in_(
                 "platform", ["facebook", "instagram", "meta_ads"]
-            ).limit(1).execute()
+            ).order("updated_at", desc=True).limit(1).execute()
             
             if not result.data:
                 return False

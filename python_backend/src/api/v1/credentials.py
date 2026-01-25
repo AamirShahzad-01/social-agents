@@ -95,7 +95,7 @@ async def get_connection_status(
                     "pageName": cred.get("page_name"),
                     "igUserId": cred.get("ig_user_id"),
                     "username": cred.get("username"),
-                    "connectedAt": cred.get("created_at"),
+                    "connectedAt": cred.get("connected_at") or cred.get("created_at"),
                     "expiresAt": cred.get("expires_at"),
                     "isExpired": is_expired,
                     "isExpiringSoon": is_expiring_soon
