@@ -116,12 +116,14 @@ class CredentialStorage:
             encrypted = CredentialEncryption.encrypt(credentials, workspace_id)
             
             # Build record
+            now = datetime.now(timezone.utc).isoformat()
             record = {
                 "workspace_id": workspace_id,
                 "platform": platform,
                 "credentials_encrypted": encrypted,
                 "is_connected": True,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "connected_at": now,
+                "updated_at": now,
             }
             record["account_id"] = None
             
