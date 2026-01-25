@@ -135,18 +135,11 @@ class CredentialStorage:
                     "access_token_expires_at": metadata.get("expires_at"),
                 })
             
-            # Upsert (update if exists, insert if not)
-            existing = client.table("social_accounts").select("id").eq(
-                "workspace_id", workspace_id
-            ).eq("platform", platform).maybe_single().execute()
-            
-            if existing.data:
-                client.table("social_accounts").update(record).eq(
-                    "id", existing.data["id"]
-                ).execute()
-            else:
-                record["created_at"] = datetime.now(timezone.utc).isoformat()
-                client.table("social_accounts").insert(record).execute()
+            # Upsert (single call)
+            client.table("social_accounts").upsert(
+                record,
+                on_conflict="workspace_id,platform"
+            ).execute()
             
             logger.info(f"Saved {platform} credentials for workspace {workspace_id}")
             return True

@@ -11,7 +11,7 @@ This module provides a single source of truth for credential operations:
 """
 
 from .meta_credentials import MetaCredentialsService
-from .credential_cache import CredentialCache
+from .credential_cache import CredentialCache, get_credential_cache
 from .credential_storage import CredentialStorage
 from .credential_encryption import CredentialEncryption
 from .credential_validator import CredentialValidator
@@ -19,6 +19,7 @@ from .credential_validator import CredentialValidator
 __all__ = [
     "MetaCredentialsService",
     "CredentialCache",
+    "get_credential_cache",
     "CredentialStorage",
     "CredentialEncryption",
     "CredentialValidator",
