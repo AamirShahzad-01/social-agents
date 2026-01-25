@@ -66,13 +66,35 @@ async def get_youtube_credentials(
     )
 
     if not refresh_result.success or not refresh_result.credentials:
+        logger.error(
+            "YouTube credentials refresh failed",
+            extra={
+                "workspace_id": workspace_id,
+                "error": refresh_result.error,
+                "error_type": getattr(refresh_result.error_type, "value", refresh_result.error_type),
+                "needs_reconnect": refresh_result.needs_reconnect,
+            },
+        )
         if refresh_result.needs_reconnect:
-            raise HTTPException(status_code=400, detail="YouTube not connected")
-        raise HTTPException(status_code=400, detail=refresh_result.error or "Invalid YouTube configuration")
+            raise HTTPException(
+                status_code=400,
+                detail=refresh_result.error or "YouTube token expired - please reconnect",
+            )
+        raise HTTPException(
+            status_code=400,
+            detail=refresh_result.error or "Invalid YouTube configuration",
+        )
 
     credentials = refresh_result.credentials
     access_token = credentials.get("accessToken") or credentials.get("access_token")
     if not access_token:
+        logger.error(
+            "YouTube credentials missing access token",
+            extra={
+                "workspace_id": workspace_id,
+                "credential_keys": list(credentials.keys()),
+            },
+        )
         raise HTTPException(status_code=400, detail="Invalid YouTube configuration")
 
     credentials["accessToken"] = access_token
