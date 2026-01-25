@@ -58,42 +58,23 @@ async def get_youtube_credentials(
     workspace_id: str,
     is_cron: bool = False
 ):
-    """Get YouTube credentials from database"""
-    result = await db_select(
-        table="social_accounts",
-        columns="credentials_encrypted,is_connected",
-        filters={
-            "workspace_id": workspace_id,
-            "platform": "youtube"
-        },
-        limit=1
+    """Get YouTube credentials with on-demand refresh."""
+    refresh_result = await token_refresh_service.get_valid_credentials(
+        platform="youtube",
+        workspace_id=workspace_id,
     )
-    
-    if not result.get("success") or not result.get("data"):
-        raise HTTPException(status_code=400, detail="YouTube not connected")
-    
-    account = result["data"][0]
-    
-    if not account.get("is_connected"):
-        raise HTTPException(status_code=400, detail="YouTube account is not connected")
-    
-    raw_credentials = account.get("credentials_encrypted", {})
-    
-    # Parse credentials - could be dict (JSONB) or string (JSON)
-    if isinstance(raw_credentials, dict):
-        credentials = raw_credentials
-    elif isinstance(raw_credentials, str):
-        import json
-        try:
-            credentials = json.loads(raw_credentials)
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Failed to parse YouTube credentials")
-    else:
-        raise HTTPException(status_code=400, detail="Invalid YouTube credentials format")
-    
-    if not credentials.get("accessToken"):
+
+    if not refresh_result.success or not refresh_result.credentials:
+        if refresh_result.needs_reconnect:
+            raise HTTPException(status_code=400, detail="YouTube not connected")
+        raise HTTPException(status_code=400, detail=refresh_result.error or "Invalid YouTube configuration")
+
+    credentials = refresh_result.credentials
+    access_token = credentials.get("accessToken") or credentials.get("access_token")
+    if not access_token:
         raise HTTPException(status_code=400, detail="Invalid YouTube configuration")
-    
+
+    credentials["accessToken"] = access_token
     return credentials
 
 

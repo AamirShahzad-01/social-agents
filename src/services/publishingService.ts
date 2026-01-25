@@ -233,6 +233,14 @@ export async function publishToSinglePlatform(
           };
         }
 
+        if (mediaUrl.startsWith('blob:') || mediaUrl.startsWith('data:')) {
+          return {
+            platform,
+            success: false,
+            error: 'YouTube requires a publicly accessible video URL. Please upload the video first.'
+          };
+        }
+
         // Detect if this is a YouTube Short based on post type
         const isShort = postType === 'short';
 
@@ -311,8 +319,10 @@ export async function publishPost(post: Post): Promise<PublishResult[]> {
       content = post.topic;
     }
 
+    const generatedVideoUrl = post.generatedVideoUrl || (post.content as any)?.generatedVideoUrl;
+
     // Check if we have media (for platforms that allow empty captions with media)
-    const hasMedia = post.generatedImage || post.generatedVideoUrl || 
+    const hasMedia = post.generatedImage || generatedVideoUrl || 
                      (post.carouselImages && post.carouselImages.length > 0);
 
     // Instagram and Facebook allow empty captions if there's media
@@ -333,7 +343,10 @@ export async function publishPost(post: Post): Promise<PublishResult[]> {
     }
 
     // Determine media URL (prefer generated image/video, fall back to carousel first image)
-    let mediaUrl = post.generatedImage || post.generatedVideoUrl;
+    let mediaUrl = post.generatedImage || generatedVideoUrl;
+    if (platform === 'youtube') {
+      mediaUrl = generatedVideoUrl;
+    }
     if (!mediaUrl && post.carouselImages && post.carouselImages.length > 0) {
       mediaUrl = post.carouselImages[0]; // Use first carousel image as fallback
     }
@@ -346,7 +359,7 @@ export async function publishPost(post: Post): Promise<PublishResult[]> {
     const videoPostTypes = ['reel', 'video', 'short'];
     if (post.postType && videoPostTypes.includes(post.postType)) {
       mediaType = post.postType === 'reel' ? 'reel' : 'video';
-    } else if (post.generatedVideoUrl) {
+    } else if (generatedVideoUrl) {
       mediaType = 'video';
     }
     
@@ -483,7 +496,7 @@ export function validatePostForPublishing(post: Post): { valid: boolean; errors:
         if (content.length > 5000) {
           errors.push('YouTube description exceeds 5000 characters');
         }
-        if (!post.generatedImage && !post.generatedVideoUrl) {
+        if (!post.generatedVideoUrl) {
           errors.push('YouTube requires a video');
         }
         break;
