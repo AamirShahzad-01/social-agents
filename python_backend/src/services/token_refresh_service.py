@@ -283,7 +283,7 @@ class TokenRefreshService:
         """Check if we can refresh this platform's token"""
         if platform in ["twitter", "linkedin", "tiktok", "youtube"]:
             # These require refresh tokens
-            return bool(credentials.get("refreshToken"))
+            return bool(credentials.get("refreshToken") or credentials.get("refresh_token"))
         elif platform in ["facebook", "instagram"]:
             # These use the access token to refresh
             return bool(credentials.get("accessToken") or credentials.get("userAccessToken"))
@@ -316,7 +316,7 @@ class TokenRefreshService:
     
     async def _refresh_twitter(self, credentials: dict) -> dict:
         """Refresh Twitter/X OAuth 2.0 token"""
-        refresh_token = credentials.get("refreshToken")
+        refresh_token = credentials.get("refreshToken") or credentials.get("refresh_token")
         if not refresh_token:
             return {"success": False, "error": "No refresh token", "error_type": "no_refresh_token", "needs_reconnect": True}
         
@@ -470,7 +470,7 @@ class TokenRefreshService:
     
     async def _refresh_linkedin(self, credentials: dict) -> dict:
         """Refresh LinkedIn OAuth 2.0 token"""
-        refresh_token = credentials.get("refreshToken")
+        refresh_token = credentials.get("refreshToken") or credentials.get("refresh_token")
         if not refresh_token:
             return {"success": False, "error": "No refresh token", "error_type": "no_refresh_token", "needs_reconnect": True}
         
