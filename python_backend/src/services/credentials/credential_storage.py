@@ -123,6 +123,7 @@ class CredentialStorage:
                 "is_connected": True,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
+            record["account_id"] = None
             
             if metadata:
                 record.update({
@@ -138,7 +139,7 @@ class CredentialStorage:
             # Upsert (single call)
             client.table("social_accounts").upsert(
                 record,
-                on_conflict="workspace_id,platform"
+                on_conflict="workspace_id,platform,account_id"
             ).execute()
             
             logger.info(f"Saved {platform} credentials for workspace {workspace_id}")
