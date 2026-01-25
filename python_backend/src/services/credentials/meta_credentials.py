@@ -91,8 +91,16 @@ class MetaCredentialsService:
         platform = db_result["platform"]
         page_id = db_result.get("page_id")
         page_name = db_result.get("page_name")
-        account_id = db_result.get("account_id")
-        account_name = db_result.get("account_name")
+        account_id = (
+            credentials_data.get("adAccountId")
+            or credentials_data.get("account_id")
+            or db_result.get("account_id")
+        )
+        account_name = (
+            credentials_data.get("adAccountName")
+            or credentials_data.get("account_name")
+            or db_result.get("account_name")
+        )
         username = db_result.get("username")
         expires_at = db_result.get("expires_at")
         
@@ -157,8 +165,8 @@ class MetaCredentialsService:
             "expires_at": expires_at,
             "is_expired": is_expired,
             "expires_soon": expires_soon,
-            "account_id": account_id or credentials_data.get("adAccountId") or credentials_data.get("account_id"),
-            "account_name": account_name or credentials_data.get("adAccountName") or credentials_data.get("account_name"),
+            "account_id": account_id,
+            "account_name": account_name,
             "currency": credentials_data.get("currency"),
             "timezone": credentials_data.get("timezone"),
             "business_id": credentials_data.get("businessId") or credentials_data.get("business_id"),
