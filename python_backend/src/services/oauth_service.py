@@ -138,6 +138,7 @@ async def create_oauth_state(
             'workspace_id': workspace_id,
             'platform': platform,
             'state': state,
+            'code_verifier': code_verifier,
             'code_challenge': code_challenge,
             'code_challenge_method': code_challenge_method,
             'expires_at': expires_at.isoformat(),
