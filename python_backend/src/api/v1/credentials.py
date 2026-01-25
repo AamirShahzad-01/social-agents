@@ -87,8 +87,11 @@ async def get_connection_status(
             
             if cred and cred.get("is_connected"):
                 is_expired, is_expiring_soon = check_token_status(cred.get("expires_at"))
+                is_connected = not is_expired
+                if platform == "youtube" and is_expired:
+                    is_connected = True
                 status[platform] = {
-                    "isConnected": not is_expired,
+                    "isConnected": is_connected,
                     "accountId": cred.get("account_id"),
                     "accountName": cred.get("account_name"),
                     "pageId": cred.get("page_id"),
