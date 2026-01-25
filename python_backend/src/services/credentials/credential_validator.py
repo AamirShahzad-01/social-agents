@@ -75,15 +75,17 @@ class CredentialValidator:
                     
                     if is_valid:
                         expires_at = data.get("expires_at")
+                        scopes = data.get("scopes", [])
                         result = {
                             "is_valid": True,
                             "app_id": data.get("app_id"),
                             "user_id": data.get("user_id"),
                             "expires_at": expires_at,
-                            "scopes": data.get("scopes", []),
+                            "scopes": scopes,
                             "type": data.get("type"),
                             "issued_at": data.get("issued_at"),
                         }
+                        logger.info(f"Meta token scopes: {scopes}")
                     else:
                         error = data.get("error", {})
                         result = {
