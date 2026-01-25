@@ -50,6 +50,13 @@ class CredentialStorage:
                         continue
                     
                     row = result.data[0]
+                    logger.info(
+                        "Selected %s credentials row id=%s updated_at=%s for workspace=%s",
+                        platform,
+                        row.get("id"),
+                        row.get("updated_at"),
+                        workspace_id,
+                    )
                     
                     if not row.get("credentials_encrypted"):
                         logger.warning(
@@ -67,7 +74,8 @@ class CredentialStorage:
                             workspace_id
                         )
                         
-                        if not credentials or not credentials.get("accessToken"):
+                        access_token = credentials.get("accessToken") or credentials.get("access_token") if credentials else None
+                        if not access_token:
                             logger.warning(
                                 "Decrypted credentials missing accessToken for %s (workspace=%s, account_id=%s)",
                                 platform,
