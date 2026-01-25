@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from ....services.platforms.youtube_service import youtube_service
 from ....services.supabase_service import verify_jwt, db_select, db_update
 from ....services.rate_limit_service import RateLimitService
+from ....services.token_refresh_service import token_refresh_service
 from ....config import settings
 
 logger = logging.getLogger(__name__)
