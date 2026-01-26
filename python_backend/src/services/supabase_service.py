@@ -189,7 +189,15 @@ async def db_select(
         if limit:
             query = query.limit(limit)
         if order_by:
-            query = query.order(order_by)
+            # Support PostgREST-style syntax (e.g. "updated_at.desc")
+            # and plain column names (e.g. "updated_at")
+            order_parts = order_by.split(".")
+            if len(order_parts) >= 2 and order_parts[-1] in ("asc", "desc"):
+                column = ".".join(order_parts[:-1])
+                desc = order_parts[-1] == "desc"
+                query = query.order(column, desc=desc)
+            else:
+                query = query.order(order_by)
         result = query.execute()
         return {"success": True, "data": result.data, "count": len(result.data)}
     except Exception as e:

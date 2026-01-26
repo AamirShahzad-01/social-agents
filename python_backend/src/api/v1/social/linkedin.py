@@ -210,25 +210,40 @@ async def get_linkedin_credentials(
     Raises:
         HTTPException: If credentials not found or expired
     """
-    # Check connection status in social_accounts table
+    # Prefer the most recently updated connected account (older disconnected rows can exist)
     result = await db_select(
         table="social_accounts",
-        columns="account_id,is_connected",
+        columns="account_id,is_connected,updated_at",
         filters={
             "workspace_id": workspace_id,
-            "platform": "linkedin"
+            "platform": "linkedin",
+            "is_connected": True
         },
+        order_by="updated_at.desc",
         limit=1
     )
-    
-    if not result.get("success") or not result.get("data"):
+
+    if not result.get("success"):
         raise HTTPException(status_code=400, detail="LinkedIn not connected")
-    
+
+    if not result.get("data"):
+        # Fallback: check whether there are any LinkedIn rows at all
+        any_rows = await db_select(
+            table="social_accounts",
+            columns="account_id,is_connected,updated_at",
+            filters={
+                "workspace_id": workspace_id,
+                "platform": "linkedin"
+            },
+            order_by="updated_at.desc",
+            limit=1
+        )
+        if any_rows.get("success") and any_rows.get("data"):
+            raise HTTPException(status_code=400, detail="LinkedIn account is not connected")
+        raise HTTPException(status_code=400, detail="LinkedIn not connected")
+
     account = result["data"][0]
     account_id = account.get("account_id")
-    
-    if not account.get("is_connected"):
-        raise HTTPException(status_code=400, detail="LinkedIn account is not connected")
     
     refresh_result = await token_refresh_service.get_valid_credentials(
         platform="linkedin",
