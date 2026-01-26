@@ -56,8 +56,9 @@ class TwitterService:
     
     # API endpoints
     API_BASE = "https://api.x.com/2"
-    # Media uploads use the upload.twitter.com v1.1 endpoint per X docs
+    # Media uploads: v1.1 for OAuth 1.0a, v2 for OAuth 2.0 bearer tokens
     MEDIA_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json"
+    MEDIA_UPLOAD_URL_V2 = "https://api.x.com/2/media/upload"
     
     def __init__(self):
         self.http_client = httpx.AsyncClient(timeout=120.0)
@@ -235,24 +236,52 @@ class TwitterService:
             Dict with tweet_id and text
         """
         try:
-            # Create client
+            auth_mode = "oauth2" if not access_token_secret else "oauth1"
+            logger.info(f"Tweet post auth mode: {auth_mode}, media_ids: {len(media_ids or [])}")
+            if not access_token_secret:
+                payload: Dict[str, Any] = {"text": text}
+                if media_ids and len(media_ids) > 0:
+                    payload["media"] = {"media_ids": media_ids}
+
+                response = await self.http_client.post(
+                    f"{self.API_BASE}/tweets",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    json=payload
+                )
+
+                logger.info(f"Tweet post response status: {response.status_code}")
+                if response.status_code not in [200, 201]:
+                    error = response.json() if response.content else {}
+                    return {
+                        'success': False,
+                        'error': error.get('detail', response.text)
+                    }
+
+                data = response.json().get("data", {})
+                logger.info(f"Posted tweet: {data.get('id')}")
+
+                return {
+                    'success': True,
+                    'tweet_id': data.get('id'),
+                    'text': data.get('text')
+                }
+
+            # OAuth 1.0a flow
             client = self.create_client(access_token, access_token_secret)
-            
-            # Build tweet payload
+
             tweet_params = {}
-            
             if media_ids and len(media_ids) > 0:
                 tweet_params['media_ids'] = media_ids
-            
-            # Post tweet
+
             response = await asyncio.to_thread(
                 client.create_tweet,
                 text=text,
                 **tweet_params
             )
-            
+
+            logger.info("Tweet post response status: 200 (tweepy)")
             logger.info(f"Posted tweet: {response.data['id']}")
-            
+
             return {
                 'success': True,
                 'tweet_id': response.data['id'],
@@ -311,6 +340,10 @@ class TwitterService:
             else:
                 content_type = "image/jpeg"  # Default for images
             
+            upload_url = self.MEDIA_UPLOAD_URL if access_token_secret else self.MEDIA_UPLOAD_URL_V2
+            auth_mode = "oauth1" if access_token_secret else "oauth2"
+            logger.info(f"Media upload auth mode: {auth_mode}, upload_url: {upload_url}")
+
             # Use chunked upload for videos/gifs or large images
             if media_type in ["video", "gif"] or file_size > 1 * 1024 * 1024:
                 return await self._chunked_upload(
@@ -318,7 +351,8 @@ class TwitterService:
                     access_token_secret,
                     media_data,
                     content_type,
-                    media_category
+                    media_category,
+                    upload_url
                 )
 
             # Simple upload for small images
@@ -327,7 +361,8 @@ class TwitterService:
                 access_token_secret,
                 media_data,
                 content_type,
-                media_category
+                media_category,
+                upload_url
             )
                 
         except Exception as e:
@@ -340,14 +375,15 @@ class TwitterService:
         access_token_secret: str,
         media_data: bytes,
         content_type: str,
-        media_category: str
+        media_category: str,
+        upload_url: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Simple media upload for small images (< 1MB).
         Uses v2 INIT/APPEND/FINALIZE with a single segment.
         """
         try:
-            url = self.MEDIA_UPLOAD_URL
+            url = upload_url or self.MEDIA_UPLOAD_URL
             file_size = len(media_data)
 
             init_params = {
@@ -368,6 +404,7 @@ class TwitterService:
                 data=init_params
             )
 
+            logger.info(f"Media INIT response status: {init_response.status_code}")
             if init_response.status_code not in [200, 201, 202]:
                 error = init_response.json() if init_response.content else {}
                 if init_response.status_code == 403:
@@ -400,6 +437,7 @@ class TwitterService:
                 }
             )
 
+            logger.info(f"Media APPEND response status: {append_response.status_code}")
             if append_response.status_code not in [200, 201, 202, 204]:
                 error = append_response.json() if append_response.content else {}
                 return {
@@ -422,6 +460,7 @@ class TwitterService:
                 data=finalize_params
             )
 
+            logger.info(f"Media FINALIZE response status: {finalize_response.status_code}")
             if finalize_response.status_code not in [200, 201, 202]:
                 error = finalize_response.json() if finalize_response.content else {}
                 return {
@@ -435,7 +474,8 @@ class TwitterService:
                     access_token,
                     access_token_secret,
                     str(media_id),
-                    finalize_data['processing_info']
+                    finalize_data['processing_info'],
+                    url
                 )
 
             return {
@@ -453,7 +493,8 @@ class TwitterService:
         access_token_secret: str,
         media_data: bytes,
         content_type: str,
-        media_category: str
+        media_category: str,
+        upload_url: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Chunked media upload for videos, GIFs, and large images.
@@ -461,7 +502,7 @@ class TwitterService:
         Uses the INIT → APPEND → FINALIZE flow.
         For videos, also handles async processing status checks.
         """
-        url = self.MEDIA_UPLOAD_URL
+        url = upload_url or self.MEDIA_UPLOAD_URL
         file_size = len(media_data)
         
         # ================================================================
@@ -485,7 +526,9 @@ class TwitterService:
                 headers=init_headers,
                 data=init_params
             )
-            
+
+            auth_mode = "oauth1" if access_token_secret else "oauth2"
+            logger.info(f"Media INIT response status: {init_response.status_code}, auth mode: {auth_mode}, upload_url: {upload_url}")
             if init_response.status_code != 202 and init_response.status_code != 200:
                 error = init_response.json() if init_response.content else {}
                 if init_response.status_code == 403:
@@ -535,7 +578,8 @@ class TwitterService:
                         "media": ("chunk", chunk, content_type)
                     }
                 )
-                
+
+                logger.info(f"Media APPEND response status: {append_response.status_code}, auth mode: {auth_mode}, upload_url: {upload_url}")
                 if append_response.status_code not in [200, 204]:
                     error = append_response.json() if append_response.content else {}
                     return {
@@ -572,7 +616,8 @@ class TwitterService:
                 headers=finalize_headers,
                 data=finalize_params
             )
-            
+
+            logger.info(f"Media FINALIZE response status: {finalize_response.status_code}, auth mode: {auth_mode}, upload_url: {upload_url}")
             if finalize_response.status_code not in [200, 201]:
                 error = finalize_response.json() if finalize_response.content else {}
                 return {
@@ -588,7 +633,8 @@ class TwitterService:
                     access_token,
                     access_token_secret,
                     media_id,
-                    finalize_data['processing_info']
+                    finalize_data['processing_info'],
+                    url
                 )
             
             logger.info(f"Upload finalized: media_id={media_id}")
@@ -606,7 +652,8 @@ class TwitterService:
         access_token: str,
         access_token_secret: str,
         media_id: str,
-        processing_info: Dict
+        processing_info: Dict,
+        upload_url: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Wait for async video processing to complete.
@@ -614,7 +661,7 @@ class TwitterService:
         X processes videos asynchronously after upload.
         We poll the STATUS endpoint until processing completes.
         """
-        url = self.MEDIA_UPLOAD_URL
+        url = upload_url or self.MEDIA_UPLOAD_URL
         max_wait_seconds = 300  # 5 minutes max
         waited = 0
         
@@ -638,7 +685,9 @@ class TwitterService:
                 headers=status_headers,
                 params=status_params
             )
-            
+
+            auth_mode = "oauth1" if access_token_secret else "oauth2"
+            logger.info(f"Media STATUS response status: {status_response.status_code}, auth mode: {auth_mode}, upload_url: {upload_url}")
             if status_response.status_code != 200:
                 continue
             
