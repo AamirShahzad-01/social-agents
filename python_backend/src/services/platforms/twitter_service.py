@@ -582,15 +582,14 @@ class TwitterService:
                     url,
                     access_token,
                     access_token_secret,
-                    append_params,
-                    include_params_in_signature=False
+                    append_params
                 )
 
                 # Send chunk as multipart
                 append_response = await self.http_client.post(
                     url,
                     headers=append_headers,
-                    data=append_params,
+                    params=append_params,
                     files={
                         "media": ("chunk", chunk, content_type)
                     }
