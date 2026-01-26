@@ -35,6 +35,7 @@ export const credentialsService = {
     async getStatus(): Promise<CredentialsStatusResponse> {
         const response = await fetch(CREDENTIALS_STATUS_URL, {
             method: 'GET',
+            cache: 'no-store',
             credentials: 'include', // Include cookies for auth
             headers: {
                 'Content-Type': 'application/json',
