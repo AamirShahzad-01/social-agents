@@ -141,19 +141,27 @@ class TokenRefreshService:
             # even if is_connected is False, as long as they have a refresh token
             platforms_with_refresh = ["twitter", "linkedin", "tiktok", "youtube"]
             
-            query = supabase.table("social_accounts").select(
-                "id, account_id, account_name, credentials_encrypted, expires_at, is_connected, refresh_error_count"
-            ).eq("workspace_id", workspace_id).eq("platform", platform)
-            
-            # For platforms with refresh tokens, don't filter by is_connected
-            # They can be auto-reconnected if they have valid refresh tokens
-            if platform not in platforms_with_refresh:
-                query = query.eq("is_connected", True)
-            
-            if account_id:
-                query = query.eq("account_id", account_id)
-            
+            base_select = (
+                "id, account_id, account_name, credentials_encrypted, expires_at, "
+                "is_connected, refresh_error_count, updated_at"
+            )
+
+            def _base_query():
+                q = supabase.table("social_accounts").select(base_select)
+                q = q.eq("workspace_id", workspace_id).eq("platform", platform)
+                if account_id:
+                    q = q.eq("account_id", account_id)
+                # Always prefer most recent row
+                q = q.order("updated_at", desc=True)
+                return q
+
+            # Prefer connected accounts first (even for refreshable platforms)
+            query = _base_query().eq("is_connected", True)
             response = query.limit(1).execute()
+
+            # Fallback: for refreshable platforms, allow disconnected rows (they might be auto-refreshable)
+            if (not response.data) and (platform in platforms_with_refresh):
+                response = _base_query().limit(1).execute()
             
             if not response.data:
                 return CredentialsResult(

@@ -5,6 +5,7 @@ Supports: posts with text and media
 Uses X API v2 with OAuth 2.0 PKCE user tokens
 """
 import logging
+import mimetypes
 from typing import Optional, List
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request, Header
@@ -315,26 +316,63 @@ async def upload_media_for_twitter(
         # Get Twitter credentials
         credentials = await get_twitter_credentials(user["id"], workspace_id)
         
-        # Parse base64 data
-        import re
-        import base64
-        
-        match = re.match(r'^data:(.+);base64,(.+)$', request_body.mediaData)
-        if not match:
-            raise HTTPException(status_code=400, detail="Invalid base64 format")
-        
-        content_type = match.group(1)
-        base64_content = match.group(2)
-        
-        # Decode base64
-        file_data = base64.b64decode(base64_content)
-        
+        def _infer_media_type(media_type: Optional[str], content_type: Optional[str], url: Optional[str]) -> str:
+            if media_type in ("image", "video", "gif"):
+                return media_type
+            if content_type:
+                if content_type.startswith("video/"):
+                    return "video"
+                if content_type.startswith("image/gif"):
+                    return "gif"
+                if content_type.startswith("image/"):
+                    return "image"
+            if url:
+                guessed_type, _ = mimetypes.guess_type(url)
+                if guessed_type:
+                    if guessed_type.startswith("video/"):
+                        return "video"
+                    if guessed_type.startswith("image/gif"):
+                        return "gif"
+                    if guessed_type.startswith("image/"):
+                        return "image"
+            return "image"
+
+        media_data = request_body.mediaData
+
+        # Allow media URLs
+        if media_data.startswith("http://") or media_data.startswith("https://"):
+            async with httpx.AsyncClient() as client:
+                response = await client.get(media_data)
+                response.raise_for_status()
+                content_type = response.headers.get("content-type")
+                resolved_type = _infer_media_type(request_body.mediaType, content_type, media_data)
+                file_data = response.content
+        else:
+            # Parse base64 data (allow raw base64 without data URI)
+            import re
+            import base64
+
+            match = re.match(r'^data:(.+);base64,(.+)$', media_data)
+            if match:
+                content_type = match.group(1)
+                base64_content = match.group(2)
+            else:
+                content_type = None
+                base64_content = media_data
+
+            try:
+                file_data = base64.b64decode(base64_content, validate=True)
+            except Exception:
+                raise HTTPException(status_code=400, detail="Invalid base64 format")
+
+            resolved_type = _infer_media_type(request_body.mediaType, content_type, None)
+
         # Validate file size
         # Images: max 5MB, Videos: max 512MB, GIFs: max 15MB
         max_size = 512 * 1024 * 1024  # 512MB for videos
-        if request_body.mediaType == "image":
+        if resolved_type == "image":
             max_size = 5 * 1024 * 1024  # 5MB
-        elif request_body.mediaType == "gif":
+        elif resolved_type == "gif":
             max_size = 15 * 1024 * 1024  # 15MB
         
         if len(file_data) > max_size:
@@ -348,7 +386,7 @@ async def upload_media_for_twitter(
             credentials["accessToken"],
             credentials["accessTokenSecret"],
             file_data,
-            request_body.mediaType
+            resolved_type
         )
         
         if not result.get("success"):
@@ -357,7 +395,7 @@ async def upload_media_for_twitter(
                 detail=f"Failed to upload: {result.get('error')}"
             )
         
-        logger.info(f"Uploaded {request_body.mediaType} to X - workspace: {workspace_id}")
+        logger.info(f"Uploaded {resolved_type} to X - workspace: {workspace_id}")
         
         return TwitterUploadResponse(
             success=True,

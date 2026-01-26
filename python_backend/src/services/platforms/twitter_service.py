@@ -56,7 +56,8 @@ class TwitterService:
     
     # API endpoints
     API_BASE = "https://api.x.com/2"
-    MEDIA_UPLOAD_URL = "https://api.x.com/2/media/upload"
+    # Media uploads use the upload.twitter.com v1.1 endpoint per X docs
+    MEDIA_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json"
     
     def __init__(self):
         self.http_client = httpx.AsyncClient(timeout=120.0)
