@@ -132,7 +132,8 @@ class Settings(BaseSettings):
     LINKEDIN_CLIENT_SECRET: Optional[str] = Field(default=None, description="LinkedIn Client Secret")
     TWITTER_CLIENT_ID: Optional[str] = Field(default=None, description="Twitter Client ID")
     TWITTER_CLIENT_SECRET: Optional[str] = Field(default=None, description="Twitter Client Secret")
-    TIKTOK_CLIENT_ID: Optional[str] = Field(default=None, description="TikTok Client Key")
+    TIKTOK_CLIENT_ID: Optional[str] = Field(default=None, description="TikTok Client Key (legacy)")
+    TIKTOK_CLIENT_KEY: Optional[str] = Field(default=None, description="TikTok Client Key")
     TIKTOK_CLIENT_SECRET: Optional[str] = Field(default=None, description="TikTok Client Secret")
     YOUTUBE_CLIENT_ID: Optional[str] = Field(default=None, description="YouTube/Google Client ID")
     YOUTUBE_CLIENT_SECRET: Optional[str] = Field(default=None, description="YouTube/Google Client Secret")
@@ -235,11 +236,16 @@ class Settings(BaseSettings):
                          self.INSTAGRAM_CLIENT_SECRET or self.FACEBOOK_CLIENT_SECRET),
             "linkedin": (self.LINKEDIN_CLIENT_ID, self.LINKEDIN_CLIENT_SECRET),
             "twitter": (self.TWITTER_CLIENT_ID, self.TWITTER_CLIENT_SECRET),
-            "tiktok": (self.TIKTOK_CLIENT_ID, self.TIKTOK_CLIENT_SECRET),
+            "tiktok": (self.tiktok_client_key, self.TIKTOK_CLIENT_SECRET),
             "youtube": (self.YOUTUBE_CLIENT_ID, self.YOUTUBE_CLIENT_SECRET),
             "canva": (self.CANVA_CLIENT_ID, self.CANVA_CLIENT_SECRET),
         }
         return credentials.get(platform, (None, None))
+
+    @property
+    def tiktok_client_key(self) -> Optional[str]:
+        """Alias for TikTok client key (supports TIKTOK_CLIENT_KEY and legacy TIKTOK_CLIENT_ID)."""
+        return self.TIKTOK_CLIENT_KEY or self.TIKTOK_CLIENT_ID
 
 
 # Global settings instance

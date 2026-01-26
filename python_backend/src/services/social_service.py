@@ -689,7 +689,7 @@ async def _linkedin_get_user(self, access_token: str):
 async def _tiktok_exchange_code_for_token(self, code: str, redirect_uri: str, code_verifier: str):
     """Exchange TikTok authorization code for access token"""
     try:
-        client_key = settings.TIKTOK_CLIENT_ID
+        client_key = settings.tiktok_client_key
         client_secret = settings.TIKTOK_CLIENT_SECRET
         
         if not client_key or not client_secret:
