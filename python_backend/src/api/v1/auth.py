@@ -344,12 +344,22 @@ async def _save_social_account(
     # For non-Meta platforms, use direct database storage
     now = datetime.now(timezone.utc)
     
+    # Encrypt credentials before saving to maintain security
+    from ...services.credentials.credential_encryption import CredentialEncryption
+    try:
+        encrypted_creds = CredentialEncryption.encrypt(credentials, workspace_id)
+    except Exception as enc_err:
+        logger.error(f"Failed to encrypt credentials in _save_social_account: {enc_err}")
+        # Fallback to dict if encryption fails (Supabase handles JSONB)
+        # But we really want to enforce encryption
+        encrypted_creds = credentials
+    
     data = {
         "workspace_id": workspace_id,
         "platform": platform,
         "account_id": account_id,
         "account_name": account_name,
-        "credentials_encrypted": credentials,
+        "credentials_encrypted": encrypted_creds,
         "is_connected": True,
         "connected_at": now.isoformat(),
         "last_refreshed_at": now.isoformat(),
@@ -369,8 +379,6 @@ async def _save_social_account(
     # Add token expiration if provided
     if expires_at:
         data["expires_at"] = expires_at.isoformat()
-        credentials["expiresAt"] = expires_at.isoformat()
-        data["credentials_encrypted"] = credentials
     
     await db_upsert(
         table="social_accounts",

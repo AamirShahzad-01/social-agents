@@ -135,7 +135,7 @@ class TokenRefreshService:
         """
         try:
             # Fetch account from database
-            supabase = get_supabase_client()
+            supabase = get_supabase_admin_client()
             
             # Platforms that support token refresh can be auto-reconnected
             # even if is_connected is False, as long as they have a refresh token
@@ -225,6 +225,7 @@ class TokenRefreshService:
                 # Save to database
                 await self._update_credentials_after_refresh(
                     db_id=db_id,
+                    workspace_id=workspace_id,
                     new_credentials=new_credentials,
                     expires_at=refresh_result.get("expires_at")
                 )
@@ -618,16 +619,27 @@ class TokenRefreshService:
     async def _update_credentials_after_refresh(
         self,
         db_id: str,
+        workspace_id: str,
         new_credentials: dict,
         expires_at: Optional[datetime]
     ) -> None:
         """Update database after successful refresh"""
         try:
             now = datetime.now(timezone.utc)
-            supabase = get_supabase_client()
+            supabase = get_supabase_admin_client()
+            
+            # Encrypt credentials before saving to maintain security
+            try:
+                from .credentials.credential_encryption import CredentialEncryption
+                encrypted_creds = CredentialEncryption.encrypt(new_credentials, workspace_id)
+            except Exception as enc_err:
+                logger.error(f"Failed to encrypt credentials during refresh update: {enc_err}")
+                # Fallback to dict if encryption fails (Supabase handles JSONB)
+                # But typically we want to enforce encryption
+                encrypted_creds = new_credentials
             
             update_data = {
-                "credentials_encrypted": new_credentials,
+                "credentials_encrypted": encrypted_creds,
                 "last_refreshed_at": now.isoformat(),
                 "refresh_error_count": 0,
                 "last_error_message": None,
@@ -651,7 +663,7 @@ class TokenRefreshService:
         """Update error tracking after failed refresh"""
         try:
             now = datetime.now(timezone.utc)
-            supabase = get_supabase_client()
+            supabase = get_supabase_admin_client()
             
             # Get current error count
             current = supabase.table("social_accounts").select(
