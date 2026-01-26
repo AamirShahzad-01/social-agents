@@ -261,6 +261,7 @@ export const OAUTH_SCOPES = {
     'tweet.write',
     'tweet.moderate.write',
     'users.read',
+    'media.write',
     'mute.read',
     'mute.write',
     'offline.access'

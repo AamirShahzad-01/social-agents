@@ -370,6 +370,11 @@ class TwitterService:
 
             if init_response.status_code not in [200, 201, 202]:
                 error = init_response.json() if init_response.content else {}
+                if init_response.status_code == 403:
+                    return {
+                        'success': False,
+                        'error': "INIT failed: Forbidden (check media.write scope or reconnect X account)"
+                    }
                 return {
                     'success': False,
                     'error': f"INIT failed: {error.get('errors', [{}])[0].get('message', init_response.text)}"
@@ -483,6 +488,11 @@ class TwitterService:
             
             if init_response.status_code != 202 and init_response.status_code != 200:
                 error = init_response.json() if init_response.content else {}
+                if init_response.status_code == 403:
+                    return {
+                        'success': False,
+                        'error': "INIT failed: Forbidden (check media.write scope or reconnect X account)"
+                    }
                 return {
                     'success': False,
                     'error': f"INIT failed: {error.get('errors', [{}])[0].get('message', init_response.text)}"

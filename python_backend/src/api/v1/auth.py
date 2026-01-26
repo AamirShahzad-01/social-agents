@@ -41,7 +41,7 @@ OAUTH_URLS = {
 
 # OAuth scopes for each platform
 SCOPES = {
-    "twitter": ["tweet.write", "tweet.read", "users.read", "offline.access"],
+    "twitter": ["tweet.write", "tweet.read", "users.read", "media.write", "offline.access"],
     "linkedin": ["openid", "profile", "email", "w_member_social"],
     "facebook": [
         "public_profile",
