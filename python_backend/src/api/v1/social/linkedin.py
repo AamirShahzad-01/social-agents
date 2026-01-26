@@ -390,7 +390,11 @@ async def post_to_linkedin(
             text=final_text
         )
         
-    except HTTPException:
+    except HTTPException as http_err:
+        logger.warning(
+            "LinkedIn post request failed: %s",
+            http_err.detail
+        )
         raise
     except Exception as e:
         logger.error(f"LinkedIn post error: {e}", exc_info=True)
@@ -512,7 +516,11 @@ async def post_carousel_to_linkedin(
             imageCount=len(request_body.imageUrls)
         )
         
-    except HTTPException:
+    except HTTPException as http_err:
+        logger.warning(
+            "LinkedIn carousel request failed: %s",
+            http_err.detail
+        )
         raise
     except Exception as e:
         logger.error(f"LinkedIn carousel error: {e}", exc_info=True)
@@ -693,7 +701,11 @@ async def upload_media_for_linkedin(
             mediaType=resolved_media_type
         )
         
-    except HTTPException:
+    except HTTPException as http_err:
+        logger.warning(
+            "LinkedIn upload request failed: %s",
+            http_err.detail
+        )
         raise
     except Exception as e:
         logger.error(f"LinkedIn upload error: {e}", exc_info=True)
