@@ -117,7 +117,8 @@ class TwitterService:
         url: str,
         oauth_token: str,
         oauth_token_secret: str,
-        additional_params: Optional[Dict[str, str]] = None
+        additional_params: Optional[Dict[str, str]] = None,
+        oauth_body_hash: Optional[str] = None
     ) -> str:
         """
         Generate OAuth 1.0a Authorization header.
@@ -135,6 +136,9 @@ class TwitterService:
             "oauth_token": oauth_token,
             "oauth_version": "1.0"
         }
+
+        if oauth_body_hash:
+            oauth_params["oauth_body_hash"] = oauth_body_hash
         
         # Combine with additional params for signature
         all_params = {**oauth_params}
@@ -151,6 +155,41 @@ class TwitterService:
         header_parts = [f'{k}="{urllib.parse.quote(v, safe="")}"' for k, v in sorted(oauth_params.items())]
         return f'OAuth {", ".join(header_parts)}'
 
+    def _compute_oauth_body_hash(self, body: bytes) -> str:
+        return base64.b64encode(hashlib.sha1(body).digest()).decode()
+
+    def _build_multipart_body(
+        self,
+        fields: Dict[str, str],
+        file_field: str,
+        filename: str,
+        content_type: str,
+        file_bytes: bytes,
+        boundary: str
+    ) -> bytes:
+        crlf = b"\r\n"
+        body = bytearray()
+
+        for name, value in fields.items():
+            body.extend(b"--" + boundary.encode() + crlf)
+            body.extend(f'Content-Disposition: form-data; name="{name}"'.encode())
+            body.extend(crlf + crlf)
+            body.extend(str(value).encode())
+            body.extend(crlf)
+
+        body.extend(b"--" + boundary.encode() + crlf)
+        body.extend(
+            f'Content-Disposition: form-data; name="{file_field}"; filename="{filename}"'.encode()
+        )
+        body.extend(crlf)
+        body.extend(f"Content-Type: {content_type}".encode())
+        body.extend(crlf + crlf)
+        body.extend(file_bytes)
+        body.extend(crlf)
+        body.extend(b"--" + boundary.encode() + b"--" + crlf)
+
+        return bytes(body)
+
     def _build_auth_headers(
         self,
         method: str,
@@ -158,7 +197,8 @@ class TwitterService:
         access_token: str,
         access_token_secret: str,
         params: Optional[Dict[str, str]] = None,
-        include_params_in_signature: bool = True
+        include_params_in_signature: bool = True,
+        oauth_body_hash: Optional[str] = None
     ) -> Dict[str, str]:
         """
         Build Authorization headers for OAuth 2.0 or OAuth 1.0a.
@@ -166,7 +206,12 @@ class TwitterService:
         if access_token_secret:
             signature_params = params if include_params_in_signature else None
             oauth_header = self._generate_oauth_header(
-                method, url, access_token, access_token_secret, signature_params
+                method,
+                url,
+                access_token,
+                access_token_secret,
+                signature_params,
+                oauth_body_hash=oauth_body_hash
             )
             return {"Authorization": oauth_header}
 
@@ -433,18 +478,29 @@ class TwitterService:
                 "media_id": str(media_id),
                 "segment_index": "0"
             }
-            append_headers = self._build_auth_headers(
-                "POST", url, access_token, access_token_secret, append_params
+            boundary = hashlib.sha1(f"{time.time()}-{media_id}".encode()).hexdigest()
+            body = self._build_multipart_body(
+                fields=append_params,
+                file_field="media",
+                filename="media",
+                content_type=content_type,
+                file_bytes=media_data,
+                boundary=boundary
             )
+            body_hash = self._compute_oauth_body_hash(body)
+            append_headers = {
+                **self._build_auth_headers(
+                    "POST",
+                    url,
+                    access_token,
+                    access_token_secret,
+                    include_params_in_signature=False,
+                    oauth_body_hash=body_hash
+                ),
+                "Content-Type": f"multipart/form-data; boundary={boundary}"
+            }
 
-            append_response = await self.http_client.post(
-                url,
-                headers=append_headers,
-                data=append_params,
-                files={
-                    "media": ("media", media_data, content_type)
-                }
-            )
+            append_response = await self.http_client.post(url, headers=append_headers, content=body)
 
             logger.info(f"Media APPEND response status: {append_response.status_code}")
             if append_response.status_code not in [200, 201, 202, 204]:
@@ -576,25 +632,30 @@ class TwitterService:
                     "media_id": media_id,
                     "segment_index": str(segment_index)
                 }
-                
-                append_headers = self._build_auth_headers(
-                    "POST",
-                    url,
-                    access_token,
-                    access_token_secret,
-                    append_params,
-                    include_params_in_signature=False
-                )
 
-                # Send chunk as multipart
-                append_response = await self.http_client.post(
-                    url,
-                    headers=append_headers,
-                    params=append_params,
-                    files={
-                        "media": ("chunk", chunk, content_type)
-                    }
+                boundary = hashlib.sha1(f"{time.time()}-{media_id}-{segment_index}".encode()).hexdigest()
+                body = self._build_multipart_body(
+                    fields=append_params,
+                    file_field="media",
+                    filename="chunk",
+                    content_type=content_type,
+                    file_bytes=chunk,
+                    boundary=boundary
                 )
+                body_hash = self._compute_oauth_body_hash(body)
+                append_headers = {
+                    **self._build_auth_headers(
+                        "POST",
+                        url,
+                        access_token,
+                        access_token_secret,
+                        include_params_in_signature=False,
+                        oauth_body_hash=body_hash
+                    ),
+                    "Content-Type": f"multipart/form-data; boundary={boundary}"
+                }
+
+                append_response = await self.http_client.post(url, headers=append_headers, content=body)
 
                 logger.info(f"Media APPEND response status: {append_response.status_code}, auth mode: {auth_mode}, upload_url: {upload_url}")
                 if append_response.status_code not in [200, 204]:
