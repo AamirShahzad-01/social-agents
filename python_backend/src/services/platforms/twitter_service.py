@@ -321,6 +321,13 @@ class TwitterService:
             Dict with success, media_id, or error
         """
         try:
+            if not access_token_secret:
+                logger.error("Media upload requires OAuth 1.0a user tokens; access_token_secret missing")
+                return {
+                    'success': False,
+                    'error': "Media upload requires OAuth 1.0a user tokens. Reconnect X account with OAuth 1.0a to upload media."
+                }
+
             file_size = len(media_data)
             media_category = MEDIA_CATEGORIES.get(media_type, "tweet_image")
             
@@ -340,9 +347,8 @@ class TwitterService:
             else:
                 content_type = "image/jpeg"  # Default for images
             
-            upload_url = self.MEDIA_UPLOAD_URL if access_token_secret else self.MEDIA_UPLOAD_URL_V2
-            auth_mode = "oauth1" if access_token_secret else "oauth2"
-            logger.info(f"Media upload auth mode: {auth_mode}, upload_url: {upload_url}")
+            upload_url = self.MEDIA_UPLOAD_URL
+            logger.info(f"Media upload auth mode: oauth1, upload_url: {upload_url}")
 
             # Use chunked upload for videos/gifs or large images
             if media_type in ["video", "gif"] or file_size > 1 * 1024 * 1024:
@@ -407,6 +413,7 @@ class TwitterService:
             logger.info(f"Media INIT response status: {init_response.status_code}")
             if init_response.status_code not in [200, 201, 202]:
                 error = init_response.json() if init_response.content else {}
+                logger.error(f"Media INIT failed: status={init_response.status_code}, body={init_response.text}")
                 if init_response.status_code == 403:
                     return {
                         'success': False,
@@ -440,6 +447,7 @@ class TwitterService:
             logger.info(f"Media APPEND response status: {append_response.status_code}")
             if append_response.status_code not in [200, 201, 202, 204]:
                 error = append_response.json() if append_response.content else {}
+                logger.error(f"Media APPEND failed: status={append_response.status_code}, body={append_response.text}")
                 return {
                     'success': False,
                     'error': f"APPEND failed: {error}"
@@ -463,6 +471,7 @@ class TwitterService:
             logger.info(f"Media FINALIZE response status: {finalize_response.status_code}")
             if finalize_response.status_code not in [200, 201, 202]:
                 error = finalize_response.json() if finalize_response.content else {}
+                logger.error(f"Media FINALIZE failed: status={finalize_response.status_code}, body={finalize_response.text}")
                 return {
                     'success': False,
                     'error': f"FINALIZE failed: {error}"
@@ -531,6 +540,7 @@ class TwitterService:
             logger.info(f"Media INIT response status: {init_response.status_code}, auth mode: {auth_mode}, upload_url: {upload_url}")
             if init_response.status_code != 202 and init_response.status_code != 200:
                 error = init_response.json() if init_response.content else {}
+                logger.error(f"Media INIT failed: status={init_response.status_code}, body={init_response.text}")
                 if init_response.status_code == 403:
                     return {
                         'success': False,
@@ -582,6 +592,7 @@ class TwitterService:
                 logger.info(f"Media APPEND response status: {append_response.status_code}, auth mode: {auth_mode}, upload_url: {upload_url}")
                 if append_response.status_code not in [200, 204]:
                     error = append_response.json() if append_response.content else {}
+                    logger.error(f"Media APPEND failed: status={append_response.status_code}, body={append_response.text}")
                     return {
                         'success': False,
                         'error': f"APPEND failed at segment {segment_index}: {error}"
@@ -620,6 +631,7 @@ class TwitterService:
             logger.info(f"Media FINALIZE response status: {finalize_response.status_code}, auth mode: {auth_mode}, upload_url: {upload_url}")
             if finalize_response.status_code not in [200, 201]:
                 error = finalize_response.json() if finalize_response.content else {}
+                logger.error(f"Media FINALIZE failed: status={finalize_response.status_code}, body={finalize_response.text}")
                 return {
                     'success': False,
                     'error': f"FINALIZE failed: {error}"
@@ -689,6 +701,7 @@ class TwitterService:
             auth_mode = "oauth1" if access_token_secret else "oauth2"
             logger.info(f"Media STATUS response status: {status_response.status_code}, auth mode: {auth_mode}, upload_url: {upload_url}")
             if status_response.status_code != 200:
+                logger.error(f"Media STATUS failed: status={status_response.status_code}, body={status_response.text}")
                 continue
             
             status_data = status_response.json()
