@@ -72,7 +72,7 @@ async def get_user_workspace(request: Request) -> dict:
         supabase = get_supabase_client()
         response = supabase.table("users").select(
             "workspace_id"
-        ).filter("id", "eq", user["sub"]).single().execute()
+        ).eq("id", user["sub"]).single().execute()
         
         if not response.data:
             raise HTTPException(status_code=404, detail="User workspace not found")
@@ -191,13 +191,7 @@ async def force_refresh_token(
         supabase = get_supabase_client()
         response = supabase.table("social_accounts").select(
             "id, credentials_encrypted, expires_at"
-        ).filter(
-            "workspace_id", "eq", workspace_id
-        ).filter(
-            "platform", "eq", platform
-        ).filter(
-            "is_connected", "eq", True
-        ).limit(1).execute()
+        ).eq("workspace_id", workspace_id).eq("platform", platform).eq("is_connected", True).limit(1).execute()
         
         if not response.data:
             raise HTTPException(status_code=404, detail=f"No connected {platform} account")
@@ -250,9 +244,7 @@ async def get_token_status(request: Request):
         response = supabase.table("social_accounts").select(
             "platform, account_id, account_name, is_connected, expires_at, "
             "last_refreshed_at, refresh_error_count, last_error_message"
-        ).filter(
-            "workspace_id", "eq", workspace_id
-        ).execute()
+        ).eq("workspace_id", workspace_id).execute()
         
         accounts = response.data if response.data else []
         

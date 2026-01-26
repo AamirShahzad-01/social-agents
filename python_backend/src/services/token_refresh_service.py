@@ -139,16 +139,10 @@ class TokenRefreshService:
             
             query = supabase.table("social_accounts").select(
                 "id, account_id, account_name, credentials_encrypted, expires_at, is_connected, refresh_error_count"
-            ).filter(
-                "workspace_id", "eq", workspace_id
-            ).filter(
-                "platform", "eq", platform
-            ).filter(
-                "is_connected", "eq", True
-            )
+            ).eq("workspace_id", workspace_id).eq("platform", platform).eq("is_connected", True)
             
             if account_id:
-                query = query.filter("account_id", "eq", account_id)
+                query = query.eq("account_id", account_id)
             
             response = query.limit(1).execute()
             
@@ -564,7 +558,7 @@ class TokenRefreshService:
     
     async def _refresh_youtube(self, credentials: dict) -> dict:
         """Refresh YouTube/Google OAuth 2.0 token"""
-        refresh_token = credentials.get("refreshToken")
+        refresh_token = credentials.get("refreshToken") or credentials.get("refresh_token")
         if not refresh_token:
             return {"success": False, "error": "No refresh token", "error_type": "no_refresh_token", "needs_reconnect": True}
         
