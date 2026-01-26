@@ -608,17 +608,27 @@ async def upload_media_for_linkedin(
         import base64
 
         match = re.match(r'^data:(.+);base64,(.+)$', media_data)
-        if not match:
+        if match:
+            content_type = match.group(1)
+            base64_content = match.group(2)
+        else:
+            content_type = None
+            base64_content = media_data
+
+        # Decode base64 (allow raw base64 without data URI)
+        try:
+            file_data = base64.b64decode(base64_content, validate=True)
+        except Exception:
             raise HTTPException(status_code=400, detail="Invalid base64 format")
 
-        content_type = match.group(1)
-        base64_content = match.group(2)
+        resolved_media_type = (
+            request_body.mediaType
+            or _infer_media_type(None, content_type, None)
+            or "image"
+        )
 
-        # Decode base64
-        file_data = base64.b64decode(base64_content)
-        
         # Upload based on media type
-        if request_body.mediaType == "video":
+        if resolved_media_type == "video":
             # Validate file size (max 5GB for LinkedIn videos)
             if len(file_data) > 5 * 1024 * 1024 * 1024:
                 raise HTTPException(status_code=400, detail="Video size exceeds 5GB limit")
@@ -675,12 +685,12 @@ async def upload_media_for_linkedin(
             
             media_urn = result["asset"]
         
-        logger.info(f"Uploaded {request_body.mediaType} to LinkedIn - workspace: {workspace_id}")
+        logger.info(f"Uploaded {resolved_media_type} to LinkedIn - workspace: {workspace_id}")
         
         return LinkedInUploadResponse(
             success=True,
             mediaUrn=media_urn,
-            mediaType=request_body.mediaType
+            mediaType=resolved_media_type
         )
         
     except HTTPException:
