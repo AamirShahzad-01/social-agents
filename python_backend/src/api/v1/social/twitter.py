@@ -6,6 +6,7 @@ Uses X API v2 with OAuth 2.0 PKCE user tokens
 """
 import logging
 import mimetypes
+import httpx
 from typing import Optional, List
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request, Header
