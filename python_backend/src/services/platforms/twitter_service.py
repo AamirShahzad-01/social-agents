@@ -3,17 +3,14 @@ Twitter/X Service
 Production-ready X API v2 client
 Handles posting tweets, media uploads, and authentication
 
-Updated December 2025:
-- Media upload migrated to API v2 (v1.1 deprecated March 2025)
-- Uses /2/media/upload/initialize, append, finalize endpoints
+Updated January 2026:
+- Media upload uses X API v2 /2/media/upload (INIT/APPEND/FINALIZE/STATUS)
 - Supports chunked uploads for large files (videos up to 512MB)
-- OAuth 2.0 PKCE and OAuth 1.0a authentication
+- OAuth 2.0 PKCE user tokens; OAuth 1.0a supported as fallback
 
-X API v2 Media Upload Documentation (Dec 2025):
-- Initialize: POST https://api.x.com/2/media/upload/initialize
-- Append: PUT https://api.x.com/2/media/upload/{id}/append
-- Finalize: POST https://api.x.com/2/media/upload/{id}/finalize
-- Status: GET https://api.x.com/2/media/upload/{id} (for async processing)
+X API v2 Media Upload Documentation:
+- Upload: POST https://api.x.com/2/media/upload (command=INIT|APPEND|FINALIZE)
+- Status: GET https://api.x.com/2/media/upload (command=STATUS)
 """
 import tweepy
 import httpx
@@ -53,13 +50,13 @@ class TwitterService:
     """
     Twitter/X API v2 service for posting and media management.
     
-    Uses X API v2 for all operations including media upload (Dec 2025).
+    Uses X API v2 for all operations including media upload (Jan 2026).
     Supports both OAuth 1.0a and OAuth 2.0 PKCE authentication.
     """
     
     # API endpoints
     API_BASE = "https://api.x.com/2"
-    UPLOAD_BASE = "https://upload.twitter.com/1.1"  # Fallback for v1.1
+    MEDIA_UPLOAD_URL = "https://api.x.com/2/media/upload"
     
     def __init__(self):
         self.http_client = httpx.AsyncClient(timeout=120.0)
@@ -151,6 +148,25 @@ class TwitterService:
         # Build header
         header_parts = [f'{k}="{urllib.parse.quote(v, safe="")}"' for k, v in sorted(oauth_params.items())]
         return f'OAuth {", ".join(header_parts)}'
+
+    def _build_auth_headers(
+        self,
+        method: str,
+        url: str,
+        access_token: str,
+        access_token_secret: str,
+        params: Optional[Dict[str, str]] = None
+    ) -> Dict[str, str]:
+        """
+        Build Authorization headers for OAuth 2.0 or OAuth 1.0a.
+        """
+        if access_token_secret:
+            oauth_header = self._generate_oauth_header(
+                method, url, access_token, access_token_secret, params
+            )
+            return {"Authorization": oauth_header}
+
+        return {"Authorization": f"Bearer {access_token}"}
     
     # ============================================================================
     # CLIENT CREATION (supports OAuth 2.0 and OAuth 1.0a)
@@ -303,13 +319,15 @@ class TwitterService:
                     content_type,
                     media_category
                 )
-            else:
-                # Simple upload for small images
-                return await self._simple_upload(
-                    access_token,
-                    access_token_secret,
-                    media_data
-                )
+
+            # Simple upload for small images
+            return await self._simple_upload(
+                access_token,
+                access_token_secret,
+                media_data,
+                content_type,
+                media_category
+            )
                 
         except Exception as e:
             logger.error(f"Media upload error: {e}", exc_info=True)
@@ -319,44 +337,105 @@ class TwitterService:
         self,
         access_token: str,
         access_token_secret: str,
-        media_data: bytes
+        media_data: bytes,
+        content_type: str,
+        media_category: str
     ) -> Dict[str, Any]:
         """
         Simple media upload for small images (< 1MB).
-        Uses v1.1 API as simple upload endpoint.
+        Uses v2 INIT/APPEND/FINALIZE with a single segment.
         """
         try:
-            url = f"{self.UPLOAD_BASE}/media/upload.json"
-            
-            # Generate OAuth header
-            oauth_header = self._generate_oauth_header(
-                "POST", url, access_token, access_token_secret
-            )
-            
-            # Base64 encode the media
-            media_b64 = base64.b64encode(media_data).decode()
-            
-            response = await self.http_client.post(
+            url = self.MEDIA_UPLOAD_URL
+            file_size = len(media_data)
+
+            init_params = {
+                "command": "INIT",
+                "total_bytes": str(file_size),
+                "media_type": content_type,
+                "media_category": media_category
+            }
+
+            init_headers = {
+                **self._build_auth_headers("POST", url, access_token, access_token_secret, init_params),
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+
+            init_response = await self.http_client.post(
                 url,
-                headers={
-                    "Authorization": oauth_header,
-                    "Content-Type": "application/x-www-form-urlencoded"
-                },
-                data={"media_data": media_b64}
+                headers=init_headers,
+                data=init_params
             )
-            
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    'success': True,
-                    'media_id': str(data['media_id_string'])
-                }
-            else:
-                error_data = response.json() if response.content else {}
+
+            if init_response.status_code not in [200, 201, 202]:
+                error = init_response.json() if init_response.content else {}
                 return {
                     'success': False,
-                    'error': error_data.get('errors', [{}])[0].get('message', 'Upload failed')
+                    'error': f"INIT failed: {error.get('errors', [{}])[0].get('message', init_response.text)}"
                 }
+
+            media_id = init_response.json()["media_id"]
+
+            append_params = {
+                "command": "APPEND",
+                "media_id": str(media_id),
+                "segment_index": "0"
+            }
+            append_headers = self._build_auth_headers(
+                "POST", url, access_token, access_token_secret, append_params
+            )
+
+            append_response = await self.http_client.post(
+                url,
+                headers=append_headers,
+                data=append_params,
+                files={
+                    "media": ("media", media_data, content_type)
+                }
+            )
+
+            if append_response.status_code not in [200, 201, 202, 204]:
+                error = append_response.json() if append_response.content else {}
+                return {
+                    'success': False,
+                    'error': f"APPEND failed: {error}"
+                }
+
+            finalize_params = {
+                "command": "FINALIZE",
+                "media_id": str(media_id)
+            }
+            finalize_headers = {
+                **self._build_auth_headers("POST", url, access_token, access_token_secret, finalize_params),
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+
+            finalize_response = await self.http_client.post(
+                url,
+                headers=finalize_headers,
+                data=finalize_params
+            )
+
+            if finalize_response.status_code not in [200, 201, 202]:
+                error = finalize_response.json() if finalize_response.content else {}
+                return {
+                    'success': False,
+                    'error': f"FINALIZE failed: {error}"
+                }
+
+            finalize_data = finalize_response.json()
+            if 'processing_info' in finalize_data:
+                return await self._wait_for_processing(
+                    access_token,
+                    access_token_secret,
+                    str(media_id),
+                    finalize_data['processing_info']
+                )
+
+            return {
+                'success': True,
+                'media_id': str(media_id)
+            }
                 
         except Exception as e:
             logger.error(f"Simple upload error: {e}")
@@ -376,7 +455,7 @@ class TwitterService:
         Uses the INIT → APPEND → FINALIZE flow.
         For videos, also handles async processing status checks.
         """
-        url = f"{self.UPLOAD_BASE}/media/upload.json"
+        url = self.MEDIA_UPLOAD_URL
         file_size = len(media_data)
         
         # ================================================================
@@ -390,16 +469,14 @@ class TwitterService:
                 "media_category": media_category
             }
             
-            oauth_header = self._generate_oauth_header(
-                "POST", url, access_token, access_token_secret, init_params
-            )
+            init_headers = {
+                **self._build_auth_headers("POST", url, access_token, access_token_secret, init_params),
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
             
             init_response = await self.http_client.post(
                 url,
-                headers={
-                    "Authorization": oauth_header,
-                    "Content-Type": "application/x-www-form-urlencoded"
-                },
+                headers=init_headers,
                 data=init_params
             )
             
@@ -411,7 +488,7 @@ class TwitterService:
                 }
             
             init_data = init_response.json()
-            media_id = init_data['media_id_string']
+            media_id = str(init_data['media_id'])
             
             logger.info(f"Initialized upload: media_id={media_id}")
             
@@ -427,7 +504,6 @@ class TwitterService:
             
             while offset < file_size:
                 chunk = media_data[offset:offset + CHUNK_SIZE]
-                chunk_b64 = base64.b64encode(chunk).decode()
                 
                 append_params = {
                     "command": "APPEND",
@@ -435,20 +511,17 @@ class TwitterService:
                     "segment_index": str(segment_index)
                 }
                 
-                oauth_header = self._generate_oauth_header(
+                append_headers = self._build_auth_headers(
                     "POST", url, access_token, access_token_secret, append_params
                 )
-                
-                # Send chunk as multipart or base64
+
+                # Send chunk as multipart
                 append_response = await self.http_client.post(
                     url,
-                    headers={
-                        "Authorization": oauth_header,
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    data={
-                        **append_params,
-                        "media_data": chunk_b64
+                    headers=append_headers,
+                    data=append_params,
+                    files={
+                        "media": ("chunk", chunk, content_type)
                     }
                 )
                 
@@ -478,16 +551,14 @@ class TwitterService:
                 "media_id": media_id
             }
             
-            oauth_header = self._generate_oauth_header(
-                "POST", url, access_token, access_token_secret, finalize_params
-            )
+            finalize_headers = {
+                **self._build_auth_headers("POST", url, access_token, access_token_secret, finalize_params),
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
             
             finalize_response = await self.http_client.post(
                 url,
-                headers={
-                    "Authorization": oauth_header,
-                    "Content-Type": "application/x-www-form-urlencoded"
-                },
+                headers=finalize_headers,
                 data=finalize_params
             )
             
@@ -532,7 +603,7 @@ class TwitterService:
         X processes videos asynchronously after upload.
         We poll the STATUS endpoint until processing completes.
         """
-        url = f"{self.UPLOAD_BASE}/media/upload.json"
+        url = self.MEDIA_UPLOAD_URL
         max_wait_seconds = 300  # 5 minutes max
         waited = 0
         
@@ -547,13 +618,13 @@ class TwitterService:
                 "media_id": media_id
             }
             
-            oauth_header = self._generate_oauth_header(
+            status_headers = self._build_auth_headers(
                 "GET", url, access_token, access_token_secret, status_params
             )
             
             status_response = await self.http_client.get(
                 url,
-                headers={"Authorization": oauth_header},
+                headers=status_headers,
                 params=status_params
             )
             

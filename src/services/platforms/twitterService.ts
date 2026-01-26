@@ -2,7 +2,7 @@
  * TWITTER/X SERVICE
  * Implementation of Twitter API v2 integration
  * OAuth 2.0 with PKCE for enhanced security
- * Latest API as of 2025
+ * Latest API as of 2026
  */
 
 import { BasePlatformService } from './BasePlatformService'
@@ -25,8 +25,8 @@ import { ExternalAPIError } from '@/core/errors/AppError'
  * Documentation: https://developer.twitter.com/en/docs/twitter-api/latest
  */
 export class TwitterService extends BasePlatformService {
-  private apiBaseUrl = 'https://api.twitter.com/2'
-  private uploadApiBaseUrl = 'https://upload.twitter.com/1.1'
+  private apiBaseUrl = 'https://api.x.com/2'
+  private mediaUploadUrl = 'https://api.x.com/2/media/upload'
 
   constructor() {
     super('twitter', PLATFORM_CONFIGS.twitter.name, PLATFORM_CONFIGS.twitter.icon)
@@ -46,7 +46,7 @@ export class TwitterService extends BasePlatformService {
       code_challenge_method: codeChallenge ? 'S256' : 'plain'
     })
 
-    return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
+    return `https://x.com/i/oauth2/authorize?${params.toString()}`
   }
 
   /**
@@ -54,20 +54,29 @@ export class TwitterService extends BasePlatformService {
    */
   async exchangeCodeForToken(callbackData: OAuthCallbackData): Promise<OAuthTokenResponse> {
     try {
-      const response = await fetch('https://twitter.com/2/oauth2/token', {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'SocialMediaOS/1.0'
+      }
+
+      const body = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: callbackData.code,
+        redirect_uri: this.config.redirectUri,
+        code_verifier: callbackData.codeVerifier || ''
+      })
+
+      if (this.config.clientSecret) {
+        const authString = `${this.config.clientId}:${this.config.clientSecret}`
+        headers['Authorization'] = `Basic ${Buffer.from(authString).toString('base64')}`
+      } else {
+        body.set('client_id', this.config.clientId)
+      }
+
+      const response = await fetch('https://api.x.com/2/oauth2/token', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'SocialMediaOS/1.0'
-        },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: callbackData.code,
-          client_id: this.config.clientId,
-          client_secret: this.config.clientSecret,
-          redirect_uri: this.config.redirectUri,
-          code_verifier: callbackData.codeVerifier || ''
-        }).toString()
+        headers,
+        body: body.toString()
       })
 
       if (!response.ok) {
@@ -94,18 +103,27 @@ export class TwitterService extends BasePlatformService {
    */
   async refreshAccessToken(refreshToken: string): Promise<OAuthTokenResponse> {
     try {
-      const response = await fetch('https://twitter.com/2/oauth2/token', {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'SocialMediaOS/1.0'
+      }
+
+      const body = new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken
+      })
+
+      if (this.config.clientSecret) {
+        const authString = `${this.config.clientId}:${this.config.clientSecret}`
+        headers['Authorization'] = `Basic ${Buffer.from(authString).toString('base64')}`
+      } else {
+        body.set('client_id', this.config.clientId)
+      }
+
+      const response = await fetch('https://api.x.com/2/oauth2/token', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'SocialMediaOS/1.0'
-        },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: refreshToken,
-          client_id: this.config.clientId,
-          client_secret: this.config.clientSecret
-        }).toString()
+        headers,
+        body: body.toString()
       })
 
       if (!response.ok) {
@@ -247,7 +265,6 @@ export class TwitterService extends BasePlatformService {
       }
 
       const mediaBuffer = await mediaResponse.arrayBuffer()
-      const mediaBase64 = Buffer.from(mediaBuffer).toString('base64')
 
       // Validate media type
       const validTypes = ['image', 'video', 'gif']
@@ -255,23 +272,39 @@ export class TwitterService extends BasePlatformService {
         throw new Error(`Unsupported media type: ${media.type}`)
       }
 
-      // Validate media size (15MB max for Twitter)
+      // Validate media size
       if (mediaBuffer.byteLength > PLATFORM_CONFIGS.twitter.maxMediaSize) {
         throw new Error(`Media exceeds ${PLATFORM_CONFIGS.twitter.maxMediaSize} bytes`)
       }
 
-      // Determine media category
+      // Determine media category + content type
       let mediaCategory = 'tweet_image'
-      if (media.type === 'video') mediaCategory = 'tweet_video'
-      if (media.type === 'gif') mediaCategory = 'tweet_gif'
+      let contentType = 'image/jpeg'
+      if (media.type === 'video') {
+        mediaCategory = 'tweet_video'
+        contentType = 'video/mp4'
+      }
+      if (media.type === 'gif') {
+        mediaCategory = 'tweet_gif'
+        contentType = 'image/gif'
+      }
 
-      // Initiate upload
-      const initResponse = await fetch(`${this.uploadApiBaseUrl}/media/upload.json?command=INIT&total_bytes=${mediaBuffer.byteLength}&media_type=image/jpeg`, {
+      // INIT
+      const initBody = new URLSearchParams({
+        command: 'INIT',
+        total_bytes: String(mediaBuffer.byteLength),
+        media_type: contentType,
+        media_category: mediaCategory
+      })
+
+      const initResponse = await fetch(this.mediaUploadUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${credentials.accessToken}`,
-          'User-Agent': 'SocialMediaOS/1.0'
-        }
+          'User-Agent': 'SocialMediaOS/1.0',
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: initBody.toString()
       })
 
       if (!initResponse.ok) {
@@ -279,41 +312,91 @@ export class TwitterService extends BasePlatformService {
       }
 
       const initData = await initResponse.json()
-      const mediaId = initData.media_id_string
+      const mediaId = String(initData.media_id)
 
-      // Append media data
-      const appendResponse = await fetch(
-        `${this.uploadApiBaseUrl}/media/upload.json?command=APPEND&media_id=${mediaId}&segment_index=0`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${credentials.accessToken}`,
-            'User-Agent': 'SocialMediaOS/1.0',
-            'Content-Type': 'application/octet-stream'
-          },
-          body: mediaBuffer
-        }
-      )
+      // APPEND
+      const appendForm = new FormData()
+      appendForm.append('command', 'APPEND')
+      appendForm.append('media_id', mediaId)
+      appendForm.append('segment_index', '0')
+      appendForm.append('media', new Blob([mediaBuffer], { type: contentType }), 'media')
+
+      const appendResponse = await fetch(this.mediaUploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${credentials.accessToken}`,
+          'User-Agent': 'SocialMediaOS/1.0'
+        },
+        body: appendForm
+      })
 
       if (!appendResponse.ok) {
         throw new Error('Failed to append media data')
       }
 
-      // Finalize upload
-      const finalizeResponse = await fetch(`${this.uploadApiBaseUrl}/media/upload.json?command=FINALIZE&media_id=${mediaId}`, {
+      // FINALIZE
+      const finalizeBody = new URLSearchParams({
+        command: 'FINALIZE',
+        media_id: mediaId
+      })
+
+      const finalizeResponse = await fetch(this.mediaUploadUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${credentials.accessToken}`,
-          'User-Agent': 'SocialMediaOS/1.0'
-        }
+          'User-Agent': 'SocialMediaOS/1.0',
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: finalizeBody.toString()
       })
 
       if (!finalizeResponse.ok) {
         throw new Error('Failed to finalize media upload')
       }
 
-      const finalData = await finalizeResponse.json()
-      return finalData.media_id_string
+      const finalizeData = await finalizeResponse.json()
+      if (finalizeData.processing_info) {
+        const deadline = Date.now() + 5 * 60 * 1000
+        let processingInfo = finalizeData.processing_info
+
+        while (Date.now() < deadline) {
+          const checkAfter = (processingInfo.check_after_secs || 5) * 1000
+          await new Promise(resolve => setTimeout(resolve, checkAfter))
+
+          const statusParams = new URLSearchParams({
+            command: 'STATUS',
+            media_id: mediaId
+          })
+
+          const statusResponse = await fetch(`${this.mediaUploadUrl}?${statusParams.toString()}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${credentials.accessToken}`,
+              'User-Agent': 'SocialMediaOS/1.0'
+            }
+          })
+
+          if (!statusResponse.ok) {
+            continue
+          }
+
+          const statusData = await statusResponse.json()
+          processingInfo = statusData.processing_info
+          const state = processingInfo?.state || 'succeeded'
+
+          if (state === 'succeeded') {
+            return mediaId
+          }
+
+          if (state === 'failed') {
+            throw new Error(processingInfo?.error?.message || 'Media processing failed')
+          }
+        }
+
+        throw new Error('Media processing timeout')
+      }
+
+      return mediaId
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       throw new ExternalAPIError('Twitter', `Media upload failed: ${message}`)

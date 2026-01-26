@@ -1,8 +1,8 @@
 """
 Twitter/X API Router
 Production-ready X posting endpoints
-Supports: tweets with text and media
-Uses X API v2 with OAuth 1.0a authentication
+Supports: posts with text and media
+Uses X API v2 with OAuth 2.0 PKCE user tokens
 """
 import logging
 from typing import Optional, List
@@ -151,7 +151,7 @@ async def post_to_twitter(
     - Multiple media attachments (up to 4 images or 1 video/GIF)
     
     Features:
-    - OAuth 1.0a authentication (tokens don't expire)
+    - OAuth 2.0 PKCE authentication
     - Cron job support for scheduled tweets
     - Media upload support
     

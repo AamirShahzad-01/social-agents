@@ -595,22 +595,34 @@ social_service = SocialMediaService()
 
 
 async def _twitter_exchange_code_for_token(self, code: str, redirect_uri: str, code_verifier: str):
-    """Exchange Twitter authorization code for access token (OAuth 2.0 PKCE)"""
+    """Exchange X authorization code for access token (OAuth 2.0 PKCE)"""
     try:
-        import base64
         client_id = settings.TWITTER_CLIENT_ID
         client_secret = settings.TWITTER_CLIENT_SECRET
         
         if not client_id:
             return {'success': False, 'error': 'Twitter credentials not configured'}
-        
-        auth_string = f"{client_id}:{client_secret}"
-        auth_header = base64.b64encode(auth_string.encode()).decode()
-        
+
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        data = {
+            'grant_type': 'authorization_code',
+            'code': code,
+            'redirect_uri': redirect_uri,
+            'code_verifier': code_verifier
+        }
+
+        if client_secret:
+            import base64
+            auth_string = f"{client_id}:{client_secret}"
+            auth_header = base64.b64encode(auth_string.encode()).decode()
+            headers['Authorization'] = f'Basic {auth_header}'
+        else:
+            data['client_id'] = client_id
+
         response = await self.http_client.post(
-            'https://api.twitter.com/2/oauth2/token',
-            headers={'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': f'Basic {auth_header}'},
-            data={'grant_type': 'authorization_code', 'code': code, 'redirect_uri': redirect_uri, 'code_verifier': code_verifier}
+            'https://api.x.com/2/oauth2/token',
+            headers=headers,
+            data=data
         )
         response.raise_for_status()
         data = response.json()
@@ -620,10 +632,10 @@ async def _twitter_exchange_code_for_token(self, code: str, redirect_uri: str, c
 
 
 async def _twitter_get_user(self, access_token: str):
-    """Get authenticated Twitter user info"""
+    """Get authenticated X user info"""
     try:
         response = await self.http_client.get(
-            'https://api.twitter.com/2/users/me',
+            'https://api.x.com/2/users/me',
             headers={'Authorization': f'Bearer {access_token}'},
             params={'user.fields': 'id,name,username,profile_image_url'}
         )

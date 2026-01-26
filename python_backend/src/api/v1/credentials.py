@@ -49,6 +49,22 @@ def check_token_status(expires_at_str):
         return False, False
 
 
+def _safe_parse_datetime(value: Any) -> Optional[datetime]:
+    """Parse ISO datetime string safely for sorting."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            if value.endswith("Z"):
+                value = value.replace("Z", "+00:00")
+            return datetime.fromisoformat(value)
+        except Exception:
+            return None
+    return None
+
+
 # ================== ENDPOINTS ==================
 
 @router.get("/status")
@@ -80,10 +96,21 @@ async def get_connection_status(
         connected_credentials = result.data or []
         
         for platform in VALID_PLATFORMS:
-            cred = next(
-                (c for c in connected_credentials if c.get("platform") == platform),
-                None
-            )
+            platform_records = [
+                c for c in connected_credentials if c.get("platform") == platform
+            ]
+            connected_records = [
+                c for c in platform_records if c.get("is_connected")
+            ]
+            candidates = connected_records or platform_records
+
+            cred = None
+            if candidates:
+                cred = max(
+                    candidates,
+                    key=lambda c: _safe_parse_datetime(c.get("updated_at") or c.get("created_at"))
+                    or datetime.min
+                )
             
             if cred and cred.get("is_connected"):
                 is_expired, is_expiring_soon = check_token_status(cred.get("expires_at"))

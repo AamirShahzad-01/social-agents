@@ -163,31 +163,21 @@ const ConnectedAccountsView: React.FC<ConnectedAccountsViewProps> = ({
     setTimeoutWarnings(new Set())
 
     try {
-      // Use OAuth 1.0a for Twitter/X (required for media upload)
-      // Other platforms use OAuth 2.0 via unified auth endpoint
-      const isTwitter = platform === 'twitter'
-      const oauthEndpoint = isTwitter
-        ? '/api/twitter/auth'  // OAuth 1.0a
-        : `/api/auth/oauth/${platform}/initiate`  // OAuth 2.0
+      const oauthEndpoint = `/api/auth/oauth/${platform}/initiate`
 
-      // For non-Twitter platforms, we need auth token
-      let fetchOptions: RequestInit = { method: 'POST' }
+      const supabase = getSupabaseClient()
+      const { data: { session } } = await supabase.auth.getSession()
 
-      if (!isTwitter) {
-        const supabase = getSupabaseClient()
-        const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        throw new Error('Please log in to connect your accounts')
+      }
 
-        if (!session?.access_token) {
-          throw new Error('Please log in to connect your accounts')
-        }
-
-        fetchOptions = {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        }
+      const fetchOptions: RequestInit = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
       }
 
       // POST to initiate OAuth

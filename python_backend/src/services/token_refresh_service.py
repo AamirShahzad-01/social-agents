@@ -11,7 +11,7 @@ This service follows the on-demand/lazy refresh pattern:
 Supports: Twitter/X, Facebook, Instagram, LinkedIn, TikTok, YouTube
 
 Based on Dec 2025 platform API documentation:
-- Twitter: POST https://api.twitter.com/2/oauth2/token
+- X: POST https://api.x.com/2/oauth2/token
 - Facebook: GET https://graph.facebook.com/v24.0/oauth/access_token
 - Instagram: GET https://graph.instagram.com/refresh_access_token
 - LinkedIn: POST https://www.linkedin.com/oauth/v2/accessToken
@@ -90,7 +90,7 @@ class TokenRefreshService:
     
     # API endpoints for token refresh
     REFRESH_ENDPOINTS = {
-        "twitter": "https://api.twitter.com/2/oauth2/token",
+        "twitter": "https://api.x.com/2/oauth2/token",
         "facebook": "https://graph.facebook.com/v24.0/oauth/access_token",
         "instagram": "https://graph.instagram.com/refresh_access_token",
         "linkedin": "https://www.linkedin.com/oauth/v2/accessToken",
