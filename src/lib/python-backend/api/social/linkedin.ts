@@ -125,7 +125,7 @@ export async function postImage(
 ): Promise<LinkedInPostResponse> {
     return createPost({
         text,
-        imageUrl,
+        mediaUrl: imageUrl,
         mediaType: 'image',
         visibility,
     });
@@ -148,7 +148,7 @@ export async function postVideo(
 ): Promise<LinkedInPostResponse> {
     return createPost({
         text,
-        videoUrl,
+        mediaUrl: videoUrl,
         mediaType: 'video',
         visibility,
     });
@@ -175,7 +175,7 @@ export async function uploadAndPostImage(
     });
     return createPost({
         text,
-        imageUrl: uploadResult.assetUrn,
+        mediaUrn: uploadResult.mediaUrn,
         mediaType: 'image',
         visibility,
     });

@@ -429,6 +429,7 @@ export async function postCarouselToLinkedIn(
       text: options.text,
       imageUrls: options.imageUrls,
       visibility: (options.visibility || 'PUBLIC') as 'PUBLIC' | 'CONNECTIONS',
+      postToPage: options.postToPage,
     });
 
     return {
@@ -465,7 +466,7 @@ export async function uploadLinkedInMedia(
 
     return {
       success: result.success,
-      mediaUrn: result.assetUrn
+      mediaUrn: result.mediaUrn
     };
   } catch (error) {
     return {

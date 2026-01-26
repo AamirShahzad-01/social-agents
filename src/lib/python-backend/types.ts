@@ -668,6 +668,10 @@ export interface LinkedInCarouselRequest {
     text: string;
     imageUrls: string[];
     visibility?: 'PUBLIC' | 'CONNECTIONS';
+    postToPage?: boolean;
+    workspaceId?: string;
+    userId?: string;
+    scheduledPublish?: boolean;
 }
 
 export interface LinkedInUploadMediaRequest {
@@ -690,7 +694,7 @@ export interface LinkedInCarouselResponse {
 
 export interface LinkedInUploadResponse {
     success: boolean;
-    assetUrn: string;
+    mediaUrn: string;
 }
 
 // Twitter
