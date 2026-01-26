@@ -654,10 +654,11 @@ export interface InstagramUploadResponse {
 // LinkedIn
 export interface LinkedInPostRequest {
     text: string;
-    imageUrl?: string;
-    videoUrl?: string;
+    mediaUrn?: string;
+    mediaUrl?: string;
     mediaType?: 'image' | 'video';
     visibility?: 'PUBLIC' | 'CONNECTIONS';
+    postToPage?: boolean;
     workspaceId?: string;
     userId?: string;
     scheduledPublish?: boolean;

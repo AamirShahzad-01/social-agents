@@ -392,7 +392,8 @@ export async function postToLinkedIn(
     const result = await createPost({
       text: options.text,
       visibility: options.visibility as 'PUBLIC' | 'CONNECTIONS',
-      imageUrl: options.mediaUrn, // mediaUrn is used as imageUrl for uploaded media
+      mediaUrn: options.mediaUrn,
+      postToPage: options.postToPage,
     });
 
     return {

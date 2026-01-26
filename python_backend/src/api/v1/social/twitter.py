@@ -14,6 +14,7 @@ from ....services.platforms.twitter_service import twitter_service
 from ....services.supabase_service import verify_jwt, db_select
 from ....services.storage_service import storage_service
 from ....services.rate_limit_service import RateLimitService
+from ....services.token_refresh_service import token_refresh_service
 from ....config import settings
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,7 @@ async def get_twitter_credentials(
     is_cron: bool = False
 ):
     """
-    Get Twitter credentials from database
+    Get Twitter credentials with on-demand refresh.
     
     Args:
         user_id: User ID
@@ -78,55 +79,54 @@ async def get_twitter_credentials(
     Raises:
         HTTPException: If credentials not found
     """
-    # Get credentials from social_accounts table
-    result = await db_select(
-        table="social_accounts",
-        columns="credentials_encrypted,is_connected",
-        filters={
-            "workspace_id": workspace_id,
-            "platform": "twitter"
-        },
-        limit=1
+    refresh_result = await token_refresh_service.get_valid_credentials(
+        platform="twitter",
+        workspace_id=workspace_id,
     )
-    
-    if not result.get("success") or not result.get("data"):
+
+    if not refresh_result.success or not refresh_result.credentials:
+        error_type = getattr(refresh_result.error_type, "value", refresh_result.error_type)
+        logger.error(
+            "X credentials refresh failed: %s (needs_reconnect=%s, error_type=%s)",
+            refresh_result.error,
+            refresh_result.needs_reconnect,
+            error_type,
+        )
+
+        if "No connected twitter account found" in (refresh_result.error or ""):
+            raise HTTPException(
+                status_code=400,
+                detail="X not connected. Please connect your X account in Settings.",
+            )
+        if refresh_result.needs_reconnect:
+            raise HTTPException(
+                status_code=400,
+                detail="X authorization expired. Please reconnect your X account in Settings.",
+            )
         raise HTTPException(
             status_code=400,
-            detail="X not connected. Please connect your X account in Settings."
+            detail=refresh_result.error or "Invalid X configuration",
         )
-    
-    account = result["data"][0]
-    
-    if not account.get("is_connected"):
-        raise HTTPException(status_code=400, detail="X account is not connected")
-    
-    raw_credentials = account.get("credentials_encrypted", {})
-    
-    # Parse credentials - could be dict (JSONB) or string (JSON)
-    if isinstance(raw_credentials, dict):
-        credentials = raw_credentials
-    elif isinstance(raw_credentials, str):
-        import json
-        try:
-            credentials = json.loads(raw_credentials)
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Failed to parse X credentials")
-    else:
-        raise HTTPException(status_code=400, detail="Invalid X credentials format")
-    
+
+    credentials = refresh_result.credentials
+    access_token = credentials.get("accessToken") or credentials.get("access_token")
+    if not access_token:
+        logger.error(
+            "X credentials missing access token",
+            extra={
+                "workspace_id": workspace_id,
+                "credential_keys": list(credentials.keys()),
+            },
+        )
+        raise HTTPException(status_code=400, detail="Invalid X configuration")
+
+    credentials["accessToken"] = access_token
+
     # OAuth 2.0 requires accessToken only
     # OAuth 1.0a also needs accessTokenSecret (for legacy media upload)
-    if not credentials.get("accessToken"):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid X configuration. Please reconnect your account."
-        )
-    
-    # For OAuth 2.0 flow, we don't have accessTokenSecret
-    # Set empty string as placeholder for OAuth 1.0a signature if not present
     if not credentials.get("accessTokenSecret"):
         credentials["accessTokenSecret"] = ""
-    
+
     return credentials
 
 

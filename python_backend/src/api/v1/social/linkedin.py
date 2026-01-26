@@ -5,10 +5,12 @@ Supports: text posts, images, videos, carousels
 Uses LinkedIn REST API v2 with API Version 202411
 """
 import logging
+import mimetypes
 from typing import Optional, List, Literal
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request, Header
 from pydantic import BaseModel, Field
+import httpx
 
 from ....services.platforms.linkedin_service import linkedin_service
 from ....services.supabase_service import verify_jwt, db_select, db_update
@@ -32,6 +34,7 @@ class LinkedInPostRequest(BaseModel):
     visibility: Literal["PUBLIC", "CONNECTIONS"] = Field(default="PUBLIC", description="Post visibility")
     mediaUrn: Optional[str] = Field(default=None, description="Media URN from upload")
     mediaUrl: Optional[str] = Field(default=None, description="Media URL (alias for mediaUrn)")
+    mediaType: Optional[Literal["image", "video"]] = Field(default=None, description="Media type for mediaUrl")
     postToPage: Optional[bool] = Field(default=None, description="Post to organization page")
     workspaceId: Optional[str] = Field(default=None, description="Workspace ID (for cron)")
     userId: Optional[str] = Field(default=None, description="User ID (for cron)")
@@ -44,6 +47,9 @@ class LinkedInCarouselRequest(BaseModel):
     imageUrls: List[str] = Field(..., min_items=2, max_items=20, description="2-20 image URLs")
     visibility: Literal["PUBLIC", "CONNECTIONS"] = Field(default="PUBLIC", description="Post visibility")
     postToPage: Optional[bool] = Field(default=None, description="Post to organization page")
+    workspaceId: Optional[str] = Field(default=None, description="Workspace ID (for cron)")
+    userId: Optional[str] = Field(default=None, description="User ID (for cron)")
+    scheduledPublish: Optional[bool] = Field(default=False, description="Is scheduled publish")
 
 
 class LinkedInUploadMediaRequest(BaseModel):
@@ -78,6 +84,112 @@ class LinkedInUploadResponse(BaseModel):
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
+
+def _infer_media_type(
+    media_type: Optional[str],
+    content_type: Optional[str],
+    url: Optional[str]
+) -> Optional[str]:
+    if media_type in ("image", "video"):
+        return media_type
+    if content_type:
+        if content_type.startswith("video/"):
+            return "video"
+        if content_type.startswith("image/"):
+            return "image"
+    if url:
+        guessed_type, _ = mimetypes.guess_type(url)
+        if guessed_type and guessed_type.startswith("video/"):
+            return "video"
+        if guessed_type and guessed_type.startswith("image/"):
+            return "image"
+    return None
+
+
+async def _upload_media_bytes(
+    access_token: str,
+    author_id: str,
+    media_bytes: bytes,
+    media_type: str,
+    is_organization: bool,
+    text: str
+) -> str:
+    if media_type == "video":
+        if len(media_bytes) > 5 * 1024 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Video size exceeds 5GB limit")
+
+        init_result = await linkedin_service.initialize_video_upload(
+            access_token,
+            author_id,
+            len(media_bytes),
+            is_organization
+        )
+        if not init_result.get("success"):
+            raise HTTPException(status_code=500, detail=init_result.get("error", "Failed to initialize video upload"))
+
+        upload_result = await linkedin_service.upload_video_binary(
+            init_result["upload_instructions"],
+            media_bytes,
+            access_token
+        )
+        if not upload_result.get("success"):
+            raise HTTPException(status_code=500, detail=upload_result.get("error", "Failed to upload video"))
+
+        finalize_result = await linkedin_service.finalize_video_upload(
+            access_token,
+            init_result["asset"],
+            upload_result.get("uploaded_part_ids", []),
+            init_result.get("upload_token", "")
+        )
+        if not finalize_result.get("success"):
+            raise HTTPException(status_code=500, detail=finalize_result.get("error", "Failed to finalize video upload"))
+
+        return init_result["asset"]
+
+    if len(media_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image size exceeds 10MB limit")
+
+    result = await linkedin_service.upload_image(
+        access_token,
+        author_id,
+        media_bytes,
+        is_organization
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Failed to upload image"))
+
+    return result["asset"]
+
+
+async def _resolve_media_urn(
+    media: Optional[str],
+    media_type: Optional[str],
+    access_token: str,
+    author_id: str,
+    is_organization: bool,
+    text: str
+) -> Optional[str]:
+    if not media:
+        return None
+    if media.startswith("urn:li:"):
+        return media
+    if media.startswith("http://") or media.startswith("https://"):
+        async with httpx.AsyncClient() as client:
+            response = await client.get(media)
+            response.raise_for_status()
+            content_type = response.headers.get("content-type")
+            resolved_type = _infer_media_type(media_type, content_type, media)
+            if not resolved_type:
+                raise HTTPException(status_code=400, detail="Unsupported media type")
+            return await _upload_media_bytes(
+                access_token,
+                author_id,
+                response.content,
+                resolved_type,
+                is_organization,
+                text
+            )
+    return media
 
 async def get_linkedin_credentials(
     user_id: str,
@@ -235,6 +347,15 @@ async def post_to_linkedin(
         # Use organization ID if posting to page, otherwise use personal profile ID
         author_id = credentials["organizationId"] if (should_post_to_page and has_organization) else credentials["profileId"]
         is_organization = should_post_to_page and has_organization
+
+        resolved_media = await _resolve_media_urn(
+            media,
+            request_body.mediaType,
+            credentials["accessToken"],
+            author_id,
+            is_organization,
+            final_text
+        )
         
         # Post to LinkedIn
         result = await linkedin_service.post_to_linkedin(
@@ -242,7 +363,7 @@ async def post_to_linkedin(
             author_id,
             final_text,
             request_body.visibility,
-            media,
+            resolved_media,
             is_organization
         )
         
@@ -279,7 +400,8 @@ async def post_to_linkedin(
 @router.post("/carousel", response_model=LinkedInCarouselResponse)
 async def post_carousel_to_linkedin(
     request_body: LinkedInCarouselRequest,
-    request: Request
+    request: Request,
+    x_cron_secret: Optional[str] = Header(default=None)
 ):
     """
     POST /api/v1/social/linkedin/carousel
@@ -299,25 +421,41 @@ async def post_carousel_to_linkedin(
         LinkedInCarouselResponse with post ID and URL
     """
     try:
+        # Check if this is a cron request
+        is_cron = (
+            x_cron_secret == settings.CRON_SECRET and
+            request_body.scheduledPublish
+        ) if hasattr(settings, 'CRON_SECRET') else False
+
         # Authenticate user
-        auth_header = request.headers.get("authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Unauthorized")
-        
-        token = auth_header.split(" ")[1]
-        jwt_result = await verify_jwt(token)
-        
-        if not jwt_result.get("success") or not jwt_result.get("user"):
-            raise HTTPException(status_code=401, detail="Invalid token")
-        
-        user = jwt_result["user"]
-        workspace_id = user.get("workspaceId")
-        
-        if not workspace_id:
-            raise HTTPException(status_code=400, detail="No workspace found")
-        
+        if is_cron:
+            if not request_body.userId or not request_body.workspaceId:
+                raise HTTPException(
+                    status_code=400,
+                    detail="userId and workspaceId required for scheduled publish"
+                )
+            user_id = request_body.userId
+            workspace_id = request_body.workspaceId
+        else:
+            auth_header = request.headers.get("authorization")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                raise HTTPException(status_code=401, detail="Unauthorized")
+
+            token = auth_header.split(" ")[1]
+            jwt_result = await verify_jwt(token)
+
+            if not jwt_result.get("success") or not jwt_result.get("user"):
+                raise HTTPException(status_code=401, detail="Invalid token")
+
+            user = jwt_result["user"]
+            user_id = user["id"]
+            workspace_id = user.get("workspaceId")
+
+            if not workspace_id:
+                raise HTTPException(status_code=400, detail="No workspace found")
+
         # Get LinkedIn credentials
-        credentials = await get_linkedin_credentials(user["id"], workspace_id)
+        credentials = await get_linkedin_credentials(user_id, workspace_id, is_cron)
         
         # Determine author
         should_post_to_page = request_body.postToPage if request_body.postToPage is not None else credentials.get("postToPage", False)
@@ -429,17 +567,53 @@ async def upload_media_for_linkedin(
         author_id = credentials["organizationId"] if (should_post_to_page and has_organization) else credentials["profileId"]
         is_organization = should_post_to_page and has_organization
         
+        media_data = request_body.mediaData
+
+        if media_data.startswith("urn:li:"):
+            urn_type = request_body.mediaType or ("video" if media_data.startswith("urn:li:video:") else "image")
+            return LinkedInUploadResponse(
+                success=True,
+                mediaUrn=media_data,
+                mediaType=urn_type
+            )
+
+        if media_data.startswith("http://") or media_data.startswith("https://"):
+            async with httpx.AsyncClient() as client:
+                response = await client.get(media_data)
+                response.raise_for_status()
+                content_type = response.headers.get("content-type")
+                resolved_type = _infer_media_type(request_body.mediaType, content_type, media_data)
+                if not resolved_type:
+                    raise HTTPException(status_code=400, detail="Unsupported media type")
+
+                media_urn = await _upload_media_bytes(
+                    credentials["accessToken"],
+                    author_id,
+                    response.content,
+                    resolved_type,
+                    is_organization,
+                    ""
+                )
+
+            logger.info(f"Uploaded {resolved_type} to LinkedIn - workspace: {workspace_id}")
+
+            return LinkedInUploadResponse(
+                success=True,
+                mediaUrn=media_urn,
+                mediaType=resolved_type
+            )
+
         # Parse base64 data
         import re
         import base64
-        
-        match = re.match(r'^data:(.+);base64,(.+)$', request_body.mediaData)
+
+        match = re.match(r'^data:(.+);base64,(.+)$', media_data)
         if not match:
             raise HTTPException(status_code=400, detail="Invalid base64 format")
-        
+
         content_type = match.group(1)
         base64_content = match.group(2)
-        
+
         # Decode base64
         file_data = base64.b64decode(base64_content)
         
