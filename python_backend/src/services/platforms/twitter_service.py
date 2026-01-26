@@ -590,7 +590,7 @@ class TwitterService:
                 append_response = await self.http_client.post(
                     url,
                     headers=append_headers,
-                    data=append_params,
+                    params=append_params,
                     files={
                         "media": ("chunk", chunk, content_type)
                     }
