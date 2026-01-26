@@ -73,10 +73,17 @@ async def get_youtube_credentials(
             refresh_result.needs_reconnect,
             error_type,
         )
-        if refresh_result.needs_reconnect:
+        
+        # Provide more specific error messages based on the error
+        if "No connected youtube account found" in (refresh_result.error or ""):
             raise HTTPException(
                 status_code=400,
-                detail=refresh_result.error or "YouTube token expired - please reconnect",
+                detail="No YouTube account connected. Please connect your YouTube account in Settings > Social Accounts.",
+            )
+        elif refresh_result.needs_reconnect:
+            raise HTTPException(
+                status_code=400,
+                detail="YouTube authorization expired. Please reconnect your YouTube account in Settings > Social Accounts.",
             )
         raise HTTPException(
             status_code=400,

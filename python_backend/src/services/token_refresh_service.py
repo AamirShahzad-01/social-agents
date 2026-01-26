@@ -137,9 +137,18 @@ class TokenRefreshService:
             # Fetch account from database
             supabase = get_supabase_client()
             
+            # Platforms that support token refresh can be auto-reconnected
+            # even if is_connected is False, as long as they have a refresh token
+            platforms_with_refresh = ["twitter", "linkedin", "tiktok", "youtube"]
+            
             query = supabase.table("social_accounts").select(
                 "id, account_id, account_name, credentials_encrypted, expires_at, is_connected, refresh_error_count"
-            ).eq("workspace_id", workspace_id).eq("platform", platform).eq("is_connected", True)
+            ).eq("workspace_id", workspace_id).eq("platform", platform)
+            
+            # For platforms with refresh tokens, don't filter by is_connected
+            # They can be auto-reconnected if they have valid refresh tokens
+            if platform not in platforms_with_refresh:
+                query = query.eq("is_connected", True)
             
             if account_id:
                 query = query.eq("account_id", account_id)
@@ -622,7 +631,10 @@ class TokenRefreshService:
                 "last_refreshed_at": now.isoformat(),
                 "refresh_error_count": 0,
                 "last_error_message": None,
-                "updated_at": now.isoformat()
+                "updated_at": now.isoformat(),
+                # Re-enable the account after successful refresh
+                # This handles cases where cleanup jobs marked it as disconnected
+                "is_connected": True,
             }
             
             if expires_at:
