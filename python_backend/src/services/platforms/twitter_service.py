@@ -157,14 +157,16 @@ class TwitterService:
         url: str,
         access_token: str,
         access_token_secret: str,
-        params: Optional[Dict[str, str]] = None
+        params: Optional[Dict[str, str]] = None,
+        include_params_in_signature: bool = True
     ) -> Dict[str, str]:
         """
         Build Authorization headers for OAuth 2.0 or OAuth 1.0a.
         """
         if access_token_secret:
+            signature_params = params if include_params_in_signature else None
             oauth_header = self._generate_oauth_header(
-                method, url, access_token, access_token_secret, params
+                method, url, access_token, access_token_secret, signature_params
             )
             return {"Authorization": oauth_header}
 
@@ -576,7 +578,12 @@ class TwitterService:
                 }
                 
                 append_headers = self._build_auth_headers(
-                    "POST", url, access_token, access_token_secret, append_params
+                    "POST",
+                    url,
+                    access_token,
+                    access_token_secret,
+                    append_params,
+                    include_params_in_signature=False
                 )
 
                 # Send chunk as multipart
