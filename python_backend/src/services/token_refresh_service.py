@@ -214,6 +214,13 @@ class TokenRefreshService:
                 
                 if refresh_result.get("refresh_token"):
                     new_credentials["refreshToken"] = refresh_result["refresh_token"]
+                if refresh_result.get("refresh_token_expires_in"):
+                    refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(
+                        seconds=int(refresh_result["refresh_token_expires_in"])
+                    )
+                    new_credentials["refreshTokenExpiresAt"] = refresh_token_expires_at.isoformat()
+                if refresh_result.get("scope"):
+                    new_credentials["scope"] = refresh_result["scope"]
                 
                 if refresh_result.get("expires_at"):
                     new_credentials["expiresAt"] = refresh_result["expires_at"].isoformat()
@@ -477,6 +484,26 @@ class TokenRefreshService:
         refresh_token = credentials.get("refreshToken") or credentials.get("refresh_token")
         if not refresh_token:
             return {"success": False, "error": "No refresh token", "error_type": "no_refresh_token", "needs_reconnect": True}
+
+        refresh_token_expires_at = credentials.get("refreshTokenExpiresAt") or credentials.get("refresh_token_expires_at")
+        if refresh_token_expires_at:
+            try:
+                if isinstance(refresh_token_expires_at, str) and refresh_token_expires_at.endswith("Z"):
+                    refresh_token_expires_at = refresh_token_expires_at.replace("Z", "+00:00")
+                expires_at_dt = (
+                    refresh_token_expires_at
+                    if isinstance(refresh_token_expires_at, datetime)
+                    else datetime.fromisoformat(refresh_token_expires_at)
+                )
+                if datetime.now(timezone.utc) >= expires_at_dt:
+                    return {
+                        "success": False,
+                        "error": "Refresh token expired",
+                        "error_type": "expired_token",
+                        "needs_reconnect": True
+                    }
+            except Exception as e:
+                logger.warning(f"Failed to parse LinkedIn refresh token expiry: {e}")
         
         client_id = settings.LINKEDIN_CLIENT_ID
         client_secret = settings.LINKEDIN_CLIENT_SECRET
@@ -505,6 +532,8 @@ class TokenRefreshService:
                     "success": True,
                     "access_token": data["access_token"],
                     "refresh_token": data.get("refresh_token"),
+                    "refresh_token_expires_in": data.get("refresh_token_expires_in"),
+                    "scope": data.get("scope"),
                     "expires_at": expires_at
                 }
             else:

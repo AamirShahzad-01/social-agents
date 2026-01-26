@@ -649,7 +649,14 @@ async def _linkedin_exchange_code_for_token(self, code: str, redirect_uri: str):
         )
         response.raise_for_status()
         data = response.json()
-        return {'success': True, 'access_token': data['access_token'], 'refresh_token': data.get('refresh_token'), 'expires_in': data.get('expires_in', 5184000)}
+        return {
+            'success': True,
+            'access_token': data['access_token'],
+            'refresh_token': data.get('refresh_token'),
+            'expires_in': data.get('expires_in', 5184000),
+            'refresh_token_expires_in': data.get('refresh_token_expires_in'),
+            'scope': data.get('scope')
+        }
     except Exception as e:
         return {'success': False, 'error': str(e)}
 

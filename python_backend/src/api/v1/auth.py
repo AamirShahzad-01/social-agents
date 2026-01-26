@@ -681,13 +681,21 @@ async def _handle_linkedin_callback(code: str, workspace_id: str, callback_url: 
         access_token = token_result["access_token"]
         expires_in = token_result.get("expires_in")
         refresh_token = token_result.get("refresh_token")
+        refresh_token_expires_in = token_result.get("refresh_token_expires_in")
+        scope = token_result.get("scope")
         
+        now = datetime.now(timezone.utc)
+
         # Calculate token expiration timestamp
         # LinkedIn access tokens expire in 60 days (5184000 seconds)
         if expires_in:
-            expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(expires_in))
+            expires_at = now + timedelta(seconds=int(expires_in))
         else:
-            expires_at = datetime.now(timezone.utc) + timedelta(days=60)
+            expires_at = now + timedelta(days=60)
+
+        refresh_token_expires_at = None
+        if refresh_token_expires_in:
+            refresh_token_expires_at = now + timedelta(seconds=int(refresh_token_expires_in))
         
         # Get user info
         user_result = await social_service.linkedin_get_user(access_token)
@@ -699,12 +707,15 @@ async def _handle_linkedin_callback(code: str, workspace_id: str, callback_url: 
         credentials = {
             "accessToken": access_token,
             "refreshToken": refresh_token,
+            "expiresAt": expires_at.isoformat(),
+            "refreshTokenExpiresAt": refresh_token_expires_at.isoformat() if refresh_token_expires_at else None,
+            "scope": scope,
             "userId": user_data["sub"],
             "name": user_data.get("name"),
             "email": user_data.get("email"),
             "picture": user_data.get("picture"),
             "isConnected": True,
-            "connectedAt": datetime.now(timezone.utc).isoformat()
+            "connectedAt": now.isoformat()
         }
         
         await _save_social_account(

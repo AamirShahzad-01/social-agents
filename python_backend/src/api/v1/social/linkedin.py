@@ -14,6 +14,7 @@ from ....services.platforms.linkedin_service import linkedin_service
 from ....services.supabase_service import verify_jwt, db_select, db_update
 from ....services.storage_service import storage_service
 from ....services.rate_limit_service import get_rate_limit_service
+from ....services.token_refresh_service import token_refresh_service
 from ....config import settings
 
 logger = logging.getLogger(__name__)
@@ -97,10 +98,10 @@ async def get_linkedin_credentials(
     Raises:
         HTTPException: If credentials not found or expired
     """
-    # Get credentials from social_accounts table
+    # Check connection status in social_accounts table
     result = await db_select(
         table="social_accounts",
-        columns="credentials_encrypted,is_connected",
+        columns="account_id,is_connected",
         filters={
             "workspace_id": workspace_id,
             "platform": "linkedin"
@@ -112,23 +113,26 @@ async def get_linkedin_credentials(
         raise HTTPException(status_code=400, detail="LinkedIn not connected")
     
     account = result["data"][0]
+    account_id = account.get("account_id")
     
     if not account.get("is_connected"):
         raise HTTPException(status_code=400, detail="LinkedIn account is not connected")
     
-    raw_credentials = account.get("credentials_encrypted", {})
+    refresh_result = await token_refresh_service.get_valid_credentials(
+        platform="linkedin",
+        workspace_id=workspace_id,
+        account_id=account_id
+    )
     
-    # Parse credentials - could be dict (JSONB) or string (JSON)
-    if isinstance(raw_credentials, dict):
-        credentials = raw_credentials
-    elif isinstance(raw_credentials, str):
-        import json
-        try:
-            credentials = json.loads(raw_credentials)
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Failed to parse LinkedIn credentials")
-    else:
-        raise HTTPException(status_code=400, detail="Invalid LinkedIn credentials format")
+    if not refresh_result.success or not refresh_result.credentials:
+        if refresh_result.needs_reconnect:
+            raise HTTPException(
+                status_code=401,
+                detail="Access token expired. Please reconnect your LinkedIn account."
+            )
+        raise HTTPException(status_code=400, detail=refresh_result.error or "LinkedIn not connected")
+    
+    credentials = refresh_result.credentials
     
     # Check for profile ID - auth saves as userId, with fallback to profileId
     profile_id = credentials.get("userId") or credentials.get("profileId")
@@ -138,16 +142,6 @@ async def get_linkedin_credentials(
     # Normalize field name for consistency with publishing service
     if not credentials.get("profileId") and profile_id:
         credentials["profileId"] = profile_id
-    
-    # Check token expiration
-    expires_at = credentials.get("expiresAt")
-    if expires_at:
-        expiry_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-        if datetime.utcnow() > expiry_date:
-            raise HTTPException(
-                status_code=401,
-                detail="Access token expired. Please reconnect your LinkedIn account."
-            )
     
     return credentials
 
