@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ..config import settings
-from .supabase_service import db_select, db_update, get_supabase_client
+from .supabase_service import db_select, db_update, get_supabase_admin_client
 
 logger = logging.getLogger(__name__)
 
