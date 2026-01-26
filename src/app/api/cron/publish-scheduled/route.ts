@@ -155,6 +155,7 @@ async function publishToPlatform(
         };
 
         let body: any = { ...baseBody };
+        let endpoint = `${appUrl}/api/${platform}/post`;
 
         switch (platform) {
             case 'facebook':
@@ -173,7 +174,15 @@ async function publishToPlatform(
             case 'linkedin':
                 body.text = textContent;
                 body.mediaUrl = mediaUrl;
+                body.mediaType = mediaType;
                 body.visibility = 'PUBLIC';
+                // If this is a carousel post (2+ images), use LinkedIn carousel endpoint
+                if (carouselImages?.length >= 2) {
+                    endpoint = `${appUrl}/api/${platform}/carousel`;
+                    delete body.mediaUrl;
+                    delete body.mediaType;
+                    body.imageUrls = carouselImages;
+                }
                 break;
             case 'twitter':
                 body.text = textContent;
@@ -200,7 +209,7 @@ async function publishToPlatform(
         const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT_MS);
 
         try {
-            const response = await fetch(`${appUrl}/api/${platform}/post`, {
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
