@@ -6,7 +6,7 @@ Uses Meta Business SDK for Meta platform (Facebook, Instagram, Meta Ads)
 """
 
 import logging
-from typing import Literal, Dict, Any
+from typing import Literal, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, Depends
