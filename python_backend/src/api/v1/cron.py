@@ -499,11 +499,14 @@ async def publish_to_platform(
                                 )
                                 if init_result.get("success"):
                                     upload_result = await linkedin_service.upload_video_binary(
-                                        init_result["upload_url"], media_response.content, access_token
+                                        init_result["upload_instructions"], media_response.content, access_token
                                     )
                                     if upload_result.get("success"):
                                         await linkedin_service.finalize_video_upload(
-                                            access_token, init_result["asset"], [upload_result.get("etag", "")]
+                                            access_token,
+                                            init_result["asset"],
+                                            upload_result.get("uploaded_part_ids", []),
+                                            init_result.get("upload_token", "")
                                         )
                                         media_urn = init_result["asset"]
                                     else:
@@ -561,9 +564,17 @@ async def publish_to_platform(
                 )
             
             try:
+                proxy_base = getattr(settings, "BACKEND_URL", None) or getattr(settings, "APP_URL", None)
+                video_url = generated_video_url
+                if proxy_base:
+                    base_url = proxy_base.rstrip("/")
+                    from urllib.parse import quote
+                    video_url = f"{base_url}/api/v1/social/tiktok/proxy-media?url={quote(video_url)}"
+
+                privacy_level = "SELF_ONLY"
                 # Use init_video_publish which pulls from URL
                 result = await tiktok_service.init_video_publish(
-                    access_token, text_content, generated_video_url, "PUBLIC_TO_EVERYONE"
+                    access_token, text_content, video_url, privacy_level
                 )
                 
                 if result.get("success"):

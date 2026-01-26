@@ -31,7 +31,7 @@ Platform = Literal["facebook", "instagram", "linkedin", "twitter", "tiktok", "yo
 
 # OAuth URLs for each platform
 OAUTH_URLS = {
-    "twitter": "https://twitter.com/i/oauth2/authorize",
+    "twitter": "https://x.com/i/oauth2/authorize",
     "linkedin": "https://www.linkedin.com/oauth/v2/authorization",
     "facebook": "https://www.facebook.com/v24.0/dialog/oauth",
     "instagram": "https://www.facebook.com/v24.0/dialog/oauth",
@@ -129,8 +129,8 @@ async def initiate_oauth(platform: Platform, request: Request):
         ip_address = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
         user_agent = request.headers.get("user-agent")
         
-        # PKCE is not supported by Facebook/Instagram
-        use_pkce = platform not in ["facebook", "instagram"]
+        # PKCE is not supported by Facebook/Instagram; TikTok web OAuth does not require PKCE
+        use_pkce = platform not in ["facebook", "instagram", "tiktok"]
         
         oauth_state = await create_oauth_state(
             workspace_id=workspace_id,
@@ -170,8 +170,9 @@ async def initiate_oauth(platform: Platform, request: Request):
             params["client_key"] = client_id
             params["redirect_uri"] = callback_url
             params["scope"] = ",".join(SCOPES[platform])
-            params["code_challenge"] = oauth_state.code_challenge
-            params["code_challenge_method"] = "S256"
+            if oauth_state.code_challenge:
+                params["code_challenge"] = oauth_state.code_challenge
+                params["code_challenge_method"] = "S256"
             
         elif platform == "youtube":
             params["client_id"] = client_id
@@ -741,7 +742,7 @@ async def _handle_tiktok_callback(code: str, workspace_id: str, callback_url: st
     """Handle TikTok OAuth callback with token expiration tracking"""
     try:
         if not code_verifier:
-            return RedirectResponse(url=get_error_redirect("missing_verifier"))
+            code_verifier = ""
         
         # Exchange code for token
         token_result = await social_service.tiktok_exchange_code_for_token(

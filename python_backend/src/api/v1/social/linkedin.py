@@ -462,7 +462,7 @@ async def upload_media_for_linkedin(
             
             # Upload video binary
             upload_result = await linkedin_service.upload_video_binary(
-                init_result["upload_url"],
+                init_result["upload_instructions"],
                 file_data,
                 credentials["accessToken"]
             )
@@ -474,7 +474,8 @@ async def upload_media_for_linkedin(
             finalize_result = await linkedin_service.finalize_video_upload(
                 credentials["accessToken"],
                 init_result["asset"],
-                [upload_result["etag"]]
+                upload_result.get("uploaded_part_ids", []),
+                init_result.get("upload_token", "")
             )
             
             if not finalize_result.get("success"):

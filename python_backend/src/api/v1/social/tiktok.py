@@ -168,8 +168,9 @@ async def post_to_tiktok(
         video_url = request_body.videoUrl
         
         # If we have a base URL configured, create proxy URL
-        if hasattr(settings, 'APP_URL') and settings.APP_URL:
-            base_url = settings.APP_URL.rstrip('/')
+        proxy_base = getattr(settings, "BACKEND_URL", None) or getattr(settings, "APP_URL", None)
+        if proxy_base:
+            base_url = proxy_base.rstrip('/')
             from urllib.parse import quote
             proxy_url = f"{base_url}/api/v1/social/tiktok/proxy-media?url={quote(video_url)}"
             video_url = proxy_url

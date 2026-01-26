@@ -19,7 +19,7 @@ class LinkedInService:
     LINKEDIN_API_BASE = "https://api.linkedin.com/v2"
     LINKEDIN_REST_API = "https://api.linkedin.com/rest"
     LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
-    LINKEDIN_API_VERSION = "202411"  # YYYYMM format
+    LINKEDIN_API_VERSION = "202601"  # YYYYMM format
     
     def __init__(self):
         self.http_client = httpx.AsyncClient(timeout=60.0)
@@ -123,7 +123,7 @@ class LinkedInService:
                 f"{self.LINKEDIN_API_BASE}/me",
                 headers={
                     'Authorization': f'Bearer {access_token}',
-                    'LinkedIn-Version': '202402'
+                    'LinkedIn-Version': self.LINKEDIN_API_VERSION
                 }
             )
             
@@ -449,13 +449,24 @@ class LinkedInService:
             response.raise_for_status()
             data = response.json()
             
-            # Get upload URL from instructions
-            upload_url = (data['value'].get('uploadInstructions', [{}])[0].get('uploadUrl') or
-                         data['value'].get('uploadUrl'))
+            upload_instructions = data['value'].get('uploadInstructions', [])
+            upload_token = data['value'].get('uploadToken', '')
+
+            if not upload_instructions:
+                upload_url = data['value'].get('uploadUrl')
+                if upload_url:
+                    upload_instructions = [
+                        {
+                            'uploadUrl': upload_url,
+                            'firstByte': 0,
+                            'lastByte': max(file_size_bytes - 1, 0)
+                        }
+                    ]
             
             return {
                 'success': True,
-                'upload_url': upload_url,
+                'upload_instructions': upload_instructions,
+                'upload_token': upload_token,
                 'asset': data['value']['video']
             }
             
@@ -464,7 +475,7 @@ class LinkedInService:
     
     async def upload_video_binary(
         self,
-        upload_url: str,
+        upload_instructions: List[Dict[str, Any]],
         video_data: bytes,
         access_token: str
     ) -> Dict[str, Any]:
@@ -480,23 +491,33 @@ class LinkedInService:
             Dict with success and etag
         """
         try:
-            response = await self.http_client.put(
-                upload_url,
-                content=video_data,
-                headers={
-                    'Authorization': f'Bearer {access_token}',
-                    'Content-Type': 'application/octet-stream'
-                }
-            )
-            
-            response.raise_for_status()
-            
-            # Get ETag for finalization
-            etag = response.headers.get('etag', '')
-            
+            uploaded_part_ids = []
+            for instruction in upload_instructions:
+                upload_url = instruction.get('uploadUrl')
+                if not upload_url:
+                    return {'success': False, 'error': 'Missing uploadUrl in upload instructions'}
+
+                first_byte = instruction.get('firstByte', 0)
+                last_byte = instruction.get('lastByte', len(video_data) - 1)
+                chunk = video_data[first_byte:last_byte + 1]
+
+                response = await self.http_client.put(
+                    upload_url,
+                    content=chunk,
+                    headers={
+                        'Authorization': f'Bearer {access_token}',
+                        'Content-Type': 'application/octet-stream'
+                    }
+                )
+
+                response.raise_for_status()
+                etag = response.headers.get('etag', '')
+                if etag:
+                    uploaded_part_ids.append(etag)
+
             return {
                 'success': True,
-                'etag': etag
+                'uploaded_part_ids': uploaded_part_ids
             }
             
         except Exception as e:
@@ -506,7 +527,8 @@ class LinkedInService:
         self,
         access_token: str,
         video_urn: str,
-        uploaded_part_ids: List[str]
+        uploaded_part_ids: List[str],
+        upload_token: str = ""
     ) -> Dict[str, Any]:
         """
         Finalize video upload after binary upload
@@ -525,7 +547,7 @@ class LinkedInService:
                 json={
                     'finalizeUploadRequest': {
                         'video': video_urn,
-                        'uploadToken': '',
+                        'uploadToken': upload_token,
                         'uploadedPartIds': uploaded_part_ids
                     }
                 },

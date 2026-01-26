@@ -554,7 +554,7 @@ class TokenRefreshService:
         if not refresh_token:
             return {"success": False, "error": "No refresh token", "error_type": "no_refresh_token", "needs_reconnect": True}
         
-        client_key = settings.TIKTOK_CLIENT_ID
+        client_key = settings.tiktok_client_key
         client_secret = settings.TIKTOK_CLIENT_SECRET
         
         if not client_key or not client_secret:

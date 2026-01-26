@@ -113,10 +113,9 @@ export class PlatformServiceFactory {
         'instagram_business_content_publish'
       ],
       tiktok: [
-        'video.list',
-        'video.create',
-        'video.publish',
-        'user.info.basic'
+        'user.info.basic',
+        'video.upload',
+        'video.publish'
       ],
       youtube: [
         'https://www.googleapis.com/auth/youtube.upload',
@@ -132,11 +131,11 @@ export class PlatformServiceFactory {
    */
   private getAuthorizationUrl(platform: SupportedPlatform): string {
     const urls: Record<SupportedPlatform, string> = {
-      twitter: 'https://twitter.com/i/oauth2/authorize',
+      twitter: 'https://x.com/i/oauth2/authorize',
       linkedin: 'https://www.linkedin.com/oauth/v2/authorization',
       facebook: 'https://www.facebook.com/v24.0/dialog/oauth',
       instagram: 'https://www.facebook.com/v24.0/dialog/oauth',
-      tiktok: 'https://www.tiktok.com/v3/oauth/authorize',
+      tiktok: 'https://www.tiktok.com/v2/auth/authorize/',
       youtube: 'https://accounts.google.com/o/oauth2/v2/auth'
     }
 
@@ -148,11 +147,11 @@ export class PlatformServiceFactory {
    */
   private getTokenUrl(platform: SupportedPlatform): string {
     const urls: Record<SupportedPlatform, string> = {
-      twitter: 'https://twitter.com/2/oauth2/token',
+      twitter: 'https://api.x.com/2/oauth2/token',
       linkedin: 'https://www.linkedin.com/oauth/v2/accessToken',
       facebook: 'https://graph.facebook.com/v24.0/oauth/access_token',
       instagram: 'https://graph.instagram.com/v24.0/oauth/access_token',
-      tiktok: 'https://open.tiktokapis.com/v1/oauth/token',
+      tiktok: 'https://open.tiktokapis.com/v2/oauth/token/',
       youtube: 'https://oauth2.googleapis.com/token'
     }
 
