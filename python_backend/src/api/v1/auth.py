@@ -18,6 +18,7 @@ from ...services import (
     social_service,
     db_select,
     db_insert,
+    db_update,
     db_upsert,
     verify_jwt
 )
@@ -119,7 +120,10 @@ async def initiate_oauth(platform: Platform, request: Request):
         # Get platform credentials
         client_id, client_secret = settings.get_oauth_credentials(platform)
         
-        if not client_id:
+        if platform == "twitter":
+            if not settings.TWITTER_API_KEY or not settings.TWITTER_API_SECRET:
+                raise HTTPException(status_code=500, detail="Twitter OAuth1 is not configured")
+        elif not client_id:
             raise HTTPException(status_code=500, detail=f"{platform.title()} is not configured")
         
         # Build callback URL using BACKEND_URL for OAuth redirects
@@ -130,7 +134,8 @@ async def initiate_oauth(platform: Platform, request: Request):
         user_agent = request.headers.get("user-agent")
         
         # PKCE is not supported by Facebook/Instagram; TikTok web OAuth does not require PKCE
-        use_pkce = platform not in ["facebook", "instagram", "tiktok"]
+        # Twitter uses OAuth 1.0a for media uploads (no PKCE)
+        use_pkce = platform not in ["facebook", "instagram", "tiktok", "twitter"]
         
         oauth_state = await create_oauth_state(
             workspace_id=workspace_id,
@@ -148,12 +153,35 @@ async def initiate_oauth(platform: Platform, request: Request):
         
         # Platform-specific parameters
         if platform == "twitter":
-            params["client_id"] = client_id
-            params["redirect_uri"] = callback_url
-            params["code_challenge"] = oauth_state.code_challenge
-            params["code_challenge_method"] = "S256"
-            params["scope"] = " ".join(SCOPES[platform])
-            
+            oauth1_callback_url = f"{callback_url}?state={oauth_state.state}"
+            request_token_result = await social_service.twitter_oauth1_request_token(oauth1_callback_url)
+            if not request_token_result.get("success"):
+                raise HTTPException(status_code=500, detail=request_token_result.get("error", "Failed to initiate Twitter OAuth1"))
+
+            oauth_token = request_token_result["oauth_token"]
+            oauth_token_secret = request_token_result["oauth_token_secret"]
+
+            await db_update(
+                table="oauth_states",
+                data={
+                    "oauth_token": oauth_token,
+                    "oauth_token_secret": oauth_token_secret
+                },
+                filters={
+                    "state": oauth_state.state,
+                    "platform": platform
+                }
+            )
+
+            oauth_url = f"https://api.twitter.com/oauth/authorize?oauth_token={oauth_token}"
+            response = JSONResponse({
+                "success": True,
+                "redirectUrl": oauth_url
+            })
+
+            logger.info(f"OAuth1 initiated for twitter - workspace: {workspace_id}")
+            return response
+
         elif platform == "linkedin":
             params["client_id"] = client_id
             params["redirect_uri"] = callback_url
@@ -217,6 +245,8 @@ async def oauth_callback(
     code: str = None,
     state: str = None,
     error: str = None,
+    oauth_token: str = None,
+    oauth_verifier: str = None,
     request: Request = None
 ):
     """
@@ -234,13 +264,17 @@ async def oauth_callback(
             return RedirectResponse(url=get_error_redirect("user_denied"))
         
         # Validate parameters
-        if not code or not state:
-            return RedirectResponse(url=get_error_redirect("missing_params"))
+        if platform == "twitter":
+            if not oauth_token or not oauth_verifier or not state:
+                return RedirectResponse(url=get_error_redirect("missing_params"))
+        else:
+            if not code or not state:
+                return RedirectResponse(url=get_error_redirect("missing_params"))
         
         # Get workspace from state
         state_result = await db_select(
             table="oauth_states",
-            columns="workspace_id, code_verifier",
+            columns="workspace_id, code_verifier, oauth_token, oauth_token_secret",
             filters={"state": state, "platform": platform},
             limit=1
         )
@@ -248,8 +282,11 @@ async def oauth_callback(
         if not state_result.get("success") or not state_result.get("data"):
             return RedirectResponse(url=get_error_redirect("invalid_state"))
         
-        workspace_id = state_result["data"][0]["workspace_id"]
-        code_verifier = state_result["data"][0].get("code_verifier")
+        state_record = state_result["data"][0]
+        workspace_id = state_record["workspace_id"]
+        code_verifier = state_record.get("code_verifier")
+        oauth_token_secret = state_record.get("oauth_token_secret")
+        stored_oauth_token = state_record.get("oauth_token")
         
         # Verify state
         verification = await verify_oauth_state(workspace_id, platform, state)
@@ -268,7 +305,14 @@ async def oauth_callback(
         elif platform == "instagram":
             return await _handle_instagram_callback(code, workspace_id, callback_url)
         elif platform == "twitter":
-            return await _handle_twitter_callback(code, workspace_id, callback_url, code_verifier)
+            if stored_oauth_token and oauth_token != stored_oauth_token:
+                return RedirectResponse(url=get_error_redirect("invalid_state"))
+            return await _handle_twitter_oauth1_callback(
+                oauth_token,
+                oauth_verifier,
+                oauth_token_secret,
+                workspace_id
+            )
         elif platform == "linkedin":
             return await _handle_linkedin_callback(code, workspace_id, callback_url)
         elif platform == "tiktok":
@@ -667,6 +711,71 @@ async def _handle_twitter_callback(code: str, workspace_id: str, callback_url: s
         
     except Exception as e:
         logger.error(f"Twitter callback error: {e}", exc_info=True)
+        return RedirectResponse(url=get_error_redirect("callback_error"))
+
+
+async def _handle_twitter_oauth1_callback(
+    oauth_token: str,
+    oauth_verifier: str,
+    oauth_token_secret: str,
+    workspace_id: str
+):
+    """Handle Twitter OAuth 1.0a callback for media upload support"""
+    try:
+        if not oauth_token_secret:
+            return RedirectResponse(url=get_error_redirect("missing_params"))
+
+        token_result = await social_service.twitter_oauth1_exchange_access_token(
+            oauth_token=oauth_token,
+            oauth_verifier=oauth_verifier,
+            oauth_token_secret=oauth_token_secret
+        )
+
+        if not token_result.get("success"):
+            return RedirectResponse(url=get_error_redirect("token_exchange_failed"))
+
+        access_token = token_result["access_token"]
+        access_token_secret = token_result["access_token_secret"]
+
+        user_result = await social_service.twitter_oauth1_get_user(
+            access_token,
+            access_token_secret
+        )
+
+        if not user_result.get("success"):
+            return RedirectResponse(url=get_error_redirect("user_info_failed"))
+
+        user_data = user_result["user"]
+        user_id = user_data.get("id_str") or str(user_data.get("id"))
+        username = user_data.get("screen_name")
+
+        if not user_id or not username:
+            return RedirectResponse(url=get_error_redirect("user_info_failed"))
+
+        credentials = {
+            "accessToken": access_token,
+            "accessTokenSecret": access_token_secret,
+            "userId": user_id,
+            "username": username,
+            "name": user_data.get("name"),
+            "isConnected": True,
+            "connectedAt": datetime.now(timezone.utc).isoformat()
+        }
+
+        await _save_social_account(
+            workspace_id=workspace_id,
+            platform="twitter",
+            account_id=user_id,
+            account_name=f"@{username}",
+            credentials=credentials,
+            username=username
+        )
+
+        logger.info(f"Twitter OAuth1 connected - workspace: {workspace_id}")
+        return RedirectResponse(url=get_success_redirect("twitter"))
+
+    except Exception as e:
+        logger.error(f"Twitter OAuth1 callback error: {e}", exc_info=True)
         return RedirectResponse(url=get_error_redirect("callback_error"))
 
 

@@ -305,6 +305,8 @@ CREATE TABLE public.oauth_states (
   state character varying NOT NULL UNIQUE,
   code_challenge character varying,
   code_challenge_method character varying,
+  oauth_token text,
+  oauth_token_secret text,
   ip_address character varying,
   user_agent text,
   is_used boolean DEFAULT false,

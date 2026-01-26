@@ -241,6 +241,8 @@ CREATE TABLE oauth_states (
     state VARCHAR(255) NOT NULL UNIQUE,
     code_challenge VARCHAR(255),
     code_challenge_method VARCHAR(10),
+    oauth_token TEXT,
+    oauth_token_secret TEXT,
     ip_address VARCHAR(45),
     user_agent TEXT,
     is_used BOOLEAN DEFAULT false,

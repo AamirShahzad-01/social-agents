@@ -12,6 +12,9 @@ import httpx
 import hmac
 import hashlib
 import asyncio
+import base64
+import time
+import urllib.parse
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
@@ -58,6 +61,180 @@ class SocialMediaService:
     def _get_sdk_client(self, access_token: str):
         """Get SDK client initialized with access token"""
         return create_meta_sdk_client(access_token)
+
+    def _oauth1_escape(self, value: str) -> str:
+        return urllib.parse.quote(str(value), safe="")
+
+    def _generate_oauth1_signature(
+        self,
+        method: str,
+        url: str,
+        params: Dict[str, str],
+        consumer_secret: str,
+        token_secret: str = ""
+    ) -> str:
+        sorted_params = sorted(params.items())
+        param_string = "&".join(
+            f"{self._oauth1_escape(k)}={self._oauth1_escape(v)}" for k, v in sorted_params
+        )
+        base_string = "&".join([
+            method.upper(),
+            self._oauth1_escape(url),
+            self._oauth1_escape(param_string)
+        ])
+        signing_key = f"{self._oauth1_escape(consumer_secret)}&{self._oauth1_escape(token_secret)}"
+        signature = base64.b64encode(
+            hmac.new(signing_key.encode(), base_string.encode(), hashlib.sha1).digest()
+        ).decode()
+        return signature
+
+    def _build_oauth1_header(
+        self,
+        method: str,
+        url: str,
+        oauth_token: str,
+        oauth_token_secret: str,
+        extra_params: Optional[Dict[str, str]] = None
+    ) -> str:
+        api_key = settings.TWITTER_API_KEY
+        api_secret = settings.TWITTER_API_SECRET
+
+        oauth_params: Dict[str, str] = {
+            "oauth_consumer_key": api_key,
+            "oauth_nonce": self._oauth1_escape(hashlib.sha1(str(time.time()).encode()).hexdigest()),
+            "oauth_signature_method": "HMAC-SHA1",
+            "oauth_timestamp": str(int(time.time())),
+            "oauth_version": "1.0",
+        }
+
+        if oauth_token:
+            oauth_params["oauth_token"] = oauth_token
+
+        signature_params = {**oauth_params}
+        if extra_params:
+            signature_params.update(extra_params)
+
+        signature = self._generate_oauth1_signature(
+            method,
+            url,
+            signature_params,
+            api_secret or "",
+            oauth_token_secret
+        )
+        oauth_params["oauth_signature"] = signature
+
+        header_parts = [
+            f'{k}="{self._oauth1_escape(v)}"' for k, v in sorted(oauth_params.items())
+        ]
+        return f"OAuth {', '.join(header_parts)}"
+
+    async def twitter_oauth1_request_token(self, callback_url: str) -> Dict[str, Any]:
+        try:
+            api_key = settings.TWITTER_API_KEY
+            api_secret = settings.TWITTER_API_SECRET
+            if not api_key or not api_secret:
+                return {'success': False, 'error': 'Twitter OAuth1 credentials not configured'}
+
+            url = "https://api.twitter.com/oauth/request_token"
+            header = self._build_oauth1_header(
+                "POST",
+                url,
+                oauth_token="",
+                oauth_token_secret="",
+                extra_params={"oauth_callback": callback_url}
+            )
+
+            response = await self.http_client.post(
+                url,
+                headers={"Authorization": header},
+                data={"oauth_callback": callback_url}
+            )
+
+            if response.status_code != 200:
+                return {'success': False, 'error': response.text}
+
+            data = urllib.parse.parse_qs(response.text)
+            oauth_token = data.get("oauth_token", [None])[0]
+            oauth_token_secret = data.get("oauth_token_secret", [None])[0]
+
+            if not oauth_token or not oauth_token_secret:
+                return {'success': False, 'error': 'Missing OAuth1 request token response'}
+
+            return {
+                'success': True,
+                'oauth_token': oauth_token,
+                'oauth_token_secret': oauth_token_secret
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    async def twitter_oauth1_exchange_access_token(
+        self,
+        oauth_token: str,
+        oauth_verifier: str,
+        oauth_token_secret: str
+    ) -> Dict[str, Any]:
+        try:
+            url = "https://api.twitter.com/oauth/access_token"
+            header = self._build_oauth1_header(
+                "POST",
+                url,
+                oauth_token=oauth_token,
+                oauth_token_secret=oauth_token_secret,
+                extra_params={"oauth_verifier": oauth_verifier}
+            )
+
+            response = await self.http_client.post(
+                url,
+                headers={"Authorization": header},
+                data={"oauth_verifier": oauth_verifier}
+            )
+
+            if response.status_code != 200:
+                return {'success': False, 'error': response.text}
+
+            data = urllib.parse.parse_qs(response.text)
+            access_token = data.get("oauth_token", [None])[0]
+            access_token_secret = data.get("oauth_token_secret", [None])[0]
+            user_id = data.get("user_id", [None])[0]
+            screen_name = data.get("screen_name", [None])[0]
+
+            if not access_token or not access_token_secret:
+                return {'success': False, 'error': 'Missing OAuth1 access token response'}
+
+            return {
+                'success': True,
+                'access_token': access_token,
+                'access_token_secret': access_token_secret,
+                'user_id': user_id,
+                'screen_name': screen_name
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    async def twitter_oauth1_get_user(self, access_token: str, access_token_secret: str) -> Dict[str, Any]:
+        try:
+            url = "https://api.twitter.com/1.1/account/verify_credentials.json"
+            params = {
+                "include_email": "true",
+                "skip_status": "true"
+            }
+            header = self._build_oauth1_header(
+                "GET",
+                url,
+                oauth_token=access_token,
+                oauth_token_secret=access_token_secret,
+                extra_params=params
+            )
+            response = await self.http_client.get(
+                url,
+                headers={"Authorization": header},
+                params=params
+            )
+            response.raise_for_status()
+            return {'success': True, 'user': response.json()}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
     
     # ============================================================================
     # FACEBOOK API - Using Meta Business SDK
