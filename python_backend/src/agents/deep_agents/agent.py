@@ -27,6 +27,17 @@ from deepagents import create_deep_agent
 from deepagents.backends import StateBackend
 from ...config import settings
 from .middleware import SkillMiddleware
+from .tools.calendar_tools import (
+    get_today_entries,
+    get_tomorrow_entries,
+    get_week_calendar,
+    suggest_weekly_plan,
+    add_calendar_entry,
+    add_weekly_content_plan,
+    find_and_update_entry,
+    find_and_delete_entry,
+    clear_day,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -337,7 +348,19 @@ def create_content_writer():
         model=llm,
         system_prompt=SYSTEM_PROMPT,      # Human-in-the-loop workflow
         memory=["./AGENTS.md"],           # Static brand memory        # Dynamic skills
-        tools=[generate_cover, generate_social_image],
+        tools=[
+            generate_cover,
+            generate_social_image,
+            get_today_entries,
+            get_tomorrow_entries,
+            get_week_calendar,
+            suggest_weekly_plan,
+            add_calendar_entry,
+            add_weekly_content_plan,
+            find_and_update_entry,
+            find_and_delete_entry,
+            clear_day,
+        ],
         subagents=load_subagents(AGENT_DIR / "subagents.yaml"),
         middleware=[SkillMiddleware()],
         backend=(lambda rt: StateBackend(rt)),  # Store files in state, not filesystem

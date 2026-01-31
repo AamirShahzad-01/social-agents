@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from .agent import get_agent
+from .tools.calendar_tools import set_workspace_id
 
 logger = logging.getLogger(__name__)
 
@@ -530,6 +531,8 @@ async def chat_stream(request: ChatRequest):
     async def generate():
         try:
             message = request.message
+            if request.workspaceId:
+                set_workspace_id(request.workspaceId)
             
             async for event in stream_agent_response(
                 message=message,
