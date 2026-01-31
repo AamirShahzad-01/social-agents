@@ -41,7 +41,7 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
 
     // Local state
     const [isLoading, setIsLoading] = useState(false);
-    const [isHistoryVisible, setIsHistoryVisible] = useState(true);
+    const [isHistoryVisible, setIsHistoryVisible] = useState(false);
     const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
     const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
     const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);

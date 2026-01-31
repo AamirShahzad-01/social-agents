@@ -112,10 +112,10 @@ export function AudioMixer({ libraryVideos, isLoadingLibrary, onProcessComplete 
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-1">
       {/* Left: Video Selection */}
       <Card className="flex flex-col h-full overflow-hidden border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <CardHeader className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white border-b py-1">
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white border-b py-1 px-2.5">
           <CardTitle className="text-lg flex items-center gap-2 text-white">
             <Video className="w-5 h-5 text-white" />
             Select Video
@@ -124,7 +124,7 @@ export function AudioMixer({ libraryVideos, isLoadingLibrary, onProcessComplete 
             Choose a video and add new audio
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-1.5">
           {isLoadingLibrary ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin" />
@@ -135,7 +135,7 @@ export function AudioMixer({ libraryVideos, isLoadingLibrary, onProcessComplete 
               <p>No videos in library</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="grid grid-cols-2 gap-1 max-h-[520px] overflow-y-auto pr-1 custom-scrollbar">
               {libraryVideos.map((item) => {
                 const isSelected = selectedVideo?.id === item.id;
                 return (
@@ -152,12 +152,12 @@ export function AudioMixer({ libraryVideos, isLoadingLibrary, onProcessComplete 
                         <img
                           src={item.thumbnail_url}
                           alt={item.prompt || 'Video'}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover block"
                         />
                       ) : (
                         <video
                           src={item.url}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover block"
                           muted
                           preload="metadata"
                           onLoadedMetadata={(e) => {
@@ -199,7 +199,7 @@ export function AudioMixer({ libraryVideos, isLoadingLibrary, onProcessComplete 
 
       {/* Middle: Audio Controls */}
       <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white border-b py-1">
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white border-b py-1 px-2.5">
           <CardTitle className="text-lg flex items-center gap-2 text-white">
             <Volume2 className="w-5 h-5 text-white" />
             Audio Settings
@@ -208,16 +208,16 @@ export function AudioMixer({ libraryVideos, isLoadingLibrary, onProcessComplete 
             Configure audio mixing options
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-2 p-1.5">
           {/* Video Preview */}
           {selectedVideo && (
-            <div className="space-y-2">
+            <div className="space-y-1">
               <label className="text-sm font-medium">Preview</label>
-              <div className="relative rounded-lg overflow-hidden bg-black">
+              <div className="relative rounded-md overflow-hidden bg-black">
                 <video
                   ref={videoPreviewRef}
                   src={selectedVideo.url}
-                  className="w-full aspect-video object-contain"
+                  className="w-full aspect-video object-cover"
                   muted={muteOriginal}
                   onEnded={() => setIsPreviewPlaying(false)}
                 />
@@ -238,7 +238,7 @@ export function AudioMixer({ libraryVideos, isLoadingLibrary, onProcessComplete 
           )}
 
           {/* Mute Original Audio */}
-          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+          <div className="flex items-center justify-between p-1.5 bg-muted rounded-md">
             <div className="flex items-center gap-2">
               <VolumeX className="w-4 h-4" />
               <span className="text-sm font-medium">Replace Original Audio</span>
@@ -251,7 +251,7 @@ export function AudioMixer({ libraryVideos, isLoadingLibrary, onProcessComplete 
 
           {/* Original Volume Slider */}
           {!muteOriginal && (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">Original Volume</label>
                 <span className="text-sm text-muted-foreground">{originalVolume}%</span>
@@ -268,7 +268,7 @@ export function AudioMixer({ libraryVideos, isLoadingLibrary, onProcessComplete 
 
           {/* Music Volume Slider */}
           {selectedAudio && (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium flex items-center gap-2">
                   <Music className="w-4 h-4" />

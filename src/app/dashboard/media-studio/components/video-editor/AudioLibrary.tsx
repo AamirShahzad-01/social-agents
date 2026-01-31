@@ -239,8 +239,8 @@ export function AudioLibrary({ selectedAudio, onSelectAudio }: AudioLibraryProps
                 <div
                   key={audio.id}
                   className={`group relative rounded-lg border transition-all shadow-sm hover:shadow-md cursor-pointer ${isSelected
-                    ? 'border-teal-500 ring-1 ring-teal-200/80 bg-white dark:bg-slate-900'
-                    : 'border-slate-300 dark:border-slate-700 hover:border-teal-300 bg-white dark:bg-slate-900'
+                    ? 'border-teal-500 ring-1 ring-teal-200/80 bg-blue-100 dark:bg-blue-100'
+                    : 'border-slate-300 dark:border-slate-700 hover:border-teal-300 bg-blue-50 dark:bg-blue-50'
                     }`}
                   onClick={() => onSelectAudio(isSelected ? null : audio)}
                 >
@@ -276,16 +276,16 @@ export function AudioLibrary({ selectedAudio, onSelectAudio }: AudioLibraryProps
                     {/* Audio Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
+                        <p className="text-sm font-semibold truncate text-slate-800 dark:text-slate-900">
                           {audio.name || 'Untitled Audio'}
                         </p>
                         {durationLabel && (
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-white/80 text-slate-700 border border-slate-200">
                             {durationLabel}
                           </span>
                         )}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 mt-1">
                         <span>{new Date(audio.created_at).toLocaleDateString()}</span>
                         {audio.source && (
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${audio.source === 'uploaded'

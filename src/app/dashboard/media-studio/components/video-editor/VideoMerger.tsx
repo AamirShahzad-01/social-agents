@@ -167,10 +167,10 @@ export function VideoMerger({ libraryVideos, isLoadingLibrary, onMergeComplete }
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[calc(100vh-200px)] min-h-[600px]">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-1 h-[calc(100vh-200px)] min-h-[560px]">
       {/* Left: Video Library Selection */}
       <Card className="flex flex-col h-full overflow-hidden border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <CardHeader className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white border-b py-1">
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white border-b py-1 px-2.5">
           <CardTitle className="text-lg flex items-center gap-2 text-white">
             <Video className="w-5 h-5 text-white" />
             Library
@@ -179,7 +179,7 @@ export function VideoMerger({ libraryVideos, isLoadingLibrary, onMergeComplete }
             Select clips to merge (Max 5 mins total)
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        <CardContent className="flex-1 overflow-y-auto p-2 custom-scrollbar">
           {isLoadingLibrary ? (
             <div className="flex flex-col items-center justify-center h-full text-zinc-400 gap-3">
               <Loader2 className="w-8 h-8 animate-spin" />
@@ -196,7 +196,7 @@ export function VideoMerger({ libraryVideos, isLoadingLibrary, onMergeComplete }
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-1.5">
               {libraryVideos.map((item) => {
                 const isInQueue = mergeQueue.some(v => v.id === item.id);
                 return (
@@ -213,12 +213,12 @@ export function VideoMerger({ libraryVideos, isLoadingLibrary, onMergeComplete }
                         <img
                           src={item.thumbnail_url}
                           alt={item.prompt || 'Video'}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover block"
                         />
                       ) : (
                         <video
                           src={item.url}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover block"
                           muted
                           preload="metadata"
                           onLoadedMetadata={(e) => {
@@ -260,7 +260,7 @@ export function VideoMerger({ libraryVideos, isLoadingLibrary, onMergeComplete }
 
       {/* Right: Merge Queue & Settings */}
       <Card className="flex flex-col h-full border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white border-b py-4">
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white border-b py-1.5 px-2.5">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2 text-white">
               <Film className="w-5 h-5 text-white" />
@@ -280,9 +280,9 @@ export function VideoMerger({ libraryVideos, isLoadingLibrary, onMergeComplete }
 
         <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
             {mergeQueue.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-zinc-400 border-2 border-dashed rounded-xl m-2">
+              <div className="h-full flex flex-col items-center justify-center text-zinc-400 border-2 border-dashed rounded-xl m-0.5">
                 <Film className="w-10 h-10 mb-2 opacity-30" />
                 <p className="text-sm font-medium">Your timeline is empty</p>
                 <p className="text-xs">Add clips from the library to start editing</p>
@@ -291,7 +291,7 @@ export function VideoMerger({ libraryVideos, isLoadingLibrary, onMergeComplete }
               mergeQueue.map((item, index) => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-3 p-2 bg-card rounded-lg border shadow-sm group hover:border-indigo-200 dark:hover:border-indigo-900 transition-colors"
+                  className="flex items-center gap-1.5 p-1 bg-card rounded-lg border shadow-sm group hover:border-indigo-200 dark:hover:border-indigo-900 transition-colors"
                 >
                   {/* Order controls */}
                   <div className="flex flex-col items-center gap-0.5 text-zinc-400">
@@ -319,9 +319,9 @@ export function VideoMerger({ libraryVideos, isLoadingLibrary, onMergeComplete }
                   {/* Thumbnail */}
                   <div className="w-24 h-14 rounded-md overflow-hidden bg-black flex-shrink-0 relative border border-zinc-200 dark:border-zinc-800">
                     {item.thumbnail_url ? (
-                      <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                      <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover block" />
                     ) : (
-                      <video src={item.url} className="w-full h-full object-cover" muted />
+                      <video src={item.url} className="w-full h-full object-cover block" muted />
                     )}
                     <div className="absolute bottom-0 right-0 bg-black/60 text-white text-[9px] px-1">
                       {item.duration ? formatDuration(item.duration) : '--:--'}
@@ -352,7 +352,7 @@ export function VideoMerger({ libraryVideos, isLoadingLibrary, onMergeComplete }
             )}
           </div>
 
-          <div className="p-4 border-t bg-background/50 backdrop-blur-sm space-y-3">
+          <div className="p-2 border-t bg-background/50 backdrop-blur-sm space-y-1">
             {isDurationLimitExceeded && (
               <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 p-2 rounded-md">
                 <AlertTriangle className="w-4 h-4" />
@@ -360,7 +360,7 @@ export function VideoMerger({ libraryVideos, isLoadingLibrary, onMergeComplete }
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={clearQueue}

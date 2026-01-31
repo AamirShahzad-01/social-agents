@@ -322,12 +322,15 @@ def create_content_writer():
     # Note: 'summary' parameter removed as it requires OpenAI organization verification
     reasoning = {
         "effort": "medium",  # Balance between speed and depth
+        "summary": "auto",  # 'detailed', 'auto', or None
     }
+    
     
     llm = ChatOpenAI(
         model="gpt-5.2",
         api_key=settings.OPENAI_API_KEY,
         reasoning=reasoning,
+        stream_usage=True,
         #output_version="responses/v1",  # Uncomment for newer response format
     )
     return create_deep_agent(
