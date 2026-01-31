@@ -56,7 +56,8 @@ logger = logging.getLogger(__name__)
 CANVA_CLIENT_ID = getattr(settings, "CANVA_CLIENT_ID", None)
 CANVA_CLIENT_SECRET = getattr(settings, "CANVA_CLIENT_SECRET", None)
 APP_URL = getattr(settings, "APP_URL", "http://localhost:3000")
-CANVA_REDIRECT_URI = f"{APP_URL}/api/canva/callback"
+# Canonical Canva redirect URI (must match the Developer Portal Authorized Redirects exactly).
+CANVA_REDIRECT_URI = settings.get_canva_callback_url()
 
 
 # ================== SCHEMAS ==================

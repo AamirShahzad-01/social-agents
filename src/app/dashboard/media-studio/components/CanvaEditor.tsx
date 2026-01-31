@@ -70,6 +70,24 @@ function getDesignThumbnailUrl(design: CanvaDesign): string | undefined {
   return design.thumbnail?.url || d.thumbnail_url;
 }
 
+function formatDesignDate(updatedAt?: string, createdAt?: string): string {
+  const raw = updatedAt || createdAt;
+  if (!raw) return '—';
+
+  if (raw === '0') return '—';
+
+  let dateValue: number | string = raw;
+  if (/^\d+$/.test(raw)) {
+    const numeric = Number(raw);
+    if (numeric === 0) return '—';
+    dateValue = raw.length <= 10 ? numeric * 1000 : numeric;
+  }
+
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleDateString('en-GB');
+}
+
 export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTabChange, onCountsChange }: CanvaEditorProps) {
   const { workspaceId, user } = useAuth();
 
@@ -812,14 +830,8 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
 
         {/* Designs Tab - Export designs back */}
         <TabsContent value="designs" className="mt-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Your Canva Designs</CardTitle>
-              <CardDescription>
-                Edit designs in Canva or export them back to your media library
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <Card className="bg-transparent border-0 shadow-none">
+            <CardContent className="px-1">
               {isCheckingConnection ? (
                 <div className="flex items-center justify-center py-20">
                   <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -878,29 +890,29 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
                   <p className="text-sm">Select media from library to create a design</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-1">
                   {designs.map((design) => (
                     <div
                       key={design.id}
-                      className="relative group rounded-lg overflow-hidden border bg-muted"
+                      className="relative group rounded-lg overflow-hidden bg-muted break-inside-avoid mb-1 inline-block w-full align-top"
                     >
                       {getDesignThumbnailUrl(design) ? (
                         <img
                           src={getDesignThumbnailUrl(design)}
                           alt={design.title}
-                          className="aspect-[4/3] object-cover w-full"
+                          className="w-full h-auto object-contain"
                         />
                       ) : (
-                        <div className="aspect-[4/3] flex items-center justify-center">
+                        <div className="min-h-[180px] flex items-center justify-center">
                           <Palette className="w-8 h-8 text-muted-foreground" />
                         </div>
                       )}
 
                       {/* Title */}
-                      <div className="p-2 bg-background">
+                      <div className="p-2 bg-muted/70">
                         <p className="text-sm font-medium truncate">{design.title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(design.updated_at).toLocaleDateString()}
+                          {formatDesignDate(design.updated_at, design.created_at)}
                         </p>
                       </div>
 

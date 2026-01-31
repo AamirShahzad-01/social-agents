@@ -34,7 +34,7 @@ export default function CanvaEditorPage() {
                   </Badge>
                 </h1>
                 <p className="text-muted-foreground text-xs">
-                  Edit your media with powerful design tools
+                  Edit your media with powerful design tools. Edit designs in Canva or export them back to your media library
                 </p>
               </div>
             </div>

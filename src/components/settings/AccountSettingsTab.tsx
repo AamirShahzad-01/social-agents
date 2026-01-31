@@ -126,7 +126,7 @@ const AccountSettingsTab: React.FC = () => {
       const response = await fetch(`/api/canva/auth/status?user_id=${user.id}`)
       if (response.ok) {
         const data = await response.json()
-        setCanvaConnected(data.connected && !data.isExpired)
+        setCanvaConnected(data.connected) // Show as connected even if expired (user can disconnect)
         // Store profile info if available (optional - works without it)
         setCanvaInfo({
           accountName: data.accountName,
@@ -812,9 +812,9 @@ const AccountSettingsTab: React.FC = () => {
               </div>
             ) : canvaConnected ? (
               <div className="flex items-center gap-4">
-                <div className="flex items-center text-green-600">
-                  <CheckCircle className="w-5 h-5 mr-2" />
-                  <span className="font-semibold text-sm">Connected</span>
+                <div className={`flex items-center ${canvaInfo.isExpired ? 'text-red-600' : 'text-green-600'}`}>
+                  {canvaInfo.isExpired ? <AlertTriangle className="w-5 h-5 mr-2" /> : <CheckCircle className="w-5 h-5 mr-2" />}
+                  <span className="font-semibold text-sm">{canvaInfo.isExpired ? 'Expired' : 'Connected'}</span>
                 </div>
                 <button
                   onClick={handleCanvaDisconnect}
@@ -822,6 +822,15 @@ const AccountSettingsTab: React.FC = () => {
                 >
                   Disconnect
                 </button>
+                {canvaInfo.isExpired && (
+                  <button
+                    onClick={handleCanvaConnect}
+                    className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-md text-white flex items-center transition-colors"
+                  >
+                    <Link className="w-4 h-4 mr-2" />
+                    Reconnect
+                  </button>
+                )}
               </div>
             ) : (
               <button

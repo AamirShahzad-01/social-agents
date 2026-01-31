@@ -88,6 +88,24 @@ class Settings(BaseSettings):
                 url = f"https://{url}"
         
         return url.rstrip('/')
+
+    @field_validator('CANVA_REDIRECT_URI', mode='before')
+    @classmethod
+    def normalize_canva_redirect_uri(cls, v: Optional[str]) -> Optional[str]:
+        """Normalize Canva redirect URI when provided."""
+        if not v:
+            return v
+        url = v.strip()
+        if '://' not in url:
+            if 'localhost' in url or '127.0.0.1' in url:
+                url = f"http://{url}"
+            else:
+                url = f"https://{url}"
+        return url
+
+    def get_canva_callback_url(self) -> str:
+        """Get the canonical Canva OAuth callback URL."""
+        return self.CANVA_REDIRECT_URI or f"{self.BACKEND_URL}/api/v1/canva/callback"
     
     def get_oauth_callback_url(self, platform: str) -> str:
         """Get the OAuth callback URL for a platform."""
@@ -145,6 +163,7 @@ class Settings(BaseSettings):
     # Canva Integration
     CANVA_CLIENT_ID: Optional[str] = Field(default=None, description="Canva Client ID")
     CANVA_CLIENT_SECRET: Optional[str] = Field(default=None, description="Canva Client Secret")
+    CANVA_REDIRECT_URI: Optional[str] = Field(default=None, description="Canva OAuth redirect URI")
     
     # Meta Ads Configuration (uses Facebook App credentials)
     META_ADS_REDIRECT_URI: Optional[str] = Field(default=None, description="Meta Ads OAuth redirect URI")

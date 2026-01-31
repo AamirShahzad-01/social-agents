@@ -90,6 +90,31 @@ class CanvaDesign(BaseModel):
     design_type: Optional[str] = None
 
 
+def _normalize_canva_timestamp(value: Optional[Union[str, int, float]]) -> Optional[str]:
+    if value is None:
+        return None
+
+    if isinstance(value, (int, float)):
+        if value == 0:
+            return None
+        seconds = value / 1000 if value >= 1e11 else value
+        return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
+
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned or cleaned == "0":
+            return None
+        if cleaned.isdigit():
+            numeric = int(cleaned)
+            if numeric == 0:
+                return None
+            seconds = numeric / 1000 if numeric >= 1e11 else numeric
+            return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
+        return cleaned
+
+    return None
+
+
 class CanvaExportResult(BaseModel):
     """Result of a design export"""
     success: bool
@@ -679,8 +704,8 @@ async def list_designs(user_id: str, continuation: str = None) -> Dict[str, Any]
             id=design["id"],
             title=design.get("title", "Untitled"),
             thumbnail_url=design.get("thumbnail", {}).get("url"),
-            created_at=design.get("created_at"),
-            updated_at=design.get("updated_at"),
+            created_at=_normalize_canva_timestamp(design.get("created_at")),
+            updated_at=_normalize_canva_timestamp(design.get("updated_at")),
             urls=design.get("urls"),
             design_type=design.get("design_type")
         ).model_dump())
