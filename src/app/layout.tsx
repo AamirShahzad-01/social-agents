@@ -5,6 +5,8 @@ import { NotificationProvider } from '@/contexts/NotificationContext'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ServiceWorkerRegistration } from '@/components/PWAInstall'
 import { Inter, Manrope } from 'next/font/google'
+import TopLoadingBar from '@/components/layout/TopLoadingBar'
+import { Suspense } from 'react'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -21,8 +23,8 @@ const manrope = Manrope({
 })
 
 export const metadata: Metadata = {
-  title: 'Content OS - Enterprise Content Management',
-  description: 'Modern enterprise-grade AI-powered content management platform',
+  title: 'Multi Agents System for Social Media Marketing',
+  description: 'Professional Multi Agents System for Social Media Marketing and Content generation and management',
   manifest: '/manifest.json',
   icons: {
     icon: '/icon.png',
@@ -37,7 +39,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#14b8a6',
+  themeColor: '#c5ebefff',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -54,12 +56,15 @@ export default function RootLayout({
         <ServiceWorkerRegistration />
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >
           <AuthProvider>
             <NotificationProvider>
+              <Suspense fallback={null}>
+                <TopLoadingBar />
+              </Suspense>
               {children}
             </NotificationProvider>
           </AuthProvider>

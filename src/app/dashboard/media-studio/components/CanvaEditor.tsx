@@ -19,6 +19,9 @@ import {
   Send,
   Megaphone,
   Film,
+  X,
+  Eye,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMedia } from '@/contexts/MediaContext';
@@ -112,6 +115,10 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
   const [internalActiveTab, setInternalActiveTab] = useState<'designs' | 'video-editor'>('video-editor');
   const activeTab = controlledActiveTab ?? internalActiveTab;
   const setActiveTab = onTabChange ?? setInternalActiveTab;
+
+  // Selected design for preview
+  const [selectedDesign, setSelectedDesign] = useState<CanvaDesign | null>(null);
+
 
   // Send to Post state
   const [sendModalOpen, setSendModalOpen] = useState(false);
@@ -894,13 +901,14 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
                   {designs.map((design) => (
                     <div
                       key={design.id}
-                      className="relative group rounded-lg overflow-hidden bg-muted break-inside-avoid mb-1 inline-block w-full align-top"
+                      className="relative group rounded-lg overflow-hidden bg-muted break-inside-avoid mb-1 inline-block w-full align-top cursor-pointer transition-all hover:shadow-md"
+                      onClick={() => setSelectedDesign(design)}
                     >
                       {getDesignThumbnailUrl(design) ? (
                         <img
                           src={getDesignThumbnailUrl(design)}
                           alt={design.title}
-                          className="w-full h-auto object-contain"
+                          className="w-full h-auto object-contain transition-transform group-hover:scale-[1.01]"
                         />
                       ) : (
                         <div className="min-h-[180px] flex items-center justify-center">
@@ -908,19 +916,35 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
                         </div>
                       )}
 
-                      {/* Title */}
-                      <div className="p-2 bg-muted/70">
-                        <p className="text-sm font-medium truncate">{design.title}</p>
-                        <p className="text-xs text-muted-foreground">
+                      {/* Title & Info Overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <p className="text-white text-sm font-semibold truncate">{design.title}</p>
+                        <p className="text-white/70 text-[10px] flex items-center gap-1">
                           {formatDesignDate(design.updated_at, design.created_at)}
+                          {design.design_type && (
+                            <>
+                              <span className="w-1 h-1 rounded-full bg-white/30" />
+                              <span className="capitalize">{design.design_type.replace('_', ' ')}</span>
+                            </>
+                          )}
                         </p>
                       </div>
+
+                      {/* Video Indicator */}
+                      {((design.design_type || '').toLowerCase().includes('video') || (design.title || '').toLowerCase().includes('video')) && (
+                        <div className="absolute top-2 right-2 p-1.5 bg-black/60 backdrop-blur-sm rounded-lg text-white">
+                          <Video className="w-3.5 h-3.5" />
+                        </div>
+                      )}
 
                       {/* Hover actions */}
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
                         <Button
                           size="sm"
-                          onClick={() => openInCanva(design)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openInCanva(design);
+                          }}
                           className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
                         >
                           <ExternalLink className="w-4 h-4 mr-1" />
@@ -930,7 +954,10 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
                         <Button
                           size="sm"
                           className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-                          onClick={() => exportDesignToLibrary(design)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            exportDesignToLibrary(design);
+                          }}
                           disabled={exportingDesignId === design.id || sendingDesignId === design.id}
                         >
                           {exportingDesignId === design.id ? (
@@ -946,7 +973,10 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
                         <Button
                           size="sm"
                           className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                          onClick={() => handleSendDesignToPost(design)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSendDesignToPost(design);
+                          }}
                           disabled={sendingDesignId === design.id || exportingDesignId === design.id || sendingDesignToAdId === design.id}
                         >
                           {sendingDesignId === design.id ? (
@@ -962,7 +992,10 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
                         <Button
                           size="sm"
                           className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                          onClick={() => handleSendDesignToAd(design)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSendDesignToAd(design);
+                          }}
                           disabled={sendingDesignToAdId === design.id || exportingDesignId === design.id || sendingDesignId === design.id}
                         >
                           {sendingDesignToAdId === design.id ? (
@@ -1010,6 +1043,183 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
         media={mediaToAd}
         onSend={handleAdConfig}
       />
+
+      {/* Design Preview Modal */}
+      {selectedDesign && (
+        <div
+          className="fixed inset-0 bg-black/95 z-[100] flex items-center justify-center p-4 transition-all duration-300 backdrop-blur-md"
+          onClick={() => setSelectedDesign(null)}
+        >
+          <div
+            className="bg-background rounded-2xl w-[95vw] h-[90vh] max-w-6xl overflow-hidden relative shadow-2xl border flex flex-col animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b bg-card/50 backdrop-blur-md sticky top-0 z-10">
+              <div className="flex items-center gap-4">
+                <div className="p-2.5 bg-primary/10 rounded-xl">
+                  <Palette className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-3">
+                    {selectedDesign.title}
+                    {selectedDesign.design_type && (
+                      <Badge variant="secondary" className="text-[10px] uppercase tracking-widest px-2 py-0.5 font-bold">
+                        {selectedDesign.design_type.replace('_', ' ')}
+                      </Badge>
+                    )}
+                  </h3>
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    <Sparkles className="w-3 h-3" />
+                    Last edited {formatDesignDate(selectedDesign.updated_at, selectedDesign.created_at)}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedDesign(null)}
+                className="rounded-full hover:bg-muted h-10 w-10 p-0"
+              >
+                <X className="w-6 h-6" />
+              </Button>
+            </div>
+
+            {/* Content - High Quality Thumbnail with Action Overlay */}
+            <div className="flex-1 bg-muted/10 relative overflow-hidden flex items-center justify-center p-8">
+              {/* Background Glow */}
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5 pointer-events-none" />
+
+              {getDesignThumbnailUrl(selectedDesign) ? (
+                <div className="relative group max-w-full h-full flex flex-col items-center justify-center gap-6">
+                  {/* Thumbnail Wrapper */}
+                  <div className="relative group/thumb">
+                    <img
+                      src={getDesignThumbnailUrl(selectedDesign)}
+                      alt={selectedDesign.title}
+                      className="max-w-full h-auto max-h-[55vh] object-contain shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] rounded-xl transition-all duration-500 group-hover/thumb:scale-[1.01] group-hover/thumb:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.4)]"
+                    />
+                    <div className="absolute inset-0 rounded-xl ring-1 ring-white/20 pointer-events-none" />
+
+                    {/* Centered Action Button for Interactive View */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-all duration-300 scale-95 group-hover/thumb:scale-100">
+                      <Button
+                        size="lg"
+                        onClick={() => selectedDesign.urls?.view_url && window.open(selectedDesign.urls.view_url, '_blank')}
+                        className="bg-white/90 hover:bg-white text-black border-0 shadow-2xl h-14 px-8 rounded-full font-bold group/btn"
+                      >
+                        {((selectedDesign.design_type || '').toLowerCase().includes('video') || (selectedDesign.title || '').toLowerCase().includes('video')) ? (
+                          <Video className="w-5 h-5 mr-3 text-primary animate-pulse" />
+                        ) : (
+                          <Layers className="w-5 h-5 mr-3 text-primary" />
+                        )}
+                        <span>Launch Interactive View</span>
+                        <ArrowRight className="w-4 h-4 ml-3 opacity-0 -translate-x-2 transition-all group-hover/btn:opacity-100 group-hover/btn:translate-x-0" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Metadata and Hint */}
+                  <div className="text-center space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-bold uppercase tracking-wider">
+                      <Sparkles className="w-3 h-3" />
+                      Ready for High-Res View
+                    </div>
+                    <p className="text-muted-foreground text-sm max-w-lg leading-relaxed">
+                      To flip through slides, play videos, or view animations, click the button above or
+                      <button
+                        onClick={() => selectedDesign.urls?.view_url && window.open(selectedDesign.urls.view_url, '_blank')}
+                        className="text-primary hover:underline ml-1 font-medium"
+                      >
+                        open the interactive preview
+                      </button> in a new tab.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-4 text-muted-foreground py-20">
+                  <Palette className="w-20 h-20 opacity-10 animate-pulse" />
+                  <div className="text-center">
+                    <p className="font-medium">No preview available</p>
+                    <p className="text-sm">We couldn't generate a preview for this design.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-6 border-t bg-card/80 backdrop-blur-md flex flex-wrap gap-4 items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Button
+                  size="lg"
+                  onClick={() => {
+                    openInCanva(selectedDesign);
+                    setSelectedDesign(null);
+                  }}
+                  className="bg-primary hover:opacity-90 shadow-lg shadow-primary/20 px-8 font-bold border-0"
+                >
+                  <ExternalLink className="w-5 h-5 mr-3" />
+                  Edit in Canva
+                </Button>
+
+                {selectedDesign.urls?.view_url && (
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => {
+                      window.open(selectedDesign.urls!.view_url, '_blank');
+                    }}
+                    className="border-primary/20 hover:bg-primary/5 px-6 font-medium"
+                  >
+                    <Eye className="w-5 h-5 mr-3 text-primary" />
+                    Preview Link
+                  </Button>
+                )}
+              </div>
+
+
+              <div className="flex items-center gap-3">
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-lg shadow-purple-500/20 font-semibold"
+                  onClick={() => {
+                    exportDesignToLibrary(selectedDesign);
+                    setSelectedDesign(null);
+                  }}
+                  disabled={exportingDesignId === selectedDesign.id}
+                >
+                  {exportingDesignId === selectedDesign.id ? (
+                    <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                  ) : (
+                    <Download className="w-5 h-5 mr-3" />
+                  )}
+                  Save to Library
+                </Button>
+
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 shadow-lg shadow-green-500/20 font-semibold"
+                  onClick={() => {
+                    handleSendDesignToPost(selectedDesign);
+                    setSelectedDesign(null);
+                  }}
+                  disabled={sendingDesignId === selectedDesign.id}
+                >
+                  {sendingDesignId === selectedDesign.id ? (
+                    <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5 mr-3" />
+                  )}
+                  Send to Post
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
     </div>
+
   );
 }

@@ -2,20 +2,28 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 // Professional React Icons - using Phosphor (Pi), Remix (Ri), and Heroicons (Hi)
 import {
-    PenLine,
+    SquarePen,
     CalendarCheck,
     Clapperboard,
-    PenTool,
+    Wand2,
     FolderOpen,
     Send,
     LineChart,
     MessageCircle,
     Megaphone,
     Settings,
+    LogOut,
 } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -30,7 +38,7 @@ import NotificationBell from '@/components/ui/NotificationBell';
 
 const sidebarItems = [
     {
-        icon: PenLine,
+        icon: SquarePen,
         label: 'Create Content',
         href: '/dashboard/create',
         tint: 'before:from-rose-500/25 before:via-rose-400/10',
@@ -48,7 +56,7 @@ const sidebarItems = [
         tint: 'before:from-indigo-400/25 before:via-indigo-300/10',
     },
     {
-        icon: PenTool,
+        icon: Wand2,
         label: 'Editing Studio',
         href: '/dashboard/canva-editor',
         tint: 'before:from-emerald-400/25 before:via-emerald-300/10',
@@ -89,22 +97,44 @@ const sidebarItems = [
 
 export function Sidebar() {
     const pathname = usePathname();
-    const { user } = useAuth();
+    const router = useRouter();
+    const { user, signOut } = useAuth();
+
+    const handleLogout = async () => {
+        try {
+            await signOut();
+            toast.success('Logged out successfully');
+            router.push('/login');
+        } catch (error) {
+            toast.error('Failed to log out');
+        }
+    };
 
     return (
         <TooltipProvider delayDuration={0}>
             <div className="flex h-full w-[72px] flex-col items-center bg-white/10 backdrop-blur-xl border-r border-white/20 pt-1 pb-2 shadow-sm z-40">
-                {/* Logo - Enterprise Style */}
+                {/* Logo - Enterprise Style / Refresh trigger */}
                 <div className="mb-0">
-                    <Link href="/dashboard" className="group">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl overflow-hidden bg-white/20 border border-white/30 shadow-md transition-all duration-300 group-hover:shadow-lg group-hover:scale-105">
-                            <img
-                                src="/frappe-framework-logo.svg"
-                                alt="Logo"
-                                className="h-11 w-11"
-                            />
-                        </div>
-                    </Link>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="group focus:outline-none transition-all duration-300 hover:scale-105 active:scale-95"
+                            >
+                                <div className="relative flex h-11 w-11 items-center justify-center rounded-xl overflow-hidden bg-white/20 border border-white/30 shadow-md transition-all duration-500 group-hover:shadow-lg group-hover:rotate-6">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                    <img
+                                        src="/frappe-framework-logo.svg"
+                                        alt="Logo"
+                                        className="h-11 w-11 transition-all duration-700 group-hover:scale-110"
+                                    />
+                                </div>
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" sideOffset={8} className="bg-slate-900/90 backdrop-blur-md border-slate-700/50 text-white shadow-2xl px-3 py-2">
+                            <p className="font-semibold text-[13px]">Refresh app</p>
+                        </TooltipContent>
+                    </Tooltip>
                 </div>
 
                 {/* Dark/Light Mode Toggle - Below Logo */}
@@ -195,22 +225,51 @@ export function Sidebar() {
                     </Tooltip>
 
 
-                    {/* User Avatar - Enterprise Style */}
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Link href="/settings?tab=profile" className="mt-3">
-                                <Avatar className="h-10 w-10 ring-2 ring-slate-200 ring-offset-2 ring-offset-white transition-all hover:ring-teal-400/50 hover:scale-105">
-                                    <AvatarImage src={user?.user_metadata?.avatar_url} />
-                                    <AvatarFallback className="bg-gradient-to-br from-teal-500 to-cyan-600 text-white text-sm font-semibold">
-                                        {user?.user_metadata?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'U'}
-                                    </AvatarFallback>
-                                </Avatar>
-                            </Link>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" sideOffset={8} className="bg-slate-800 border-slate-700 text-white shadow-xl px-3 py-2">
-                            <p className="font-medium text-[13px]">{user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Profile'}</p>
-                        </TooltipContent>
-                    </Tooltip>
+                    {/* User Profile & Actions Dropdown */}
+                    <DropdownMenu>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <DropdownMenuTrigger asChild>
+                                    <button className="mt-1 focus:outline-none focus:ring-0 group">
+                                        <Avatar className="h-10 w-10 ring-2 ring-slate-200 ring-offset-2 ring-offset-white transition-all hover:ring-teal-400/50 hover:scale-105 active:scale-95 cursor-pointer">
+                                            <AvatarImage src={user?.user_metadata?.avatar_url} />
+                                            <AvatarFallback className="bg-gradient-to-br from-teal-500 to-cyan-600 text-white text-sm font-semibold">
+                                                {user?.user_metadata?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    </button>
+                                </DropdownMenuTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={8} className="bg-slate-800 border-slate-700 text-white shadow-xl px-3 py-2">
+                                <p className="font-medium text-[13px]">{user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Profile'}</p>
+                            </TooltipContent>
+                        </Tooltip>
+
+                        <DropdownMenuContent side="right" align="end" className="w-64 p-2 bg-white/95 backdrop-blur-xl border-slate-200 shadow-2xl rounded-2xl z-[100] animate-in fade-in zoom-in duration-200">
+                            <div className="px-3 py-3 border-b border-slate-100/80 mb-1">
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Authenticated Account</p>
+                                <p className="text-sm font-bold text-slate-900 truncate">
+                                    {user?.user_metadata?.full_name || 'User Account'}
+                                </p>
+                                <p className="text-[11px] text-slate-500 truncate lowercase">
+                                    {user?.email}
+                                </p>
+                            </div>
+
+                            <DropdownMenuItem
+                                onClick={handleLogout}
+                                className="flex items-center gap-3 px-3 py-2.5 text-rose-600 focus:text-white focus:bg-rose-500 rounded-xl cursor-pointer font-semibold transition-all duration-200 mt-1"
+                            >
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 focus-within:bg-rose-400/20">
+                                    <LogOut className="h-4 w-4" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm">Sign out</span>
+                                    <span className="text-[10px] opacity-70 font-normal">End your current session</span>
+                                </div>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
         </TooltipProvider >

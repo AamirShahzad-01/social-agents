@@ -101,10 +101,10 @@ export default function AuthPage({ inviteToken }: AuthPageProps) {
           </div>
 
           <div>
-            <div className="text-8xl text-white leading-[1.1] tracking-tight">
-              Multi Agents <br />
-              Platform for <br />
-              Visual Content Generation
+            <div className="text-8xl text-white leading-[1.1] tracking-tight font-serif">
+              Multi Agents System for <br />
+              Social Media <br />
+              Marketing
             </div>
           </div>
         </div>

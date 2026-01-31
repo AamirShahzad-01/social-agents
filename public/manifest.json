@@ -1,7 +1,7 @@
 {
-    "name": "Content OS - Enterprise Content Management",
+    "name": "Content OS",
     "short_name": "Content OS",
-    "description": "Modern enterprise-grade AI-powered content management platform",
+    "description": "Multi Agents System for Social Media Marketing",
     "start_url": "/dashboard",
     "display": "standalone",
     "background_color": "#0f0f23",

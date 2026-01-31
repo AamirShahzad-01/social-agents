@@ -14,7 +14,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Sidebar />
             </aside>
             <div className="flex flex-1 flex-col overflow-hidden">
-                <main className="relative flex-1 overflow-y-auto scrollbar-hide animate-in fade-in duration-500">
+                <main className="relative flex-1 overflow-y-auto scrollbar-hide">
                     {children}
                 </main>
             </div>

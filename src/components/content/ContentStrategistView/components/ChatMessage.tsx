@@ -98,7 +98,7 @@ export const ChatMessage = React.memo<ChatMessageProps>(
                 <div
                     className={cn(
                         "min-w-0 max-w-full",
-                        isUser ? "max-w-[40%]" : "max-w-[80%]"
+                        isUser ? "max-w-[65%]" : "max-w-[75%]"
                     )}
                 >
                     {/* Reasoning/Thinking display - supports multiple formats */}
