@@ -160,8 +160,8 @@ if (IS_BROWSER && IS_PRODUCTION) {
     }
 }
 
-// Request timeout in milliseconds (5 minutes for large YouTube video uploads)
-export const REQUEST_TIMEOUT = 300000
+// Request timeout in milliseconds (15 minutes for large YouTube video uploads)
+export const REQUEST_TIMEOUT = 900000
 
 
 // Retry configuration

@@ -209,6 +209,7 @@ async def init_checkpointer():
     """Initialize the checkpointer at startup.
     
     Creates AsyncPostgresSaver if DATABASE_URL is configured, otherwise uses MemorySaver.
+    Configures connection pool with health checks to prevent stale connection errors.
     """
     global _checkpointer, _checkpointer_context
     
@@ -227,14 +228,51 @@ async def init_checkpointer():
     
     if db_url:
         try:
-            logger.info("Initializing AsyncPostgresSaver with DATABASE_URL...")
-            # AsyncPostgresSaver.from_conn_string returns an ASYNC context manager
-            _checkpointer_context = AsyncPostgresSaver.from_conn_string(db_url)
-            _checkpointer = await _checkpointer_context.__aenter__()
+            from psycopg_pool import AsyncConnectionPool, PoolTimeout
             
-            # Setup tables (creates if not exists) - asetup is async
+            logger.info("Initializing AsyncPostgresSaver with connection pool...")
+            
+            # Configure connection pool with health checks to prevent stale connections
+            # - min_size: Minimum connections to keep open
+            # - max_size: Maximum connections allowed  
+            # - max_idle: Close connections idle longer than this (seconds)
+            # - check: Validate connections before use (prevents "connection is closed" errors)
+            # - reconnect_timeout: Time to wait for reconnection attempts
+            pool = AsyncConnectionPool(
+                conninfo=db_url,
+                min_size=1,
+                max_size=10,
+                max_idle=300,  # Close idle connections after 5 minutes
+                check=AsyncConnectionPool.check_connection,  # CRITICAL: Validate connections before use
+                reconnect_timeout=5.0,  # Retry reconnection for 5 seconds
+                open=False,  # Don't open immediately, we'll open it explicitly
+            )
+            
+            # Open the pool explicitly
+            await pool.open()
+            
+            # Create checkpointer with our configured pool (not from_conn_string)
+            # AsyncPostgresSaver accepts a pool directly in its constructor
+            _checkpointer = AsyncPostgresSaver(pool)
+            _checkpointer_context = pool  # Store pool for cleanup
+            
+            # Setup tables (creates if not exists)
             await _checkpointer.setup()
-            logger.info("✅ AsyncPostgresSaver initialized successfully - chat history will persist!")
+            logger.info("✅ AsyncPostgresSaver initialized with connection pool - chat history will persist!")
+            
+        except ImportError:
+            # psycopg_pool not available, use default initialization without pool config
+            logger.warning("psycopg_pool not available, using default connection handling")
+            try:
+                _checkpointer_context = AsyncPostgresSaver.from_conn_string(db_url)
+                _checkpointer = await _checkpointer_context.__aenter__()
+                await _checkpointer.setup()
+                logger.info("✅ AsyncPostgresSaver initialized (without pool config)")
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize AsyncPostgresSaver: {e}")
+                logger.warning("Falling back to MemorySaver - chat history will be lost on restart!")
+                _checkpointer = MemorySaver()
+                _checkpointer_context = None
         except Exception as e:
             logger.error(f"❌ Failed to initialize AsyncPostgresSaver: {e}")
             logger.warning("Falling back to MemorySaver - chat history will be lost on restart!")
@@ -253,9 +291,15 @@ async def cleanup_checkpointer():
     
     if _checkpointer_context is not None:
         try:
-            # AsyncPostgresSaver uses ASYNC context manager
-            await _checkpointer_context.__aexit__(None, None, None)
-            logger.info("AsyncPostgresSaver connection pool closed")
+            # Check if it's an AsyncConnectionPool (new approach) or context manager (fallback)
+            if hasattr(_checkpointer_context, 'close'):
+                # AsyncConnectionPool - close the pool directly
+                await _checkpointer_context.close()
+                logger.info("AsyncConnectionPool closed successfully")
+            else:
+                # Context manager approach (from_conn_string fallback)
+                await _checkpointer_context.__aexit__(None, None, None)
+                logger.info("AsyncPostgresSaver connection pool closed")
         except Exception as e:
             logger.warning(f"Error closing checkpointer: {e}")
 
