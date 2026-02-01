@@ -29,20 +29,17 @@ def test_tool():
         "content_type": "promotional",
         "title": test_title,
         "content": "This is a test post to verify the tool works.",
-        "scheduled_time": "10:00",
         "hashtags": "test,calendar",
         "image_prompt": "A vibrant promo banner with bold typography",
-        "image_url": "https://example.com/test-image.png",
         "video_script": "Intro scene: show product close-up...",
-        "video_url": "https://example.com/test-video.mp4",
         "notes": "QA: full-data test entry",
     }))
 
     print("\n2) add_weekly_content_plan (full data)")
     print(add_weekly_content_plan.invoke({
         "week_start": today,
-        "monday_posts": "instagram|fun|Weekly Test IG|09:00|reel|Monday motivation post for the week!|A bright sunny morning with coffee and laptop|https://example.com/monday.jpg|Start with energy, show workspace|https://example.com/monday.mp4|Internal note: Use brand colors",
-        "tuesday_posts": "twitter|promotional|Weekly Test X|11:00|text|Check out our latest features and updates!|Tech product showcase with clean UI|https://example.com/tuesday.png|Quick product demo with voiceover|https://example.com/tuesday.mp4|Tag engineering team",
+        "monday_posts": "instagram|fun|Weekly Test IG|reel|Monday motivation post for the week!|A bright sunny morning with coffee and laptop|Start with energy, show workspace|Internal note: Use brand colors",
+        "tuesday_posts": "twitter|promotional|Weekly Test X|text|Check out our latest features and updates!|Tech product showcase with clean UI|Quick product demo with voiceover|Tag engineering team",
     }))
 
     print("\n3) get_today_entries (full data)")

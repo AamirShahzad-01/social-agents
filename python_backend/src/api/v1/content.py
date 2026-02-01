@@ -43,8 +43,11 @@ async def chat_strategist(request: StrategistChatRequest):
     Forwards to the deep_agents implementation.
     """
     from ...agents.deep_agents.router import stream_agent_response
+    from ...agents.deep_agents.tools.calendar_tools import set_workspace_id
     
     message = request.message
+    if request.workspaceId:
+        set_workspace_id(request.workspaceId)
     thread_id = request.threadId or str(uuid.uuid4())
     
     async def generate():

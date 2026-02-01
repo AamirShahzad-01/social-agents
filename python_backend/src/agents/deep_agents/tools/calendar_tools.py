@@ -39,7 +39,6 @@ def _format_entry(entry: dict) -> dict:
     return {
         "id": entry.get("id"),
         "scheduled_date": entry.get("scheduled_date"),
-        "scheduled_time": entry.get("scheduled_time"),
         "platform": entry.get("platform"),
         "content_type": entry.get("content_type"),
         "post_type": entry.get("post_type"),
@@ -47,9 +46,7 @@ def _format_entry(entry: dict) -> dict:
         "content": entry.get("content"),
         "hashtags": entry.get("hashtags"),
         "image_prompt": entry.get("image_prompt"),
-        "image_url": entry.get("image_url"),
         "video_script": entry.get("video_script"),
-        "video_url": entry.get("video_url"),
         "notes": entry.get("notes"),
         "status": entry.get("status"),
         "color": entry.get("color"),
@@ -62,9 +59,7 @@ def _entry_search_blob(entry: dict) -> str:
         entry.get("title"),
         entry.get("content"),
         entry.get("image_prompt"),
-        entry.get("image_url"),
         entry.get("video_script"),
-        entry.get("video_url"),
         entry.get("notes"),
     ]
     hashtags = entry.get("hashtags")
@@ -269,7 +264,7 @@ def suggest_weekly_plan(
             like {"instagram": 5, "twitter": 7}
 
     Returns:
-        Suggested weekly plan with per-day slots, content types, and platform
+        Suggested and add  weekly plan with per-day slots, content types, and platform
     """
     try:
         if not brand_goal or not isinstance(brand_goal, str):
@@ -306,7 +301,6 @@ def suggest_weekly_plan(
             "interactive",
             "promotional",
             "brand_related",
-            "fun",
         ]
 
         days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
@@ -349,12 +343,9 @@ def add_calendar_entry(
     title: str,
     content: str,
     post_type: str = None,
-    scheduled_time: str = None,
     hashtags: str = None,
     image_prompt: str = None,
-    image_url: str = None,
     video_script: str = None,
-    video_url: str = None,
     notes: str = None,
 ) -> dict:
     """Add a new entry to the content calendar.
@@ -363,18 +354,15 @@ def add_calendar_entry(
     
     Args:
         scheduled_date: Date in YYYY-MM-DD format (e.g., "2026-01-20")
-        platform: Target platform (instagram, linkedin, twitter, tiktok, youtube, facebook, pinterest)
-        content_type: Type (educational, fun, inspirational, promotional, interactive, brand_related, evergreen, holiday_themed)
-        title: Short title for the entry
-        content: Full post content/caption text
+        platform: Target platform (instagram, linkedin, twitter, tiktok, youtube, facebook)
+        content_type: Type (educational, inspirational, promotional, interactive, brand_related, evergreen, holiday_themed)
+        title: Short title for the entry that relate to post overall idea 
+        content: Full post content/caption/description text
         post_type: Optional - platform-specific type (e.g., "reel" for Instagram). Auto-defaults to platform's main type.
-        scheduled_time: Optional - time in HH:MM format. Defaults to current time.
         hashtags: Optional - comma-separated hashtags (e.g., "fitness,health,workout")
-        image_prompt: Optional - prompt used for image generation
-        image_url: Optional - generated image URL
-        video_script: Optional - script for video content
-        video_url: Optional - generated video URL
-        notes: Optional - internal notes
+        image_prompt: Optional - prompt used for image generation(must follow overall post idea and standard prompt exactly write using skills)
+        video_script: Optional - script for video content (must follow overall post idea and standard prompt exactly write using skills)
+        notes: Optional - internal notes/ scripts/details on  how to implement idea 
         
     Returns:
         Created entry confirmation
@@ -404,9 +392,7 @@ def add_calendar_entry(
         except ValueError:
             return {"error": "Invalid date format. Use YYYY-MM-DD"}
         
-        # Auto-set time to current time if not provided
-        if not scheduled_time:
-            scheduled_time = datetime.now().strftime("%H:%M")
+        scheduled_time = datetime.now().strftime("%H:%M")
         
         hashtag_list = None
         if hashtags:
@@ -427,9 +413,7 @@ def add_calendar_entry(
             "content": content,
             "hashtags": hashtag_list,
             "image_prompt": image_prompt,
-            "image_url": image_url,
             "video_script": video_script,
-            "video_url": video_url,
             "notes": notes,
             "status": "scheduled",  # Auto-set to scheduled
             "color": COLORS.get(content_type, "#6B7280"),  # Auto-set based on content_type
@@ -465,14 +449,14 @@ def add_weekly_content_plan(
     """Add content for an entire week at once. Much easier than adding one by one!
     
     For each day, provide a pipe-separated list of posts in format:
-    "platform|content_type|title|time|post_type|content|image_prompt|image_url|video_script|video_url|notes"
-    (Only platform, content_type, title are required. Time, post_type, content, image_prompt, etc. are optional)
+    "platform|content_type|title|post_type|content|image_prompt|video_script|notes"
+    (Only platform, content_type, title are required. Post_type, content, image_prompt, etc. are optional)
     
     Multiple posts per day are separated by semicolons.
     Color is auto-selected based on content_type.
     
     Args:
-        monday_posts: Posts for Monday, e.g., "instagram|fun|Morning vibes|09:00|reel|Check out our new...|A bright morning scene..."
+        monday_posts: Posts for Monday, e.g., "instagram|Morning vibes|reel|Check out our new...|A bright morning scene..."
         tuesday_posts: Posts for Tuesday
         wednesday_posts: Posts for Wednesday
         thursday_posts: Posts for Thursday
@@ -537,14 +521,11 @@ def add_weekly_content_plan(
                 platform = parts[0].lower()
                 content_type = parts[1].lower()
                 title = parts[2]
-                time = parts[3] if len(parts) > 3 and parts[3] else None
-                post_type = parts[4] if len(parts) > 4 and parts[4] else None
-                content = parts[5] if len(parts) > 5 and parts[5] else ""
-                image_prompt = parts[6] if len(parts) > 6 and parts[6] else None
-                image_url = parts[7] if len(parts) > 7 and parts[7] else None
-                video_script = parts[8] if len(parts) > 8 and parts[8] else None
-                video_url = parts[9] if len(parts) > 9 and parts[9] else None
-                notes = parts[10] if len(parts) > 10 and parts[10] else None
+                post_type = parts[3] if len(parts) > 3 and parts[3] else None
+                content = parts[4] if len(parts) > 4 and parts[4] else ""
+                image_prompt = parts[5] if len(parts) > 5 and parts[5] else None
+                video_script = parts[6] if len(parts) > 6 and parts[6] else None
+                notes = parts[7] if len(parts) > 7 and parts[7] else None
                 
                 if platform not in PLATFORMS:
                     errors.append(f"Invalid platform: {platform}")
@@ -562,9 +543,7 @@ def add_weekly_content_plan(
                 else:
                     post_type = available_post_types[0]
                 
-                # Auto-set time to current time if not provided
-                if not time:
-                    time = datetime.now().strftime("%H:%M")
+                time = datetime.now().strftime("%H:%M")
                 
                 entry_data = {
                     "id": str(uuid4()),
@@ -577,9 +556,7 @@ def add_weekly_content_plan(
                     "title": title[:200],
                     "content": content,
                     "image_prompt": image_prompt,
-                    "image_url": image_url,
                     "video_script": video_script,
-                    "video_url": video_url,
                     "notes": notes,
                     "status": "scheduled",  # Auto-set
                     "color": COLORS.get(content_type, "#6B7280"),  # Auto-set based on content_type
@@ -614,7 +591,6 @@ def find_and_update_entry(
     new_title: str = None,
     new_content: str = None,
     new_date: str = None,
-    new_time: str = None,
     new_status: str = None,
 ) -> dict:
     """Find a calendar entry by title, date, or platform and update it.
@@ -626,7 +602,6 @@ def find_and_update_entry(
         new_title: Update title to this
         new_content: Update content to this
         new_date: Move to this date (YYYY-MM-DD)
-        new_time: Update time to this (HH:MM)
         new_status: Update status (draft, scheduled, published, archived)
         
     Returns:
@@ -687,8 +662,6 @@ def find_and_update_entry(
             elif new_date == "tomorrow":
                 new_date = (date.today() + timedelta(days=1)).isoformat()
             update_data["scheduled_date"] = new_date
-        if new_time:
-            update_data["scheduled_time"] = new_time
         if new_status:
             update_data["status"] = new_status
         
