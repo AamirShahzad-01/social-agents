@@ -86,7 +86,8 @@ export const ThinkingDisplay: React.FC<ThinkingDisplayProps> = ({
             >
                 <div
                     ref={contentRef}
-                    className="px-4 py-3 bg-muted/10 text-sm text-muted-foreground max-h-64 overflow-y-auto"
+                    className="px-4 py-3 bg-muted/10 text-sm text-muted-foreground max-h-64 overflow-y-auto scrollbar-hide"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
                     {/* Simple inline text display */}
                     <span className="font-sans leading-relaxed">
