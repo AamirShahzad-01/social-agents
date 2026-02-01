@@ -11,6 +11,7 @@ import type {
     YouTubePostResponse,
     VerifyCredentialsResponse,
     PlatformApiInfo,
+    YouTubeTokenRefreshResponse,
 } from '../../types';
 
 /**
@@ -50,6 +51,44 @@ export async function verifyCredentials(): Promise<VerifyCredentialsResponse> {
  */
 export async function getInfo(): Promise<PlatformApiInfo> {
     return get<PlatformApiInfo>(ENDPOINTS.social.youtube.base);
+}
+
+/**
+ * Proactive token refresh - Call on app startup
+ * 
+ * Checks if the YouTube token expires within 2 hours and auto-refreshes if needed.
+ * 
+ * @returns Promise resolving to refresh result
+ */
+export async function refreshToken(): Promise<YouTubeTokenRefreshResponse> {
+    return post<YouTubeTokenRefreshResponse>(ENDPOINTS.social.youtube.authRefresh);
+}
+
+/**
+ * Auto-refresh YouTube token on app startup
+ * 
+ * @returns Promise resolving to boolean indicating if connected
+ */
+export async function autoRefreshOnStartup(): Promise<boolean> {
+    try {
+        const result = await refreshToken();
+
+        if (!result.connected) {
+            console.log('[YouTube] Not connected, skipping auto-refresh');
+            return false;
+        }
+
+        if (result.refreshed) {
+            console.log('[YouTube] Token auto-refreshed successfully, expires at:', result.expiresAt);
+        } else {
+            console.log('[YouTube] Token still valid, expires in', result.hoursUntilExpiry, 'hours');
+        }
+
+        return true;
+    } catch (error) {
+        console.warn('[YouTube] Auto-refresh failed:', error);
+        return false;
+    }
 }
 
 /**

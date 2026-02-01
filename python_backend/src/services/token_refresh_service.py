@@ -113,7 +113,8 @@ class TokenRefreshService:
         self,
         platform: str,
         workspace_id: str,
-        account_id: Optional[str] = None
+        account_id: Optional[str] = None,
+        refresh_threshold_seconds: Optional[int] = None
     ) -> CredentialsResult:
         """
         Get valid credentials for a platform, refreshing if needed.
@@ -190,7 +191,11 @@ class TokenRefreshService:
                 )
             
             # Check if token needs refresh
-            needs_refresh = self._token_needs_refresh(account.get("expires_at"))
+            needs_refresh = self._token_needs_refresh(
+                account.get("expires_at"),
+                platform,
+                refresh_threshold_seconds
+            )
             
             if not needs_refresh:
                 # Token is still valid
@@ -275,7 +280,12 @@ class TokenRefreshService:
     # TOKEN EXPIRY CHECK
     # =========================================================================
     
-    def _token_needs_refresh(self, expires_at_str: Optional[str]) -> bool:
+    def _token_needs_refresh(
+        self,
+        expires_at_str: Optional[str],
+        platform: str,
+        refresh_threshold_seconds: Optional[int]
+    ) -> bool:
         """Check if token needs to be refreshed"""
         if not expires_at_str:
             # No expiry set - assume token is valid
@@ -290,7 +300,12 @@ class TokenRefreshService:
             
             # Check if expired or about to expire (with buffer)
             now = datetime.now(timezone.utc)
-            buffer = timedelta(seconds=self.REFRESH_BUFFER_SECONDS)
+            buffer_seconds = (
+                refresh_threshold_seconds
+                if refresh_threshold_seconds is not None
+                else self.REFRESH_BUFFER_SECONDS
+            )
+            buffer = timedelta(seconds=buffer_seconds)
             
             return now >= (expires_at - buffer)
             

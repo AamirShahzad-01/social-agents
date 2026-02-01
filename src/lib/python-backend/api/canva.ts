@@ -57,6 +57,65 @@ export async function getConnectionStatus(
 }
 
 /**
+ * Proactive token refresh - Call on app startup
+ * 
+ * Checks if the Canva token expires within 2 hours and auto-refreshes if needed.
+ * This prevents token expiration during active use.
+ * 
+ * @param userId - User ID
+ * @param force - Force refresh regardless of expiration time
+ * @returns Promise resolving to refresh result
+ */
+export async function refreshToken(
+    userId: string,
+    force: boolean = false
+): Promise<{
+    connected: boolean;
+    refreshed: boolean;
+    message: string;
+    expiresAt?: string;
+    hoursUntilExpiry?: number;
+    needsReconnect?: boolean;
+    error?: string;
+}> {
+    return post(ENDPOINTS.canva.authRefresh, {}, {
+        params: { user_id: userId, force },
+    });
+}
+
+/**
+ * Auto-refresh Canva token on app startup
+ * 
+ * This function should be called when the app initializes.
+ * It silently checks and refreshes the token if needed (within 2-hour threshold).
+ * 
+ * @param userId - User ID
+ * @returns Promise resolving to boolean indicating if connected
+ */
+export async function autoRefreshOnStartup(userId: string): Promise<boolean> {
+    try {
+        const result = await refreshToken(userId, false);
+        
+        if (!result.connected) {
+            console.log('[Canva] Not connected, skipping auto-refresh');
+            return false;
+        }
+        
+        if (result.refreshed) {
+            console.log('[Canva] Token auto-refreshed successfully, expires at:', result.expiresAt);
+        } else {
+            console.log('[Canva] Token still valid, expires in', result.hoursUntilExpiry, 'hours');
+        }
+        
+        return true;
+    } catch (error) {
+        // If it fails, don't break the app - just log and return false
+        console.warn('[Canva] Auto-refresh failed:', error);
+        return false;
+    }
+}
+
+/**
  * Get Canva designs
  * 
  * Retrieves a list of designs from the connected Canva account.

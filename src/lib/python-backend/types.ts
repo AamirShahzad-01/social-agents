@@ -756,6 +756,20 @@ export interface YouTubePostResponse {
     success: boolean;
     videoId: string;
     videoUrl: string;
+    title: string;
+    description: string;
+    platform: string;
+    status: string;
+}
+
+export interface YouTubeTokenRefreshResponse {
+    connected: boolean;
+    refreshed: boolean;
+    message: string;
+    expiresAt?: string;
+    hoursUntilExpiry?: number;
+    needsReconnect?: boolean;
+    error?: string;
 }
 
 // Verify response (common for all platforms)
@@ -843,6 +857,17 @@ export interface CanvaConnectionStatus {
     accountName?: string;
     accountEmail?: string;
     accountId?: string;
+    error?: string;
+}
+
+/** Canva token refresh response */
+export interface CanvaTokenRefreshResponse {
+    connected: boolean;
+    refreshed: boolean;
+    message: string;
+    expiresAt?: string;
+    hoursUntilExpiry?: number;
+    needsReconnect?: boolean;
     error?: string;
 }
 

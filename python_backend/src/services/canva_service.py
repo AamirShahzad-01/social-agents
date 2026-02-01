@@ -274,10 +274,15 @@ async def _make_canva_request(
 
 # ================== TOKEN MANAGEMENT ==================
 
+# Token refresh threshold (2 hours before expiration)
+TOKEN_REFRESH_THRESHOLD_HOURS = 2
+TOKEN_REFRESH_THRESHOLD_SECONDS = TOKEN_REFRESH_THRESHOLD_HOURS * 3600
+
+
 async def get_canva_token(user_id: str) -> Optional[str]:
     """
     Get valid Canva access token for a user.
-    Automatically refreshes if expired.
+    Automatically refreshes if expired or expiring within 2 hours.
     
     Args:
         user_id: The user ID
@@ -313,13 +318,14 @@ async def get_canva_token(user_id: str) -> Optional[str]:
         
         now = datetime.now(timezone.utc)
         
-        # Refresh token if expired or expiring within 5 minutes
-        if expires_at <= now + timedelta(minutes=5):
+        # Refresh token if expired or expiring within 2 hours (proactive refresh)
+        if expires_at <= now + timedelta(seconds=TOKEN_REFRESH_THRESHOLD_SECONDS):
             refresh_token = data.get("refresh_token")
             if not refresh_token:
                 logger.warning(f"Canva token expired and no refresh token for user {user_id}")
                 return None
             
+            logger.info(f"Proactive token refresh for user {user_id} (expires at {expires_at.isoformat()})")
             new_token = await refresh_canva_token(user_id, refresh_token)
             return new_token
         
@@ -328,6 +334,123 @@ async def get_canva_token(user_id: str) -> Optional[str]:
     except Exception as e:
         logger.error(f"Error getting Canva token for user {user_id}: {e}")
         return None
+
+
+async def check_and_refresh_canva_token(user_id: str, force_refresh: bool = False) -> Dict[str, Any]:
+    """
+    Check token expiration and refresh if needed (within 2-hour threshold).
+    This function is designed to be called on app startup.
+    
+    Args:
+        user_id: The user ID
+        force_refresh: If True, refresh token regardless of expiration time
+        
+    Returns:
+        Dict with status, new expiration, and whether refresh occurred
+    """
+    try:
+        result = await db_select(
+            table="user_integrations",
+            columns="access_token, refresh_token, expires_at, scopes, metadata",
+            filters={"user_id": user_id, "provider": "canva"},
+            limit=1
+        )
+        
+        if not result.get("success") or not result.get("data"):
+            return {
+                "connected": False,
+                "refreshed": False,
+                "message": "Canva not connected"
+            }
+        
+        data = result["data"][0]
+        refresh_token = data.get("refresh_token")
+        
+        if not refresh_token:
+            return {
+                "connected": True,
+                "refreshed": False,
+                "message": "No refresh token available",
+                "needsReconnect": True
+            }
+        
+        # Parse expiration
+        expires_at_str = data.get("expires_at")
+        if not expires_at_str:
+            return {
+                "connected": True,
+                "refreshed": False,
+                "message": "Unknown expiration time"
+            }
+        
+        # Handle various datetime formats
+        if expires_at_str.endswith("Z"):
+            expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+        elif "+" in expires_at_str or expires_at_str.count("-") > 2:
+            expires_at = datetime.fromisoformat(expires_at_str)
+        else:
+            expires_at = datetime.fromisoformat(expires_at_str).replace(tzinfo=timezone.utc)
+        
+        now = datetime.now(timezone.utc)
+        time_until_expiry = (expires_at - now).total_seconds()
+        
+        # Check if refresh is needed
+        needs_refresh = force_refresh or time_until_expiry <= TOKEN_REFRESH_THRESHOLD_SECONDS
+        
+        if not needs_refresh:
+            return {
+                "connected": True,
+                "refreshed": False,
+                "message": f"Token valid for {time_until_expiry // 3600} hours",
+                "expiresAt": expires_at.isoformat(),
+                "hoursUntilExpiry": round(time_until_expiry / 3600, 2)
+            }
+        
+        # Perform refresh
+        logger.info(f"Auto-refreshing Canva token for user {user_id} (expires in {time_until_expiry // 60} minutes)")
+        new_token = await refresh_canva_token(user_id, refresh_token)
+        
+        if new_token:
+            # Get updated expiration
+            updated_result = await db_select(
+                table="user_integrations",
+                columns="expires_at",
+                filters={"user_id": user_id, "provider": "canva"},
+                limit=1
+            )
+            new_expires_at = None
+            if updated_result.get("data"):
+                new_expires_at_str = updated_result["data"][0].get("expires_at")
+                if new_expires_at_str:
+                    if new_expires_at_str.endswith("Z"):
+                        new_expires_at = datetime.fromisoformat(new_expires_at_str.replace("Z", "+00:00"))
+                    else:
+                        new_expires_at = datetime.fromisoformat(new_expires_at_str)
+            
+            return {
+                "connected": True,
+                "refreshed": True,
+                "message": "Token refreshed successfully",
+                "expiresAt": new_expires_at.isoformat() if new_expires_at else None,
+                "hoursUntilExpiry": round((new_expires_at - now).total_seconds() / 3600, 2) if new_expires_at else None
+            }
+        else:
+            return {
+                "connected": True,
+                "refreshed": False,
+                "message": "Token refresh failed",
+                "needsReconnect": True,
+                "error": "Refresh token may be invalid or expired"
+            }
+            
+    except Exception as e:
+        logger.error(f"Error checking/refreshing Canva token: {e}")
+        return {
+            "connected": False,
+            "refreshed": False,
+            "message": "Error checking token status",
+            "error": str(e)
+        }
 
 
 async def refresh_canva_token(user_id: str, refresh_token: str) -> Optional[str]:

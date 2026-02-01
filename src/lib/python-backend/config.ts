@@ -236,6 +236,7 @@ export const ENDPOINTS = {
     canva: {
         auth: '/canva/auth',
         authStatus: '/canva/auth/status',
+        authRefresh: '/canva/auth/refresh',
         callback: '/canva/callback',
         designs: '/canva/designs',
         export: '/canva/export',
@@ -337,6 +338,7 @@ export const ENDPOINTS = {
             base: '/social/youtube',
             post: '/social/youtube/post',
             verify: '/social/youtube/verify',
+            authRefresh: '/social/youtube/auth/refresh',
         },
     },
 

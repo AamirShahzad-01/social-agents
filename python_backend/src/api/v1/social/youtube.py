@@ -6,7 +6,7 @@ Uses YouTube API v3 with OAuth 2.0 authentication
 """
 import logging
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Request, Header
 from pydantic import BaseModel, Field
 
@@ -19,6 +19,10 @@ from ....config import settings
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/social/youtube", tags=["YouTube"])
+
+# Token refresh threshold (2 hours before expiration)
+TOKEN_REFRESH_THRESHOLD_HOURS = 2
+TOKEN_REFRESH_THRESHOLD_SECONDS = TOKEN_REFRESH_THRESHOLD_HOURS * 3600
 
 
 # ============================================================================
@@ -104,6 +108,19 @@ async def get_youtube_credentials(
 
     credentials["accessToken"] = access_token
     return credentials
+
+
+def _parse_expires_at(expires_at_str: Optional[str]) -> Optional[datetime]:
+    if not expires_at_str:
+        return None
+    try:
+        if expires_at_str.endswith("Z"):
+            return datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+        if "+" in expires_at_str or expires_at_str.count("-") > 2:
+            return datetime.fromisoformat(expires_at_str)
+        return datetime.fromisoformat(expires_at_str).replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
 
 
 # ============================================================================
@@ -272,6 +289,77 @@ async def verify_youtube_connection(request: Request):
     except Exception as e:
         logger.error(f"YouTube verify error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/auth/refresh")
+async def refresh_youtube_auth_status(request: Request):
+    """
+    POST /api/v1/social/youtube/auth/refresh
+    Check token expiration and refresh if needed (within 2-hour threshold).
+    Designed for app startup.
+    """
+    try:
+        auth_header = request.headers.get("authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        token = auth_header.split(" ", 1)[1]
+        jwt_result = await verify_jwt(token)
+
+        if not jwt_result.get("success") or not jwt_result.get("user"):
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        user = jwt_result["user"]
+        workspace_id = user.get("workspaceId")
+
+        if not workspace_id:
+            raise HTTPException(status_code=400, detail="No workspace found")
+
+        refresh_result = await token_refresh_service.get_valid_credentials(
+            platform="youtube",
+            workspace_id=workspace_id,
+            refresh_threshold_seconds=TOKEN_REFRESH_THRESHOLD_SECONDS
+        )
+
+        if not refresh_result.success or not refresh_result.credentials:
+            return {
+                "connected": False,
+                "refreshed": False,
+                "message": refresh_result.error or "YouTube not connected",
+                "needsReconnect": bool(refresh_result.needs_reconnect)
+            }
+
+        credentials = refresh_result.credentials
+
+        # Fetch expires_at for visibility
+        expires_at = None
+        result = await db_select(
+            table="social_accounts",
+            columns="expires_at",
+            filters={"workspace_id": workspace_id, "platform": "youtube"},
+            limit=1
+        )
+        if result.get("data"):
+            expires_at = _parse_expires_at(result["data"][0].get("expires_at"))
+
+        hours_until_expiry = None
+        if expires_at:
+            time_until_expiry = (expires_at - datetime.now(timezone.utc)).total_seconds()
+            hours_until_expiry = round(time_until_expiry / 3600, 2)
+
+        return {
+            "connected": True,
+            "refreshed": refresh_result.was_refreshed,
+            "message": "Token refreshed successfully" if refresh_result.was_refreshed else "Token valid",
+            "expiresAt": expires_at.isoformat() if expires_at else None,
+            "hoursUntilExpiry": hours_until_expiry
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"YouTube refresh check error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to check/refresh token")
 
 
 @router.get("/")

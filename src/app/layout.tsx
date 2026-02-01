@@ -7,6 +7,8 @@ import { ServiceWorkerRegistration } from '@/components/PWAInstall'
 import { Inter, Manrope } from 'next/font/google'
 import TopLoadingBar from '@/components/layout/TopLoadingBar'
 import { Suspense } from 'react'
+import { CanvaAutoRefreshProvider } from '@/hooks/useCanvaAutoRefresh'
+import { YouTubeAutoRefreshProvider } from '@/hooks/useYouTubeAutoRefresh'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -61,12 +63,16 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <NotificationProvider>
-              <Suspense fallback={null}>
-                <TopLoadingBar />
-              </Suspense>
-              {children}
-            </NotificationProvider>
+            <CanvaAutoRefreshProvider>
+              <YouTubeAutoRefreshProvider>
+                <NotificationProvider>
+                  <Suspense fallback={null}>
+                    <TopLoadingBar />
+                  </Suspense>
+                  {children}
+                </NotificationProvider>
+              </YouTubeAutoRefreshProvider>
+            </CanvaAutoRefreshProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

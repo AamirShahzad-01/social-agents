@@ -28,6 +28,7 @@ from src.services.canva_service import (
     save_canva_tokens,
     delete_canva_tokens,
     get_canva_connection_status,
+    check_and_refresh_canva_token,
     # OAuth state
     create_canva_oauth_state,
     verify_canva_oauth_state,
@@ -236,6 +237,72 @@ async def get_canva_auth_status(user_id: str = None):
     
     status = await get_canva_connection_status(user_id)
     return status
+
+
+@router.post("/auth/refresh")
+async def refresh_canva_auth_status(
+    request: Request,
+    user_id: str = None,
+    force: bool = False
+):
+    """
+    POST /api/v1/canva/auth/refresh
+    Check token expiration and refresh if needed (within 2-hour threshold).
+    Call this on app startup to ensure token validity.
+    
+    Query Params:
+        user_id: User ID (required)
+        force: Force refresh regardless of expiration time
+        
+    Headers:
+        Authorization: Bearer <JWT_TOKEN> (optional but recommended)
+        
+    Returns:
+        {
+            "connected": bool,
+            "refreshed": bool,
+            "message": str,
+            "expiresAt": str (ISO format),
+            "hoursUntilExpiry": float,
+            "needsReconnect": bool (if true, user must re-authenticate)
+        }
+    """
+    # Try to get user_id from JWT if not provided
+    if not user_id:
+        auth_header = request.headers.get("authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            try:
+                token = auth_header.split(" ", 1)[1]
+                jwt_result = await verify_jwt(token)
+                if jwt_result.get("success") and jwt_result.get("user"):
+                    user_id = jwt_result["user"]["id"]
+            except Exception as e:
+                logger.warning(f"Could not extract user_id from JWT: {e}")
+    
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    
+    try:
+        result = await check_and_refresh_canva_token(user_id, force_refresh=force)
+        
+        # If refresh failed and needs reconnect, return 401
+        if result.get("needsReconnect"):
+            raise HTTPException(
+                status_code=401,
+                detail=ErrorResponse(
+                    error=result.get("message", "Token refresh failed"),
+                    code="refresh_failed",
+                    needsAuth=True
+                ).model_dump()
+            )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token refresh check error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to check/refresh token")
 
 
 @router.get("/callback")
