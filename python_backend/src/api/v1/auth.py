@@ -172,6 +172,15 @@ async def initiate_oauth(platform: Platform, request: Request):
                     "platform": platform
                 }
             )
+            if not update_result.get("success") or not update_result.get("data"):
+                logger.error(
+                    "Failed to store Twitter OAuth1 token in oauth_states",
+                    extra={
+                        "workspace_id": workspace_id,
+                        "state": oauth_state.state,
+                        "error": update_result.get("error")
+                    }
+                )
 
             oauth_url = f"https://api.twitter.com/oauth/authorize?oauth_token={oauth_token}"
             response = JSONResponse({
@@ -425,11 +434,22 @@ async def _save_social_account(
     if expires_at:
         data["expires_at"] = expires_at.isoformat()
     
-    await db_upsert(
+    result = await db_upsert(
         table="social_accounts",
         data=data,
         on_conflict="workspace_id,platform,account_id"
     )
+    if not result.get("success"):
+        logger.error(
+            "Failed to save social account",
+            extra={
+                "workspace_id": workspace_id,
+                "platform": platform,
+                "account_id": account_id,
+                "error": result.get("error")
+            }
+        )
+        raise Exception(result.get("error") or "Failed to save social account")
 
 
 async def _handle_facebook_callback(code: str, workspace_id: str, callback_url: str):
