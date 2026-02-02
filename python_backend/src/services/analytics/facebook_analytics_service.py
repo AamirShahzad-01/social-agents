@@ -471,50 +471,66 @@ class FacebookAnalyticsService:
         date_range: DateRange
     ) -> List[TimeSeriesDataPoint]:
         """
-        Fetch daily time series data using published_posts.
+        Fetch daily time series data using published_posts engagement.
         
-        Note: Page Insights metrics deprecated Nov 2025. 
-        We use published_posts count by date as engagement proxy.
+        Returns daily engagement (reactions + comments + shares) aggregated by post date.
         """
         try:
             posts_url = f"{self.GRAPH_API_BASE}/{page_id}/published_posts"
             posts_params = {
                 "access_token": access_token,
-                "fields": "id,created_time",
-                "limit": 100,
-                "since": int(datetime.combine(date_range.start_date, datetime.min.time()).timestamp()),
-                "until": int(datetime.combine(date_range.end_date, datetime.max.time()).timestamp())
+                "fields": "id,created_time,reactions.summary(true),comments.summary(true),shares",
+                "limit": 100
             }
             
             response = await self.client.get(posts_url, params=posts_params)
             response.raise_for_status()
             posts_data = response.json().get("data", [])
             
-            # Group by date
-            daily_counts = {}
+            # Group engagement by date (filter by date range)
+            daily_engagement: Dict[date, int] = {}
             for post in posts_data:
                 try:
                     created_time = post.get("created_time", "")
                     if created_time:
                         dt = datetime.fromisoformat(created_time.replace("Z", "+00:00"))
                         post_date = dt.date()
-                        daily_counts[post_date] = daily_counts.get(post_date, 0) + 1
+                        
+                        # Filter by date range
+                        if not (date_range.start_date <= post_date <= date_range.end_date):
+                            continue
+                        
+                        # Calculate total engagement for this post
+                        reactions = post.get("reactions", {}).get("summary", {}).get("total_count", 0)
+                        comments = post.get("comments", {}).get("summary", {}).get("total_count", 0)
+                        shares = post.get("shares", {}).get("count", 0)
+                        engagement = reactions + comments + shares
+                        
+                        daily_engagement[post_date] = daily_engagement.get(post_date, 0) + engagement
                 except (ValueError, TypeError):
                     continue
             
+            # Fill in missing dates with 0
+            current_date = date_range.start_date
+            while current_date <= date_range.end_date:
+                if current_date not in daily_engagement:
+                    daily_engagement[current_date] = 0
+                current_date += timedelta(days=1)
+            
             # Convert to time series
             time_series = []
-            for post_date, count in sorted(daily_counts.items()):
+            for post_date, engagement in sorted(daily_engagement.items()):
                 time_series.append(TimeSeriesDataPoint(
                     date=post_date,
-                    value=float(count),
-                    label="Posts"
+                    value=float(engagement),
+                    label="Engagement"
                 ))
             
+            logger.info(f"Facebook time series: {len(time_series)} data points, {len(posts_data)} posts fetched")
             return time_series
             
         except Exception as e:
-            logger.warning(f"Failed to fetch time series: {e}")
+            logger.warning(f"Failed to fetch Facebook time series: {e}", exc_info=True)
             return []
     
     def _parse_insights_response(self, data: List[Dict]) -> Dict[str, Any]:

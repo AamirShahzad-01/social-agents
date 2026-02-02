@@ -67,6 +67,7 @@ SCOPES = {
         "instagram_basic",
         "instagram_content_publish",
         "instagram_manage_comments",
+        "instagram_manage_insights",
     ],
     "tiktok": ["user.info.basic", "video.upload", "video.publish"],
     "youtube": [
@@ -74,6 +75,7 @@ SCOPES = {
         "https://www.googleapis.com/auth/youtube.readonly",
         "https://www.googleapis.com/auth/youtube.force-ssl",
         "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/yt-analytics.readonly",
     ],
 }
 

@@ -85,6 +85,134 @@ interface UseAnalyticsDashboardResult {
     isRefetching: boolean;
 }
 
+// =============================================================================
+// LOCALSTORAGE CACHE HELPERS
+// =============================================================================
+
+const ANALYTICS_CACHE_KEY = 'analytics_dashboard_cache';
+const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours max cache age (reduced from 24h)
+const MAX_CACHE_ENTRIES = 3; // Maximum number of cache entries to keep
+
+interface CachedAnalyticsData {
+    data: UnifiedDashboardData;
+    timestamp: number;
+    workspaceId: string;
+    datePreset: DatePreset;
+}
+
+function getCacheKey(workspaceId: string, datePreset: DatePreset): string {
+    return `${ANALYTICS_CACHE_KEY}_${workspaceId}_${datePreset}`;
+}
+
+function getAllAnalyticsCacheKeys(): string[] {
+    if (typeof window === 'undefined') return [];
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(ANALYTICS_CACHE_KEY)) {
+            keys.push(key);
+        }
+    }
+    return keys;
+}
+
+function cleanupOldCacheEntries(): void {
+    if (typeof window === 'undefined') return;
+
+    try {
+        const keys = getAllAnalyticsCacheKeys();
+        const entries: { key: string; timestamp: number }[] = [];
+
+        // Collect all entries with timestamps
+        for (const key of keys) {
+            try {
+                const cached = localStorage.getItem(key);
+                if (cached) {
+                    const parsed: CachedAnalyticsData = JSON.parse(cached);
+                    const age = Date.now() - parsed.timestamp;
+
+                    // Remove expired entries immediately
+                    if (age > CACHE_TTL_MS) {
+                        localStorage.removeItem(key);
+                    } else {
+                        entries.push({ key, timestamp: parsed.timestamp });
+                    }
+                }
+            } catch {
+                // Invalid cache entry, remove it
+                localStorage.removeItem(key);
+            }
+        }
+
+        // If still too many entries, remove oldest ones
+        if (entries.length > MAX_CACHE_ENTRIES) {
+            entries.sort((a, b) => b.timestamp - a.timestamp); // Sort by newest first
+            const toRemove = entries.slice(MAX_CACHE_ENTRIES);
+            for (const entry of toRemove) {
+                localStorage.removeItem(entry.key);
+            }
+        }
+    } catch {
+        // Ignore cleanup errors
+    }
+}
+
+function getCachedData(workspaceId: string, datePreset: DatePreset): UnifiedDashboardData | null {
+    if (typeof window === 'undefined') return null;
+
+    try {
+        const key = getCacheKey(workspaceId, datePreset);
+        const cached = localStorage.getItem(key);
+        if (!cached) return null;
+
+        const parsed: CachedAnalyticsData = JSON.parse(cached);
+
+        // Check if cache is still valid (not expired)
+        const age = Date.now() - parsed.timestamp;
+        if (age > CACHE_TTL_MS) {
+            localStorage.removeItem(key);
+            return null;
+        }
+
+        // Verify cache is for the same workspace
+        if (parsed.workspaceId !== workspaceId) return null;
+
+        return parsed.data;
+    } catch {
+        return null;
+    }
+}
+
+function setCachedData(workspaceId: string, datePreset: DatePreset, data: UnifiedDashboardData): void {
+    if (typeof window === 'undefined') return;
+
+    try {
+        // Cleanup old entries first
+        cleanupOldCacheEntries();
+
+        const key = getCacheKey(workspaceId, datePreset);
+        const cacheEntry: CachedAnalyticsData = {
+            data,
+            timestamp: Date.now(),
+            workspaceId,
+            datePreset,
+        };
+        localStorage.setItem(key, JSON.stringify(cacheEntry));
+    } catch (err) {
+        // localStorage might be full or disabled - try clearing old entries and retry
+        try {
+            cleanupOldCacheEntries();
+        } catch {
+            // Ignore
+        }
+        console.warn('Failed to cache analytics data:', err);
+    }
+}
+
+// =============================================================================
+// HOOK: useAnalyticsDashboard (with localStorage caching)
+// =============================================================================
+
 export function useAnalyticsDashboard(
     options: UseAnalyticsDashboardOptions
 ): UseAnalyticsDashboardResult {
@@ -100,8 +228,20 @@ export function useAnalyticsDashboard(
         refreshInterval = 5 * 60 * 1000, // 5 minutes
     } = options;
 
-    const [data, setData] = useState<UnifiedDashboardData | null>(null);
-    const [loading, setLoading] = useState(true);
+    // Initialize with cached data if available
+    const [data, setData] = useState<UnifiedDashboardData | null>(() => {
+        if (workspaceId) {
+            return getCachedData(workspaceId, datePreset);
+        }
+        return null;
+    });
+    // If we have cached data, don't show loading spinner
+    const [loading, setLoading] = useState(() => {
+        if (workspaceId) {
+            return getCachedData(workspaceId, datePreset) === null;
+        }
+        return true;
+    });
     const [error, setError] = useState<string | null>(null);
     const [isRefetching, setIsRefetching] = useState(false);
 
@@ -120,7 +260,9 @@ export function useAnalyticsDashboard(
         }
         abortControllerRef.current = new AbortController();
 
-        if (isRefetch) {
+        // If we have cached data, treat as refetch (no loading spinner)
+        const hasCachedData = data !== null;
+        if (isRefetch || hasCachedData) {
             setIsRefetching(true);
         } else {
             setLoading(true);
@@ -153,6 +295,8 @@ export function useAnalyticsDashboard(
 
             if (response.success && response.data) {
                 setData(response.data);
+                // Cache the fresh data
+                setCachedData(workspaceId, datePreset, response.data);
             } else {
                 throw new Error(response.message || 'Failed to fetch dashboard data');
             }
@@ -163,9 +307,20 @@ export function useAnalyticsDashboard(
             setLoading(false);
             setIsRefetching(false);
         }
-    }, [workspaceId, datePreset, startDate, endDate, platforms, includeTopPosts, includeComparison]);
+    }, [workspaceId, datePreset, startDate, endDate, platforms, includeTopPosts, includeComparison, data]);
 
-    // Initial fetch
+    // Load cached data when workspaceId or datePreset changes
+    useEffect(() => {
+        if (workspaceId) {
+            const cached = getCachedData(workspaceId, datePreset);
+            if (cached) {
+                setData(cached);
+                setLoading(false);
+            }
+        }
+    }, [workspaceId, datePreset]);
+
+    // Initial fetch (always fetch fresh data in background)
     useEffect(() => {
         fetchDashboard();
 

@@ -24,7 +24,8 @@ import {
 import { useAnalyticsDashboard } from '@/hooks/useAnalytics';
 import {
     Platform, DatePreset, PlatformSummary, TopPerformingPost,
-    MetricTrend, DATE_PRESET_OPTIONS, PLATFORM_CONFIGS
+    MetricTrend, DATE_PRESET_OPTIONS, PLATFORM_CONFIGS,
+    TimeSeriesDataPoint, UnifiedDashboardData
 } from '@/types/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -34,7 +35,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const PLATFORM_COLORS: Record<Platform, string> = {
     facebook: '#1877F2',
-    instagram: '#E4405F',
+    instagram: '#833AB4',
     youtube: '#FF0000',
     tiktok: '#000000',
 };
@@ -118,19 +119,19 @@ interface KPICardProps {
 
 const KPICard: React.FC<KPICardProps> = ({ title, value, trend, icon, subtitle }) => (
     <Card className="bg-card/60 backdrop-blur-sm border-border/50 hover:bg-card/80 transition-all duration-200">
-        <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-muted-foreground">{title}</span>
-                <span className="text-muted-foreground/60">{icon}</span>
+        <CardContent className="p-2">
+            <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/80">{title}</span>
+                <span className="text-muted-foreground/40">{icon}</span>
             </div>
-            <div className="flex items-end gap-2">
-                <span className="text-2xl font-bold tracking-tight">
+            <div className="flex items-baseline gap-1.5">
+                <span className="text-lg font-bold tracking-tight">
                     {typeof value === 'number' ? formatNumber(value) : value}
                 </span>
                 {trend && <TrendBadge trend={trend} />}
             </div>
             {subtitle && (
-                <p className="text-[10px] text-muted-foreground mt-1">{subtitle}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>
             )}
         </CardContent>
     </Card>
@@ -371,6 +372,148 @@ const EngagementTrendChart: React.FC<PerformanceChartProps> = ({ platforms }) =>
                         </div>
                     ))}
                 </div>
+            </CardContent>
+        </Card>
+    );
+};
+
+// =============================================================================
+// ENGAGEMENT TIME-SERIES CHART (True Trend Over Time)
+// =============================================================================
+
+interface TimeSeriesChartProps {
+    data: UnifiedDashboardData;
+}
+
+const EngagementTimeSeriesChart: React.FC<TimeSeriesChartProps> = ({ data }) => {
+    // Define allowed platforms for this specific chart
+    const ALLOWED_PLATFORMS = ['facebook', 'instagram', 'youtube'] as const;
+
+    // Collect time-series data from allowed platforms
+    const timeSeriesMap: Record<string, { date: string } & Partial<Record<typeof ALLOWED_PLATFORMS[number], number>>> = {};
+
+    ALLOWED_PLATFORMS.forEach(platform => {
+        if (data[platform]?.time_series) {
+            data[platform].time_series.forEach((point) => {
+                if (!timeSeriesMap[point.date]) {
+                    timeSeriesMap[point.date] = { date: point.date };
+                }
+                // @ts-ignore - dynamic key assignment
+                timeSeriesMap[point.date][platform] = point.value;
+            });
+        }
+    });
+
+    // Convert to sorted array
+    const chartData = Object.values(timeSeriesMap)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .map((item) => ({
+            ...item,
+            date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        }));
+
+    // Check if we have any data for the allowed platforms
+    const hasData = ALLOWED_PLATFORMS.some(platform =>
+        chartData.some(d => d[platform] !== undefined)
+    );
+
+    if (chartData.length === 0 || !hasData) {
+        return (
+            <Card className="bg-card/60 backdrop-blur-sm border-border/50 overflow-hidden">
+                <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-8 rounded-full bg-gradient-to-b from-orange-500 to-rose-500" />
+                        <div>
+                            <CardTitle className="text-lg font-semibold">Engagement Over Time</CardTitle>
+                            <CardDescription>Daily engagement trends</CardDescription>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="pt-2">
+                    <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+                        No time-series data available for the selected period
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    return (
+        <Card className="bg-card/60 backdrop-blur-sm border-border/50 overflow-hidden">
+            <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-8 rounded-full bg-gradient-to-b from-orange-500 to-rose-500" />
+                    <div>
+                        <CardTitle className="text-lg font-semibold">Engagement Over Time</CardTitle>
+                        <CardDescription>Daily engagement trends across platforms</CardDescription>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+                <ResponsiveContainer width="100%" height={280}>
+                    <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <defs>
+                            {ALLOWED_PLATFORMS.map(platform => (
+                                <linearGradient key={`color-${platform}`} id={`color-${platform}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={PLATFORM_COLORS[platform]} stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor={PLATFORM_COLORS[platform]} stopOpacity={0} />
+                                </linearGradient>
+                            ))}
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.2} />
+                        <XAxis
+                            dataKey="date"
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                            axisLine={false}
+                            tickLine={false}
+                        />
+                        <YAxis
+                            tickFormatter={formatNumber}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                            axisLine={false}
+                            tickLine={false}
+                        />
+                        <Tooltip
+                            formatter={(value) => [formatNumber(value as number), '']}
+                            contentStyle={{
+                                backgroundColor: 'hsl(var(--popover))',
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: '12px',
+                                boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                                padding: '12px 16px',
+                            }}
+                            labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: '8px' }}
+                        />
+                        <Legend
+                            wrapperStyle={{ paddingTop: '16px' }}
+                            formatter={(value) => (
+                                <span className="text-sm font-medium text-muted-foreground ml-1">
+                                    {value.charAt(0).toUpperCase() + value.slice(1)}
+                                </span>
+                            )}
+                            iconType="circle"
+                            iconSize={8}
+                        />
+                        {ALLOWED_PLATFORMS.map(platform => {
+                            // Only render area if data exists for this platform
+                            const hasPlatformData = chartData.some(d => d[platform] !== undefined);
+                            if (!hasPlatformData) return null;
+
+                            return (
+                                <Area
+                                    key={platform}
+                                    type="monotone"
+                                    dataKey={platform}
+                                    name={platform}
+                                    stroke={PLATFORM_COLORS[platform]}
+                                    strokeWidth={2}
+                                    fillOpacity={1}
+                                    fill={`url(#color-${platform})`}
+                                />
+                            );
+                        })}
+                    </AreaChart>
+                </ResponsiveContainer>
             </CardContent>
         </Card>
     );
@@ -648,29 +791,29 @@ const AnalyticsDashboard: React.FC = () => {
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <KPICard
                     title="Total Followers"
                     value={data.aggregated.total_followers.current}
                     trend={data.aggregated.total_followers}
-                    icon={<Users className="w-4 h-4" />}
+                    icon={<Users className="w-3.5 h-3.5" />}
                 />
                 <KPICard
                     title="Total Views"
                     value={data.aggregated.total_views.current}
                     trend={data.aggregated.total_views}
-                    icon={<Eye className="w-4 h-4" />}
+                    icon={<Eye className="w-3.5 h-3.5" />}
                 />
                 <KPICard
                     title="Total Engagement"
                     value={data.aggregated.total_engagement.current}
                     trend={data.aggregated.total_engagement}
-                    icon={<Heart className="w-4 h-4" />}
+                    icon={<Heart className="w-3.5 h-3.5" />}
                 />
                 <KPICard
                     title="Avg. Engagement Rate"
                     value={`${data.aggregated.average_engagement_rate.toFixed(2)}%`}
-                    icon={<BarChart3 className="w-4 h-4" />}
+                    icon={<BarChart3 className="w-3.5 h-3.5" />}
                     subtitle={`${data.aggregated.platforms_connected} channels connected`}
                 />
             </div>
@@ -694,6 +837,10 @@ const AnalyticsDashboard: React.FC = () => {
 
                 {/* Overview Tab */}
                 <TabsContent value="overview" className="mt-6 space-y-6">
+                    {/* Time Series Chart - Full Width */}
+                    <EngagementTimeSeriesChart data={data} />
+
+                    {/* Platform Comparison Charts */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <PerformanceChart platforms={data.platforms} />
                         <EngagementTrendChart platforms={data.platforms} />

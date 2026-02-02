@@ -505,12 +505,12 @@ class YouTubeAnalyticsService:
         channel_id: str,
         date_range: DateRange
     ) -> List[TimeSeriesDataPoint]:
-        """Fetch daily time series for views."""
+        """Fetch daily time series for engagement (likes+comments+shares)."""
         params = {
             "ids": f"channel=={channel_id}",
             "startDate": date_range.start_date.isoformat(),
             "endDate": date_range.end_date.isoformat(),
-            "metrics": "views",
+            "metrics": "likes,comments,shares",
             "dimensions": "day",
             "sort": "day"
         }
@@ -527,13 +527,16 @@ class YouTubeAnalyticsService:
         time_series = []
         for row in data.get("rows", []):
             date_str = row[0]
-            views = row[1]
+            likes = row[1] if len(row) > 1 else 0
+            comments = row[2] if len(row) > 2 else 0
+            shares = row[3] if len(row) > 3 else 0
+            engagement = likes + comments + shares
             try:
                 dt = datetime.strptime(date_str, "%Y-%m-%d")
                 time_series.append(TimeSeriesDataPoint(
                     date=dt.date(),
-                    value=float(views),
-                    label="Views"
+                    value=float(engagement),
+                    label="Engagement"
                 ))
             except (ValueError, IndexError):
                 continue

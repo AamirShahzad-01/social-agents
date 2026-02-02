@@ -458,43 +458,67 @@ class InstagramAnalyticsService:
         date_range: DateRange
     ) -> List[TimeSeriesDataPoint]:
         """
-        Fetch daily time series data for views/reach.
+        Fetch daily time series data for engagement.
+        
+        Uses media engagement (likes + comments) aggregated by post date.
         """
-        clamped_end_date = min(date_range.end_date, date_range.start_date + timedelta(days=29))
-        url = f"{self.GRAPH_API_BASE}/{ig_user_id}/insights"
-        params = {
-            "access_token": access_token,
-            "metric": "views,reach",
-            "metric_type": "total_value",
-            "period": "day",
-            "since": int(datetime.combine(date_range.start_date, datetime.min.time()).timestamp()),
-            "until": int(datetime.combine(clamped_end_date, datetime.max.time()).timestamp())
-        }
-        
-        response = await self.client.get(url, params=params)
-        response.raise_for_status()
-        data = response.json()
-        
-        time_series = []
-        for metric_data in data.get("data", []):
-            if metric_data.get("name") == "views":
-                for value_entry in metric_data.get("values", []):
-                    try:
-                        end_time = value_entry.get("end_time", "")
-                        if end_time:
-                            dt = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
-                            value = value_entry.get("value")
-                            if isinstance(value, dict):
-                                value = value.get("value")
-                            time_series.append(TimeSeriesDataPoint(
-                                date=dt.date(),
-                                value=float(value or 0),
-                                label="Views"
-                            ))
-                    except (ValueError, TypeError):
-                        continue
-        
-        return time_series
+        try:
+            # Fetch recent media with engagement
+            media_url = f"{self.GRAPH_API_BASE}/{ig_user_id}/media"
+            media_params = {
+                "access_token": access_token,
+                "fields": "id,timestamp,like_count,comments_count",
+                "limit": 100
+            }
+            
+            response = await self.client.get(media_url, params=media_params)
+            response.raise_for_status()
+            media_list = response.json().get("data", [])
+            
+            # Group engagement by date
+            daily_engagement: Dict[date, int] = {}
+            for media in media_list:
+                try:
+                    timestamp_str = media.get("timestamp", "")
+                    if timestamp_str:
+                        dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                        media_date = dt.date()
+                        
+                        # Filter by date range
+                        if not (date_range.start_date <= media_date <= date_range.end_date):
+                            continue
+                        
+                        # Calculate engagement
+                        likes = media.get("like_count", 0)
+                        comments = media.get("comments_count", 0)
+                        engagement = likes + comments
+                        
+                        daily_engagement[media_date] = daily_engagement.get(media_date, 0) + engagement
+                except (ValueError, TypeError):
+                    continue
+            
+            # Fill in missing dates with 0
+            current_date = date_range.start_date
+            while current_date <= date_range.end_date:
+                if current_date not in daily_engagement:
+                    daily_engagement[current_date] = 0
+                current_date += timedelta(days=1)
+            
+            # Convert to time series
+            time_series = []
+            for post_date, engagement in sorted(daily_engagement.items()):
+                time_series.append(TimeSeriesDataPoint(
+                    date=post_date,
+                    value=float(engagement),
+                    label="Engagement"
+                ))
+            
+            logger.info(f"Instagram time series: found {len(time_series)} data points")
+            return time_series
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch Instagram time series: {e}", exc_info=True)
+            return []
     
     def _parse_account_insights(self, data: List[Dict]) -> Dict[str, Any]:
         """Parse Instagram account insights response."""
