@@ -1,6 +1,6 @@
 {
-    "name": "Content OS",
-    "short_name": "Content OS",
+    "name": "Social Agent",
+    "short_name": "Social Agent",
     "description": "Multi Agents System for Social Media Marketing",
     "start_url": "/dashboard",
     "display": "standalone",

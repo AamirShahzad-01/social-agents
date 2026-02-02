@@ -175,7 +175,7 @@ services:
       - key: SMTP_FROM_EMAIL
         sync: false
       - key: SMTP_FROM_NAME
-        value: Content OS
+        value: Social Agent
       
       # ==========================================================================
       # Cron/Scheduled Jobs Authentication

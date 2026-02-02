@@ -20,13 +20,14 @@ import {
     DashboardRequest,
     ApiResponse,
 } from '@/types/analytics';
+import { PYTHON_BACKEND_URL } from '@/lib/python-backend/config';
 
 // =============================================================================
 // API BASE URL
 // =============================================================================
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-const ANALYTICS_API = `${API_BASE}/api/v1/analytics`;
+const ANALYTICS_API = `${PYTHON_BACKEND_URL}/api/v1/analytics`;
+
 
 // =============================================================================
 // FETCH HELPER

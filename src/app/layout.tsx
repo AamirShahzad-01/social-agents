@@ -35,9 +35,9 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Content OS',
+    title: 'Social Agent',
   },
-  applicationName: 'Content OS',
+  applicationName: 'Social Agent',
 }
 
 export const viewport: Viewport = {

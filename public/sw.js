@@ -1,4 +1,4 @@
-// Content OS Service Worker
+// Social Agent Service Worker
 const CACHE_NAME = 'content-os-v1';
 const OFFLINE_URL = '/offline.html';
 

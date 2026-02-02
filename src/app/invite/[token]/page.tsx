@@ -180,7 +180,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
           <div className="bg-white p-2 rounded-lg">
             <Rocket className="w-6 h-6 text-slate-900" />
           </div>
-          <span className="text-2xl font-bold text-white">Content OS</span>
+          <span className="text-2xl font-bold text-white">Social Agent</span>
         </div>
 
         {/* Card */}

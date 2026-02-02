@@ -97,7 +97,7 @@ export default function AuthPage({ inviteToken }: AuthPageProps) {
             <div className="bg-white p-2 rounded-lg">
               <Rocket className="w-6 h-6 text-slate-900" />
             </div>
-            <span className="text-2xl font-bold text-white tracking-tight">Content OS</span>
+            <span className="text-2xl font-bold text-white tracking-tight">Social Agent</span>
           </div>
 
           <div>
@@ -119,7 +119,7 @@ export default function AuthPage({ inviteToken }: AuthPageProps) {
               <div className="bg-white p-2 rounded-lg">
                 <Rocket className="w-6 h-6 text-slate-900" />
               </div>
-              <span className="text-2xl font-bold text-white">Content OS</span>
+              <span className="text-2xl font-bold text-white">Social Agent</span>
             </div>
           </div>
 

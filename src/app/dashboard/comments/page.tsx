@@ -110,34 +110,11 @@ export default function CommentsPage() {
   const [showKnowledgeModal, setShowKnowledgeModal] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
 
-  const statCards = [
-    {
-      id: 'pending',
-      value: stats.pending,
-      label: 'Need your reply',
-      icon: Clock,
-      iconColor: 'text-primary',
-      bgColor: 'bg-primary/10',
-      borderColor: 'border-primary/20',
-      description: 'Comments requiring your attention',
-    },
-    {
-      id: 'ai',
-      value: 'AI',
-      label: 'Handles the rest',
-      icon: Bot,
-      iconColor: 'text-accent',
-      bgColor: 'bg-accent/10',
-      borderColor: 'border-accent/20',
-      description: 'Auto-replies when confident',
-    },
-  ] as const;
-
   const actionButtonBase =
-    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed shadow-sm hover:shadow active:scale-[0.98]';
-  const replyButtonStyles = `${actionButtonBase} bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-primary/40`;
-  const deleteButtonStyles = `${actionButtonBase} bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/40`;
-  const neutralButtonStyles = `${actionButtonBase} border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-muted-foreground/30 shadow-none`;
+    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed active:scale-[0.98]';
+  const replyButtonStyles = `${actionButtonBase} bg-blue-50 dark:bg-blue-950/50 text-blue-500 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:text-blue-600 dark:hover:text-blue-300 focus-visible:ring-blue-200 border border-blue-100 dark:border-blue-800`;
+  const deleteButtonStyles = `${actionButtonBase} bg-red-50 dark:bg-red-950/50 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 hover:text-red-600 dark:hover:text-red-300 focus-visible:ring-red-200 border border-red-100 dark:border-red-800`;
+  const neutralButtonStyles = `${actionButtonBase} bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 hover:text-gray-600 dark:hover:text-gray-300 focus-visible:ring-gray-200 border border-gray-100 dark:border-gray-700`;
 
   // Fetch comments
   const fetchComments = useCallback(async () => {
@@ -278,7 +255,7 @@ export default function CommentsPage() {
 
   return (
     <div className="min-h-screen bg-canva-gradient">
-      <div className="max-w-6xl mx-auto p-4 space-y-4">
+      <div className="w-full px-4 py-3 space-y-3">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -287,9 +264,14 @@ export default function CommentsPage() {
                 <MessageSquare className="h-4 w-4 text-primary" />
               </div>
               Inbox
+              {stats.pending > 0 && (
+                <span className="px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full border border-primary/20">
+                  {stats.pending} pending
+                </span>
+              )}
             </h1>
             <p className="text-muted-foreground mt-0.5 text-xs">
-              Comments that need your expertise
+              Comments that need your expertise • AI handles the rest automatically
             </p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -304,52 +286,14 @@ export default function CommentsPage() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 gap-3">
-          {statCards.map((card) => (
-            <div
-              key={card.id}
-              className="relative overflow-hidden rounded-lg border border-border bg-card p-3 shadow-sm hover:shadow transition-shadow duration-200"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{card.label}</p>
-                  <p className="text-xl font-bold text-foreground mt-0.5">{card.value}</p>
-                </div>
-                <div className={`h-8 w-8 rounded-lg ${card.bgColor} ${card.borderColor} border flex items-center justify-center`}>
-                  <card.icon className={`h-4 w-4 ${card.iconColor}`} />
-                </div>
-              </div>
-              <p className="text-[10px] mt-1.5 text-muted-foreground">
-                {card.description}
-              </p>
-            </div>
-          ))}
-        </div>
-
         {/* Action Bar */}
         <div className="flex items-center gap-2 border-b border-border pb-2.5">
           <span className="text-xs font-medium text-foreground">
             {stats.pending} comment{stats.pending !== 1 ? 's' : ''} need{stats.pending === 1 ? 's' : ''} your reply
           </span>
-          {comments.length > 0 && (
-            <button
-              onClick={deleteAllComments}
-              disabled={deletingAll}
-              className="ml-auto flex items-center gap-1 px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 rounded-md transition-all disabled:opacity-50 border border-transparent hover:border-destructive/20"
-              title="Delete all pending comments"
-            >
-              {deletingAll ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Trash2 className="h-3 w-3" />
-              )}
-              Clear All
-            </button>
-          )}
           <button
             onClick={() => fetchComments()}
-            className={`${comments.length > 0 ? '' : 'ml-auto'} p-1.5 text-muted-foreground hover:text-primary rounded-md hover:bg-primary/10 transition-all border border-transparent hover:border-primary/20`}
+            className="ml-auto p-1.5 text-muted-foreground hover:text-primary rounded-md hover:bg-primary/10 transition-all border border-transparent hover:border-primary/20"
             title="Refresh"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -357,7 +301,7 @@ export default function CommentsPage() {
         </div>
 
         {/* Comments List */}
-        <div className={comments.length === 0 ? "space-y-3" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"}>
+        <div className={comments.length === 0 ? "space-y-3" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5"}>
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="p-2.5 bg-primary/10 rounded-full mb-2.5">
@@ -366,7 +310,7 @@ export default function CommentsPage() {
               <p className="text-xs text-muted-foreground">Loading comments...</p>
             </div>
           ) : comments.length === 0 ? (
-            <div className="text-center py-12 border border-border rounded-lg bg-card shadow-sm">
+            <div className="text-center py-12 border border-border/50 rounded-lg bg-card/60 backdrop-blur-sm shadow-sm">
               <div className="w-10 h-10 mx-auto mb-2.5 bg-accent/10 rounded-full flex items-center justify-center border border-accent/20">
                 <CheckCircle className="h-5 w-5 text-accent" />
               </div>
@@ -379,10 +323,10 @@ export default function CommentsPage() {
             comments.map((comment) => (
               <div
                 key={comment.id}
-                className="border border-border rounded-lg overflow-hidden shadow-sm transition-all duration-200 hover:shadow bg-card group"
+                className="border border-border/40 rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] hover:border-border/60 bg-card group"
               >
                 {/* Comment Header */}
-                <div className="flex items-center justify-between px-3 py-2.5 border-b border-border bg-muted/40">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-border/30 bg-muted/30">
                   <div className="flex items-center gap-2">
                     <div className="p-1.5 bg-background rounded-md border border-border">
                       <PlatformIcon platform={comment.platform} />
@@ -414,7 +358,7 @@ export default function CommentsPage() {
 
                 {/* AI Summary - Why this needs attention */}
                 {comment.summary && (
-                  <div className="px-3 py-2.5 border-b border-border bg-secondary/5">
+                  <div className="px-3 py-2 border-b border-border/30 bg-primary/5">
                     <div className="flex items-start gap-2">
                       <div className="h-6 w-6 rounded-md bg-secondary/10 border border-secondary/20 flex items-center justify-center flex-shrink-0">
                         <Bot className="h-3 w-3 text-secondary" />
@@ -428,7 +372,7 @@ export default function CommentsPage() {
                 )}
 
                 {/* Original Comment */}
-                <div className="px-3 py-2.5 bg-card">
+                <div className="px-3 py-2 bg-card">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Original Comment</p>
                   <p className="text-foreground whitespace-pre-wrap leading-relaxed text-xs">
                     {comment.original_comment}
@@ -436,7 +380,7 @@ export default function CommentsPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="px-3 py-2.5 border-t border-border bg-muted/30">
+                <div className="px-3 py-2 border-t border-border/30 bg-muted/20">
                   {replyingTo === comment.id ? (
                     <div className="space-y-2.5">
                       <textarea
@@ -704,7 +648,7 @@ function KnowledgeBaseModal({ onClose }: { onClose: () => void }) {
                 </button>
                 <button
                   onClick={() => setShowAddForm(false)}
-                  className="px-3 py-1.5 border border-border text-muted-foreground rounded-md hover:bg-muted hover:text-foreground transition-all text-xs font-medium"
+                  className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 rounded-md bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50 hover:text-gray-600 dark:hover:text-gray-300 transition-all text-xs font-medium"
                 >
                   Cancel
                 </button>

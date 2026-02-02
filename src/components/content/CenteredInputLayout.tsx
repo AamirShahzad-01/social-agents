@@ -95,7 +95,7 @@ export const CenteredInputLayout: React.FC<CenteredInputLayoutProps> = ({
                 {/* Canva-style Greeting Message with Gradient Text */}
                 <div className="text-center space-y-3">
                     <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center mx-auto bg-white/60 backdrop-blur-sm border border-white/40 shadow-lg">
-                        <Image src={logoImage} alt="Content OS" width={36} height={36} className="object-cover" />
+                        <Image src={logoImage} alt="Social Agent" width={36} height={36} className="object-cover" />
                     </div>
                     <h1 className="text-3xl md:text-4xl font-semibold italic bg-gradient-to-r from-[#5B3FFF] via-[#8B6DFF] to-[#B8A3FF] bg-clip-text text-transparent">
                         What will you design today?
