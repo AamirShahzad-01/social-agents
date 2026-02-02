@@ -27,7 +27,8 @@ from .v1 import (
     businesses_router,
     ab_tests_router,
     voice_live_router,
-    calendar_router
+    calendar_router,
+    analytics_router
 )
 
 __all__ = [
@@ -58,7 +59,8 @@ __all__ = [
     "businesses_router",
     "ab_tests_router",
     "voice_live_router",
-    "calendar_router"
+    "calendar_router",
+    "analytics_router"
 ]
 
 

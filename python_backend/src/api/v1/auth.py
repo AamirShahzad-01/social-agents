@@ -48,6 +48,7 @@ SCOPES = {
         "public_profile",
         "pages_show_list",
         "pages_read_engagement",
+        "pages_read_user_content",
         "pages_manage_posts",
         "pages_manage_metadata",
         "instagram_basic",
@@ -61,6 +62,7 @@ SCOPES = {
         "public_profile",
         "pages_show_list",
         "pages_read_engagement",
+        "pages_read_user_content",
         "pages_manage_posts",
         "instagram_basic",
         "instagram_content_publish",
@@ -161,7 +163,7 @@ async def initiate_oauth(platform: Platform, request: Request):
             oauth_token = request_token_result["oauth_token"]
             oauth_token_secret = request_token_result["oauth_token_secret"]
 
-            await db_update(
+            update_result = await db_update(
                 table="oauth_states",
                 data={
                     "oauth_token": oauth_token,

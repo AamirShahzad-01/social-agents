@@ -22,6 +22,7 @@ from .ab_tests import router as ab_tests_router
 from .social import facebook_router, instagram_router, linkedin_router, twitter_router, tiktok_router, youtube_router
 from .voice_live import router as voice_live_router
 from .calendar import router as calendar_router
+from .analytics import router as analytics_router
 
 __all__ = [
     "content_router",
@@ -51,7 +52,8 @@ __all__ = [
     "businesses_router",
     "ab_tests_router",
     "voice_live_router",
-    "calendar_router"
+    "calendar_router",
+    "analytics_router"
 ]
 
 

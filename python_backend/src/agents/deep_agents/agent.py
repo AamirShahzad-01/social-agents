@@ -342,7 +342,7 @@ def create_content_writer():
         api_key=settings.OPENAI_API_KEY,
         reasoning=reasoning,
         stream_usage=True,
-        #output_version="responses/v1",  # Uncomment for newer response format
+        use_responses_api=True 
     )
     return create_deep_agent(
         model=llm,

@@ -88,6 +88,7 @@ PUBLIC_PATHS = [
     "/api/v1/improve/",  # AI Improvement utility endpoints (content/prompts)
     "/api/v1/media/",  # AI Generative endpoints
     "/api/v1/cron/",  # Cron endpoints use X-Cron-Secret auth instead of JWT
+    "/api/v1/analytics/",  # Analytics API uses workspace_id for access control
 ]
 
 OPTIONAL_AUTH_PATHS = [

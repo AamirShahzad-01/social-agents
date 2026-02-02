@@ -48,7 +48,7 @@ async def send_invitation_email(
     workspace_name = await _get_workspace_name(workspace_id)
     inviter_name = await _get_inviter_name(inviter_id)
 
-    from_email = settings.SMTP_FROM_EMAIL or "noreply@socialmediaos.com"
+    from_email = settings.SMTP_FROM_EMAIL or "aamirshazad0099@gmail.com"
     from_name = settings.SMTP_FROM_NAME or "Social Media OS"
     subject = f"You're invited to join {workspace_name}"
 

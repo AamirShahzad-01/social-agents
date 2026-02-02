@@ -99,6 +99,12 @@ export function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const { user, signOut } = useAuth();
+    const [isMounted, setIsMounted] = React.useState(false);
+
+    // Fix hydration mismatch with Radix UI components
+    React.useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const handleLogout = async () => {
         try {
@@ -226,50 +232,62 @@ export function Sidebar() {
 
 
                     {/* User Profile & Actions Dropdown */}
-                    <DropdownMenu>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <DropdownMenuTrigger asChild>
-                                    <button className="mt-1 focus:outline-none focus:ring-0 group">
-                                        <Avatar className="h-10 w-10 ring-2 ring-slate-200 ring-offset-2 ring-offset-white transition-all hover:ring-teal-400/50 hover:scale-105 active:scale-95 cursor-pointer">
-                                            <AvatarImage src={user?.user_metadata?.avatar_url} />
-                                            <AvatarFallback className="bg-gradient-to-br from-teal-500 to-cyan-600 text-white text-sm font-semibold">
-                                                {user?.user_metadata?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'U'}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </button>
-                                </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" sideOffset={8} className="bg-slate-800 border-slate-700 text-white shadow-xl px-3 py-2">
-                                <p className="font-medium text-[13px]">{user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Profile'}</p>
-                            </TooltipContent>
-                        </Tooltip>
+                    {isMounted && (
+                        <DropdownMenu>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <button className="mt-1 focus:outline-none focus:ring-0 group">
+                                            <Avatar className="h-10 w-10 ring-2 ring-slate-200 ring-offset-2 ring-offset-white transition-all hover:ring-teal-400/50 hover:scale-105 active:scale-95 cursor-pointer">
+                                                <AvatarImage src={user?.user_metadata?.avatar_url} />
+                                                <AvatarFallback className="bg-gradient-to-br from-teal-500 to-cyan-600 text-white text-sm font-semibold">
+                                                    {user?.user_metadata?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent side="right" sideOffset={8} className="bg-slate-800 border-slate-700 text-white shadow-xl px-3 py-2">
+                                    <p className="font-medium text-[13px]">{user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Profile'}</p>
+                                </TooltipContent>
+                            </Tooltip>
 
-                        <DropdownMenuContent side="right" align="end" className="w-64 p-2 bg-white/95 backdrop-blur-xl border-slate-200 shadow-2xl rounded-2xl z-[100] animate-in fade-in zoom-in duration-200">
-                            <div className="px-3 py-3 border-b border-slate-100/80 mb-1">
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Authenticated Account</p>
-                                <p className="text-sm font-bold text-slate-900 truncate">
-                                    {user?.user_metadata?.full_name || 'User Account'}
-                                </p>
-                                <p className="text-[11px] text-slate-500 truncate lowercase">
-                                    {user?.email}
-                                </p>
-                            </div>
+                            <DropdownMenuContent side="right" align="end" className="w-64 p-2 bg-white/95 backdrop-blur-xl border-slate-200 shadow-2xl rounded-2xl z-[100] animate-in fade-in zoom-in duration-200">
+                                <div className="px-3 py-3 border-b border-slate-100/80 mb-1">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Authenticated Account</p>
+                                    <p className="text-sm font-bold text-slate-900 truncate">
+                                        {user?.user_metadata?.full_name || 'User Account'}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500 truncate lowercase">
+                                        {user?.email}
+                                    </p>
+                                </div>
 
-                            <DropdownMenuItem
-                                onClick={handleLogout}
-                                className="flex items-center gap-3 px-3 py-2.5 text-rose-600 focus:text-white focus:bg-rose-500 rounded-xl cursor-pointer font-semibold transition-all duration-200 mt-1"
-                            >
-                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 focus-within:bg-rose-400/20">
-                                    <LogOut className="h-4 w-4" />
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-sm">Sign out</span>
-                                    <span className="text-[10px] opacity-70 font-normal">End your current session</span>
-                                </div>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                                <DropdownMenuItem
+                                    onClick={handleLogout}
+                                    className="flex items-center gap-3 px-3 py-2.5 text-rose-600 focus:text-white focus:bg-rose-500 rounded-xl cursor-pointer font-semibold transition-all duration-200 mt-1"
+                                >
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 focus-within:bg-rose-400/20">
+                                        <LogOut className="h-4 w-4" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm">Sign out</span>
+                                        <span className="text-[10px] opacity-70 font-normal">End your current session</span>
+                                    </div>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
+                    {/* Placeholder for SSR */}
+                    {!isMounted && (
+                        <div className="mt-1">
+                            <Avatar className="h-10 w-10 ring-2 ring-slate-200 ring-offset-2 ring-offset-white">
+                                <AvatarFallback className="bg-gradient-to-br from-teal-500 to-cyan-600 text-white text-sm font-semibold">
+                                    U
+                                </AvatarFallback>
+                            </Avatar>
+                        </div>
+                    )}
                 </div>
             </div>
         </TooltipProvider >

@@ -139,7 +139,8 @@ from .api import (
     businesses_router,
     ab_tests_router,
     voice_live_router,
-    calendar_router
+    calendar_router,
+    analytics_router
 )
 # Deep agents router (LangGraph-powered content strategist)
 from .agents.deep_agents.router import router as deep_agents_router
@@ -172,6 +173,7 @@ app.include_router(businesses_router, prefix="/api/v1/meta-ads", tags=["Meta Ads
 app.include_router(ab_tests_router, prefix="/api/v1/meta-ads", tags=["Meta Ads - A/B Testing"])
 app.include_router(voice_live_router)
 app.include_router(calendar_router, prefix="/api/v1", tags=["Content Calendar"])
+app.include_router(analytics_router, prefix="/api/v1", tags=["Organic Analytics"])
 app.include_router(deep_agents_router)
 
 
