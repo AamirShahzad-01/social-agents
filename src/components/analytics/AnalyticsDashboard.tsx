@@ -118,19 +118,19 @@ interface KPICardProps {
 
 const KPICard: React.FC<KPICardProps> = ({ title, value, trend, icon, subtitle }) => (
     <Card className="bg-card/60 backdrop-blur-sm border-border/50 hover:bg-card/80 transition-all duration-200">
-        <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-muted-foreground">{title}</span>
+        <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-muted-foreground">{title}</span>
                 <span className="text-muted-foreground/60">{icon}</span>
             </div>
-            <div className="flex items-end gap-3">
-                <span className="text-3xl font-bold tracking-tight">
+            <div className="flex items-end gap-2">
+                <span className="text-2xl font-bold tracking-tight">
                     {typeof value === 'number' ? formatNumber(value) : value}
                 </span>
                 {trend && <TrendBadge trend={trend} />}
             </div>
             {subtitle && (
-                <p className="text-xs text-muted-foreground mt-2">{subtitle}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">{subtitle}</p>
             )}
         </CardContent>
     </Card>
@@ -149,49 +149,118 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ platforms }) => {
         .filter(([_, summary]) => summary.connected)
         .map(([platform, summary]) => ({
             name: PLATFORM_CONFIGS.find(p => p.id === platform)?.name || platform,
+            platform: platform as Platform,
             views: summary.views.current,
             engagement: summary.engagement.current,
             followers: summary.followers.current,
+            fill: PLATFORM_COLORS[platform as Platform],
         }));
 
     if (data.length === 0) return null;
 
+    // Custom bar component with platform colors
+    const CustomBar = (props: { x?: number; y?: number; width?: number; height?: number; payload?: { fill: string; platform: Platform } }) => {
+        const { x = 0, y = 0, width = 0, height = 0, payload } = props;
+        const color = payload?.fill || '#3B82F6';
+        const gradientId = `gradient-${payload?.platform}`;
+        return (
+            <g>
+                <defs>
+                    <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={color} stopOpacity={1} />
+                        <stop offset="100%" stopColor={color} stopOpacity={0.6} />
+                    </linearGradient>
+                </defs>
+                <rect
+                    x={x}
+                    y={y}
+                    width={width}
+                    height={height}
+                    fill={`url(#${gradientId})`}
+                    rx={6}
+                    ry={6}
+                    style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+                />
+            </g>
+        );
+    };
+
     return (
-        <Card className="bg-card/60 backdrop-blur-sm border-border/50">
+        <Card className="bg-card/60 backdrop-blur-sm border-border/50 overflow-hidden">
             <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-semibold">Channel Performance</CardTitle>
-                <CardDescription>Compare metrics across connected platforms</CardDescription>
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-8 rounded-full bg-gradient-to-b from-blue-500 to-purple-500" />
+                    <div>
+                        <CardTitle className="text-lg font-semibold">Channel Performance</CardTitle>
+                        <CardDescription>Compare metrics across connected platforms</CardDescription>
+                    </div>
+                </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-2">
                 <ResponsiveContainer width="100%" height={320}>
-                    <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                    <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }} barCategoryGap="25%">
+                        <defs>
+                            {data.map((item) => (
+                                <linearGradient key={`bar-gradient-${item.platform}`} id={`bar-gradient-${item.platform}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor={item.fill} stopOpacity={0.9} />
+                                    <stop offset="100%" stopColor={item.fill} stopOpacity={0.5} />
+                                </linearGradient>
+                            ))}
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.2} vertical={false} />
                         <XAxis
                             dataKey="name"
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                            axisLine={{ stroke: 'hsl(var(--border))' }}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12, fontWeight: 500 }}
+                            axisLine={false}
+                            tickLine={false}
+                            dy={10}
                         />
                         <YAxis
                             tickFormatter={formatNumber}
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                            axisLine={{ stroke: 'hsl(var(--border))' }}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                            axisLine={false}
+                            tickLine={false}
+                            dx={-10}
                         />
                         <Tooltip
-                            formatter={(value) => formatNumber(value as number)}
+                            cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3, radius: 8 }}
+                            formatter={(value, name) => [formatNumber(value as number), name]}
                             contentStyle={{
-                                backgroundColor: 'hsl(var(--card))',
+                                backgroundColor: 'hsl(var(--popover))',
                                 border: '1px solid hsl(var(--border))',
-                                borderRadius: '8px',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                borderRadius: '12px',
+                                boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                                padding: '12px 16px',
                             }}
-                            labelStyle={{ color: 'hsl(var(--foreground))' }}
+                            labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: '8px' }}
+                            itemStyle={{ color: 'hsl(var(--muted-foreground))', fontSize: '13px' }}
                         />
                         <Legend
-                            wrapperStyle={{ paddingTop: '20px' }}
-                            formatter={(value) => <span className="text-sm text-muted-foreground">{value}</span>}
+                            wrapperStyle={{ paddingTop: '24px' }}
+                            formatter={(value) => (
+                                <span className="text-sm font-medium text-muted-foreground ml-1">{value}</span>
+                            )}
+                            iconType="circle"
+                            iconSize={8}
                         />
-                        <Bar dataKey="views" name="Views" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="engagement" name="Engagement" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                        <Bar
+                            dataKey="views"
+                            name="Views"
+                            radius={[8, 8, 0, 0]}
+                            maxBarSize={50}
+                        >
+                            {data.map((entry, index) => (
+                                <rect key={`bar-views-${index}`} fill={`url(#bar-gradient-${entry.platform})`} />
+                            ))}
+                        </Bar>
+                        <Bar
+                            dataKey="engagement"
+                            name="Engagement"
+                            fill="#8B5CF6"
+                            radius={[8, 8, 0, 0]}
+                            maxBarSize={50}
+                            opacity={0.8}
+                        />
                     </BarChart>
                 </ResponsiveContainer>
             </CardContent>
@@ -204,60 +273,104 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ platforms }) => {
 // =============================================================================
 
 const EngagementTrendChart: React.FC<PerformanceChartProps> = ({ platforms }) => {
-    const data = Object.entries(platforms)
+    // Use actual engagement rate data from platforms
+    const chartData = Object.entries(platforms)
         .filter(([_, summary]) => summary.connected)
         .map(([platform, summary]) => ({
             name: PLATFORM_CONFIGS.find(p => p.id === platform)?.name || platform,
-            rate: summary.engagement_rate,
-            platform,
-        }));
+            platform: platform as Platform,
+            engagementRate: summary.engagement_rate,
+            engagement: summary.engagement.current,
+            fill: PLATFORM_COLORS[platform as Platform],
+        }))
+        .sort((a, b) => b.engagementRate - a.engagementRate); // Sort by engagement rate
 
-    if (data.length === 0) return null;
+    if (chartData.length === 0) return null;
 
     return (
-        <Card className="bg-card/60 backdrop-blur-sm border-border/50">
+        <Card className="bg-card/60 backdrop-blur-sm border-border/50 overflow-hidden">
             <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-semibold">Engagement Rate</CardTitle>
-                <CardDescription>Engagement rate by platform</CardDescription>
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-8 rounded-full bg-gradient-to-b from-emerald-500 to-cyan-500" />
+                    <div>
+                        <CardTitle className="text-lg font-semibold">Engagement Rate</CardTitle>
+                        <CardDescription>Compare engagement rates across platforms</CardDescription>
+                    </div>
+                </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-2">
                 <ResponsiveContainer width="100%" height={320}>
-                    <AreaChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <BarChart
+                        data={chartData}
+                        layout="vertical"
+                        margin={{ top: 20, right: 40, left: 20, bottom: 20 }}
+                        barCategoryGap="30%"
+                    >
                         <defs>
-                            <linearGradient id="engagementGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
-                                <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
-                            </linearGradient>
+                            {chartData.map((item) => (
+                                <linearGradient key={`eng-gradient-${item.platform}`} id={`eng-gradient-${item.platform}`} x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor={item.fill} stopOpacity={0.7} />
+                                    <stop offset="100%" stopColor={item.fill} stopOpacity={1} />
+                                </linearGradient>
+                            ))}
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.2} horizontal={false} />
                         <XAxis
-                            dataKey="name"
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                            axisLine={{ stroke: 'hsl(var(--border))' }}
+                            type="number"
+                            tickFormatter={(v) => `${v.toFixed(1)}%`}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                            axisLine={false}
+                            tickLine={false}
+                            domain={[0, 'dataMax + 0.5']}
                         />
                         <YAxis
-                            tickFormatter={(v) => `${v}%`}
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                            axisLine={{ stroke: 'hsl(var(--border))' }}
+                            type="category"
+                            dataKey="name"
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12, fontWeight: 500 }}
+                            axisLine={false}
+                            tickLine={false}
+                            width={80}
                         />
                         <Tooltip
+                            cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }}
                             formatter={(value) => [`${(value as number).toFixed(2)}%`, 'Engagement Rate']}
                             contentStyle={{
-                                backgroundColor: 'hsl(var(--card))',
+                                backgroundColor: 'hsl(var(--popover))',
                                 border: '1px solid hsl(var(--border))',
-                                borderRadius: '8px',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                borderRadius: '12px',
+                                boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                                padding: '12px 16px',
                             }}
+                            labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: '4px' }}
                         />
-                        <Area
-                            type="monotone"
-                            dataKey="rate"
-                            stroke="#8B5CF6"
-                            strokeWidth={2}
-                            fill="url(#engagementGradient)"
-                        />
-                    </AreaChart>
+                        <Bar
+                            dataKey="engagementRate"
+                            radius={[0, 8, 8, 0]}
+                            maxBarSize={40}
+                        >
+                            {chartData.map((entry) => (
+                                <rect
+                                    key={`bar-${entry.platform}`}
+                                    fill={`url(#eng-gradient-${entry.platform})`}
+                                />
+                            ))}
+                        </Bar>
+                    </BarChart>
                 </ResponsiveContainer>
+                {/* Platform legend with actual values */}
+                <div className="flex flex-wrap justify-center gap-4 mt-2 pt-2 border-t border-border/30">
+                    {chartData.map((item) => (
+                        <div key={item.platform} className="flex items-center gap-2">
+                            <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: item.fill }}
+                            />
+                            <span className="text-xs text-muted-foreground">
+                                {item.name}: <span className="font-semibold text-foreground">{item.engagementRate.toFixed(2)}%</span>
+                            </span>
+                        </div>
+                    ))}
+                </div>
             </CardContent>
         </Card>
     );
@@ -535,29 +648,29 @@ const AnalyticsDashboard: React.FC = () => {
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <KPICard
                     title="Total Followers"
                     value={data.aggregated.total_followers.current}
                     trend={data.aggregated.total_followers}
-                    icon={<Users className="w-5 h-5" />}
+                    icon={<Users className="w-4 h-4" />}
                 />
                 <KPICard
                     title="Total Views"
                     value={data.aggregated.total_views.current}
                     trend={data.aggregated.total_views}
-                    icon={<Eye className="w-5 h-5" />}
+                    icon={<Eye className="w-4 h-4" />}
                 />
                 <KPICard
                     title="Total Engagement"
                     value={data.aggregated.total_engagement.current}
                     trend={data.aggregated.total_engagement}
-                    icon={<Heart className="w-5 h-5" />}
+                    icon={<Heart className="w-4 h-4" />}
                 />
                 <KPICard
                     title="Avg. Engagement Rate"
                     value={`${data.aggregated.average_engagement_rate.toFixed(2)}%`}
-                    icon={<BarChart3 className="w-5 h-5" />}
+                    icon={<BarChart3 className="w-4 h-4" />}
                     subtitle={`${data.aggregated.platforms_connected} channels connected`}
                 />
             </div>

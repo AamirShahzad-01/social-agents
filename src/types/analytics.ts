@@ -161,11 +161,10 @@ export interface YouTubeChannelMetrics {
     subscribers_gained?: number;
     subscribers_lost?: number;
     views: MetricTrend;
+    engaged_views?: MetricTrend;
     estimated_minutes_watched: MetricTrend;
     average_view_duration?: number;
     likes?: number;
-    /** @deprecated Dec 2021 - Always returns 0, YouTube disabled public dislike counts */
-    dislikes?: number;
     comments?: number;
     shares?: number;
     estimated_revenue?: number;
@@ -178,6 +177,7 @@ export interface YouTubeVideoMetrics {
     published_at: string;
     thumbnail_url?: string;
     views: number;
+    engaged_views?: number;
     estimated_minutes_watched: number;
     average_view_duration: number;
     average_view_percentage?: number;

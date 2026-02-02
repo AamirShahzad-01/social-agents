@@ -18,6 +18,7 @@ from ....services.analytics import (
     AnalyticsPeriod
 )
 from ....dependencies import get_credentials_service
+from ....services.credentials import MetaCredentialsService
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +72,10 @@ async def get_facebook_credentials(
 ) -> dict:
     """Get Facebook credentials from credentials service."""
     try:
-        credentials = await credentials_service.get_credentials(
-            user_id=user_id,
+        credentials = await MetaCredentialsService.get_meta_credentials(
             workspace_id=workspace_id,
-            platform="facebook"
+            refresh_if_needed=False,
+            user_id=user_id
         )
         
         if not credentials:
@@ -83,7 +84,8 @@ async def get_facebook_credentials(
                 detail="Facebook credentials not found. Please connect your Facebook account."
             )
         
-        if not credentials.get("access_token"):
+        access_token = credentials.get("page_access_token") or credentials.get("access_token")
+        if not access_token:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Facebook access token not available"
@@ -95,7 +97,10 @@ async def get_facebook_credentials(
                 detail="Facebook page_id not configured"
             )
         
-        return credentials
+        return {
+            **credentials,
+            "access_token": access_token
+        }
         
     except HTTPException:
         raise

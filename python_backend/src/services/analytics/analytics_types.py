@@ -294,12 +294,12 @@ class YouTubeChannelMetrics(BaseModel):
     
     # View Metrics
     views: MetricTrend = Field(..., description="Total organic views")
+    engaged_views: MetricTrend = Field(..., description="Views using pre-2025 methodology")
     estimated_minutes_watched: MetricTrend = Field(..., description="Total watch time")
     average_view_duration: Optional[float] = Field(None, description="Avg view duration (seconds)")
     
     # Engagement
     likes: Optional[int] = None
-    dislikes: Optional[int] = Field(None, description="DEPRECATED Dec 2021: Always returns 0 - YouTube disabled public dislike counts")
     comments: Optional[int] = None
     shares: Optional[int] = None
     
@@ -317,6 +317,7 @@ class YouTubeVideoMetrics(BaseModel):
     
     # View metrics
     views: int = 0
+    engaged_views: int = 0
     estimated_minutes_watched: float = 0
     average_view_duration: float = 0
     average_view_percentage: Optional[float] = None

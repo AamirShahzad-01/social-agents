@@ -19,6 +19,7 @@ from ....services.analytics import (
     Platform
 )
 from ....dependencies import get_credentials_service
+from ....services.credentials import MetaCredentialsService
 
 logger = logging.getLogger(__name__)
 
@@ -123,14 +124,38 @@ async def get_platform_credentials(
         return None
     
     try:
-        # This should call your existing credentials service
-        # Adjust based on your actual credentials service interface
-        credentials = await credentials_service.get_credentials(
+        if platform == "facebook":
+            credentials = await MetaCredentialsService.get_meta_credentials(
+                workspace_id=workspace_id,
+                refresh_if_needed=False,
+                user_id=user_id
+            )
+            if not credentials:
+                return None
+            access_token = credentials.get("page_access_token") or credentials.get("access_token")
+            if not access_token or not credentials.get("page_id"):
+                return None
+            return {
+                **credentials,
+                "access_token": access_token
+            }
+
+        if platform == "instagram":
+            credentials = await MetaCredentialsService.get_instagram_credentials(
+                workspace_id=workspace_id,
+                refresh_if_needed=False,
+                user_id=user_id
+            )
+            if not credentials or not credentials.get("access_token"):
+                return None
+            return credentials
+
+        # Default to generic credentials service for other platforms
+        return await credentials_service.get_credentials(
             user_id=user_id,
             workspace_id=workspace_id,
             platform=platform
         )
-        return credentials
     except Exception as e:
         logger.warning(f"Failed to get credentials for {platform}: {e}")
         return None

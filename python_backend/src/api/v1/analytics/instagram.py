@@ -19,6 +19,7 @@ from ....services.analytics import (
     AnalyticsPeriod
 )
 from ....dependencies import get_credentials_service
+from ....services.credentials import MetaCredentialsService
 
 logger = logging.getLogger(__name__)
 
@@ -79,10 +80,10 @@ async def get_instagram_credentials(
 ) -> dict:
     """Get Instagram credentials from credentials service."""
     try:
-        credentials = await credentials_service.get_credentials(
-            user_id=user_id,
+        credentials = await MetaCredentialsService.get_instagram_credentials(
             workspace_id=workspace_id,
-            platform="instagram"
+            refresh_if_needed=False,
+            user_id=user_id
         )
         
         if not credentials:

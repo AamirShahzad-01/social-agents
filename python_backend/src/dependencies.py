@@ -76,14 +76,14 @@ class CredentialsService:
             result = self.supabase.table("social_accounts").select(
                 "id, account_id, account_name, platform, workspace_id, "
                 "credentials_encrypted, page_id, page_name, platform_user_id, "
-                "username, is_connected, expires_at"
+                "username, is_connected, expires_at, updated_at, created_at"
             ).eq(
                 "workspace_id", workspace_id
             ).eq(
                 "platform", platform
             ).eq(
                 "is_connected", True
-            ).execute()
+            ).order("updated_at", desc=True).order("created_at", desc=True).limit(1).execute()
             
             if not result.data or len(result.data) == 0:
                 logger.warning(f"No credentials found for {platform} in workspace {workspace_id}")
@@ -105,8 +105,16 @@ class CredentialsService:
                 logger.warning(f"No credentials data for {platform}")
                 return None
             
+            channel_id = (
+                credentials.get("channelId")
+                or credentials.get("channel_id")
+                or account.get("page_id")
+                or credentials.get("pageId")
+                or credentials.get("page_id")
+            )
+
             # Build return dict with both snake_case and camelCase for compatibility
-            # Instagram user ID and channel ID are stored in credentials_encrypted, not as separate columns
+            # Instagram user ID and channel ID are stored in credentials_encrypted, with fallbacks
             return {
                 "access_token": credentials.get("accessToken") or credentials.get("access_token"),
                 "refresh_token": credentials.get("refreshToken") or credentials.get("refresh_token"),
@@ -116,7 +124,7 @@ class CredentialsService:
                 "instagram_user_id": credentials.get("igUserId") or credentials.get("ig_user_id") or credentials.get("instagram_user_id"),
                 "ig_user_id": credentials.get("igUserId") or credentials.get("ig_user_id") or credentials.get("instagram_user_id"),
                 # YouTube channel ID from credentials_encrypted
-                "channel_id": credentials.get("channelId") or credentials.get("channel_id"),
+                "channel_id": channel_id,
                 "expires_at": account.get("expires_at") or credentials.get("expiresAt"),
                 "account_id": account.get("account_id"),
                 "account_name": account.get("account_name"),

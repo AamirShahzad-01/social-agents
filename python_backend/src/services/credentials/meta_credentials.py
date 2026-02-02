@@ -356,6 +356,41 @@ class MetaCredentialsService:
         Returns:
             Instagram credentials dict
         """
+        instagram_record = CredentialStorage.get_credentials_from_db(
+            workspace_id,
+            platforms=["instagram"]
+        )
+
+        if instagram_record:
+            instagram_data = instagram_record.get("credentials") or {}
+            access_token = instagram_data.get("accessToken") or instagram_data.get("access_token")
+            ig_user_id = instagram_data.get("igUserId") or instagram_data.get("ig_user_id")
+            page_id = instagram_record.get("page_id")
+            page_name = instagram_record.get("page_name")
+            username = instagram_record.get("username")
+
+            if access_token:
+                if not ig_user_id and page_id:
+                    ig_user_id = await MetaCredentialsService._get_instagram_from_facebook_page(
+                        page_id,
+                        instagram_data.get("pageAccessToken")
+                        or instagram_data.get("page_access_token")
+                        or access_token
+                    )
+
+                if ig_user_id:
+                    return {
+                        "access_token": instagram_data.get("pageAccessToken")
+                        or instagram_data.get("page_access_token")
+                        or access_token,
+                        "ig_user_id": ig_user_id,
+                        "page_id": page_id,
+                        "page_name": page_name,
+                        "username": username,
+                        "expires_at": instagram_record.get("expires_at"),
+                        "is_expired": False,
+                    }
+
         credentials = await MetaCredentialsService.get_meta_credentials(
             workspace_id, refresh_if_needed, user_id
         )

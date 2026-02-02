@@ -234,62 +234,85 @@ class FacebookAnalyticsService:
         """
         Get top performing posts within date range.
         
-        Args:
-            page_id: Facebook Page ID
-            access_token: Page Access Token
-            date_range: Date range to filter posts
-            limit: Maximum number of posts to return
-            
-        Returns:
-            List of FacebookPostInsights sorted by engagement
+        Note: As of Nov 2025, /feed endpoint requires pages_read_engagement permission
+        for shares/reactions fields. We fetch engagement data from post fields directly.
         """
         try:
-            # Use /feed endpoint as per official Meta Graph API v24.0 docs
-            feed_url = f"{self.GRAPH_API_BASE}/{page_id}/feed"
-            feed_params = {
+            # Use /published_posts with engagement fields
+            posts_url = f"{self.GRAPH_API_BASE}/{page_id}/published_posts"
+            posts_params = {
                 "access_token": access_token,
-                "fields": "id,message,created_time,shares,full_picture,permalink_url",
-                "limit": min(limit * 2, 100)  # Fetch more to filter
+                "fields": "id,message,created_time,permalink_url,reactions.summary(true),comments.summary(true),shares",
+                "limit": min(limit * 2, 50)
             }
             
-            response = await self.client.get(feed_url, params=feed_params)
+            response = await self.client.get(posts_url, params=posts_params)
             response.raise_for_status()
             posts_data = response.json().get("data", [])
             
-            # Filter by date range and calculate engagement for each post
+            # Filter by date range and create post insights
             start_date = date_range.start_date
             end_date = date_range.end_date
             posts_with_engagement = []
             
             for post in posts_data:
                 try:
-                    # Filter by date
                     created_time = post.get("created_time")
                     if created_time:
                         post_date = datetime.fromisoformat(created_time.replace("Z", "+00:00")).date()
                         if post_date < start_date or post_date > end_date:
                             continue
                     
-                    # With basic fields, only shares is available without additional permissions
-                    shares = post.get("shares", {}).get("count", 0) if isinstance(post.get("shares"), dict) else 0
-                    engagement = shares + 1  # Count post itself as base engagement
+                    post_id = post["id"]
+                    
+                    # Get engagement data directly from post fields
+                    reactions_count = post.get("reactions", {}).get("summary", {}).get("total_count", 0)
+                    comments_count = post.get("comments", {}).get("summary", {}).get("total_count", 0)
+                    shares_count = post.get("shares", {}).get("count", 0)
+                    
+                    # Calculate total engagement
+                    total_engagement = reactions_count + comments_count + shares_count
+                    
+                    # Try to fetch post insights for impressions (optional enhancement)
+                    impressions = 0
+                    try:
+                        insights_url = f"{self.GRAPH_API_BASE}/{post_id}/insights"
+                        insights_params = {
+                            "access_token": access_token,
+                            "metric": "post_impressions"
+                        }
+                        insights_response = await self.client.get(insights_url, params=insights_params)
+                        if insights_response.status_code == 200:
+                            insights_data = insights_response.json().get("data", [])
+                            for metric in insights_data:
+                                if metric.get("name") == "post_impressions":
+                                    values = metric.get("values", [])
+                                    if values:
+                                        impressions = values[-1].get("value", 0)
+                    except Exception:
+                        pass  # Impressions not critical, we have engagement counts
+                    
+                    # Use engagement count as fallback if no impressions available
+                    if impressions == 0:
+                        # Estimate views based on engagement (typical engagement rate is 1-5%)
+                        impressions = max(total_engagement * 20, total_engagement)
                     
                     post_insight = FacebookPostInsights(
-                        post_id=post["id"],
+                        post_id=post_id,
                         message=post.get("message"),
                         created_time=datetime.fromisoformat(post["created_time"].replace("Z", "+00:00")),
-                        post_type="feed",  # Type not available in basic feed response
-                        post_engaged_users=engagement,
-                        comments=0,  # Requires pages_read_user_content permission
-                        shares=shares,
-                        reactions_like=0  # Requires pages_read_engagement permission
+                        post_type="published",
+                        post_impressions=impressions,
+                        post_engaged_users=total_engagement,
+                        comments=comments_count,
+                        shares=shares_count,
+                        reactions_like=reactions_count  # Total reactions as "likes" equivalent
                     )
-                    posts_with_engagement.append((engagement, post_insight))
+                    posts_with_engagement.append((total_engagement, post_insight))
                 except Exception as e:
                     logger.warning(f"Error parsing post {post.get('id')}: {e}")
                     continue
             
-            # Sort by engagement and return top posts
             posts_with_engagement.sort(key=lambda x: x[0], reverse=True)
             return [post for _, post in posts_with_engagement[:limit]]
             
@@ -392,65 +415,52 @@ class FacebookAnalyticsService:
             logger.warning(f"Failed to fetch page info: {e}")
             metrics["page_fans"] = 0
         
-        # Get post engagement data using /feed endpoint (Meta Graph API v24.0)
-        # Note: /feed is preferred over /posts per official docs
+        # Get post engagement data with actual reactions/comments/shares (v24.0)
+        total_reactions = 0
+        total_comments = 0
+        total_shares = 0
+        posts_count = 0
+        
         try:
-            # Use /feed endpoint as per official docs
-            feed_url = f"{self.GRAPH_API_BASE}/{page_id}/feed"
-            # Basic fields - reactions/comments summaries may require additional permissions
-            feed_params = {
+            posts_url = f"{self.GRAPH_API_BASE}/{page_id}/published_posts"
+            posts_params = {
                 "access_token": access_token,
-                "fields": "id,created_time,message,shares",
-                "limit": 100
+                "fields": "id,created_time,reactions.summary(true),comments.summary(true),shares",
+                "limit": 100,
+                "since": int(datetime.combine(date_range.start_date, datetime.min.time()).timestamp()),
+                "until": int(datetime.combine(date_range.end_date, datetime.max.time()).timestamp())
             }
             
-            feed_response = await self.client.get(feed_url, params=feed_params)
-            feed_response.raise_for_status()
-            posts_data = feed_response.json().get("data", [])
+            posts_response = await self.client.get(posts_url, params=posts_params)
+            posts_response.raise_for_status()
+            posts_data = posts_response.json().get("data", [])
             
-            # Filter posts by date range in code
-            start_date = date_range.start_date
-            end_date = date_range.end_date
+            posts_count = len(posts_data)
             
-            # Aggregate engagement from posts
-            total_reactions = 0
-            total_comments = 0
-            total_shares = 0
-            filtered_count = 0
-            
+            # Aggregate engagement from all posts
             for post in posts_data:
-                # Filter by date if created_time is available
-                created_time = post.get("created_time")
-                if created_time:
-                    try:
-                        post_date = datetime.fromisoformat(created_time.replace("Z", "+00:00")).date()
-                        if post_date < start_date or post_date > end_date:
-                            continue
-                    except (ValueError, TypeError):
-                        pass
-                
-                filtered_count += 1
-                # With basic fields, only shares count is available
-                # reactions/comments require pages_read_engagement + pages_read_user_content permissions
-                total_shares += post.get("shares", {}).get("count", 0) if isinstance(post.get("shares"), dict) else 0
-            
-            # Calculate engagement metrics based on available data
-            metrics["page_post_engagements"] = total_shares  # Only shares available without additional permissions
-            metrics["page_engaged_users"] = filtered_count  # Approximation based on posts
-            metrics["page_views_total"] = filtered_count * 100  # Rough estimate
-            metrics["page_impressions"] = metrics["page_views_total"] * 10  # Rough estimate
-            metrics["posts_count"] = filtered_count
-            metrics["total_reactions"] = total_reactions
-            metrics["total_comments"] = total_comments
-            metrics["total_shares"] = total_shares
+                total_reactions += post.get("reactions", {}).get("summary", {}).get("total_count", 0)
+                total_comments += post.get("comments", {}).get("summary", {}).get("total_count", 0)
+                total_shares += post.get("shares", {}).get("count", 0)
             
         except Exception as e:
-            logger.warning(f"Failed to fetch posts engagement: {e}")
-            metrics["page_post_engagements"] = 0
-            metrics["page_engaged_users"] = 0
-            metrics["page_views_total"] = 0
-            metrics["page_impressions"] = 0
-            metrics["posts_count"] = 0
+            logger.warning(f"Failed to fetch posts with engagement: {e}")
+            posts_count = 0
+        
+        # Calculate total engagement
+        total_engagement = total_reactions + total_comments + total_shares
+        
+        # Estimate views based on engagement (typical engagement rate is 1-5%)
+        estimated_views = max(total_engagement * 20, posts_count * 100) if total_engagement > 0 else posts_count * 100
+        
+        metrics["page_post_engagements"] = total_engagement
+        metrics["page_engaged_users"] = total_engagement
+        metrics["page_views_total"] = estimated_views
+        metrics["page_impressions"] = estimated_views
+        metrics["posts_count"] = posts_count
+        metrics["total_reactions"] = total_reactions
+        metrics["total_comments"] = total_comments
+        metrics["total_shares"] = total_shares
         
         return metrics
     
@@ -461,58 +471,44 @@ class FacebookAnalyticsService:
         date_range: DateRange
     ) -> List[TimeSeriesDataPoint]:
         """
-        Fetch daily time series data based on post engagement.
+        Fetch daily time series data using published_posts.
         
-        Note: Page Insights metrics like page_views_total are deprecated as of Nov 2025.
-        We now generate time series from post engagement data.
+        Note: Page Insights metrics deprecated Nov 2025. 
+        We use published_posts count by date as engagement proxy.
         """
         try:
-            # Use /feed endpoint as per official Meta Graph API v24.0 docs
-            feed_url = f"{self.GRAPH_API_BASE}/{page_id}/feed"
-            feed_params = {
+            posts_url = f"{self.GRAPH_API_BASE}/{page_id}/published_posts"
+            posts_params = {
                 "access_token": access_token,
-                "fields": "id,created_time,message,shares",
-                "limit": 100
+                "fields": "id,created_time",
+                "limit": 100,
+                "since": int(datetime.combine(date_range.start_date, datetime.min.time()).timestamp()),
+                "until": int(datetime.combine(date_range.end_date, datetime.max.time()).timestamp())
             }
             
-            response = await self.client.get(feed_url, params=feed_params)
+            response = await self.client.get(posts_url, params=posts_params)
             response.raise_for_status()
             posts_data = response.json().get("data", [])
             
-            # Group engagement by date
-            start_date = date_range.start_date
-            end_date = date_range.end_date
-            daily_engagement = {}
-            
+            # Group by date
+            daily_counts = {}
             for post in posts_data:
                 try:
                     created_time = post.get("created_time", "")
                     if created_time:
                         dt = datetime.fromisoformat(created_time.replace("Z", "+00:00"))
                         post_date = dt.date()
-                        
-                        # Filter by date range
-                        if post_date < start_date or post_date > end_date:
-                            continue
-                        
-                        # With basic fields, only shares is available
-                        shares = post.get("shares", {}).get("count", 0) if isinstance(post.get("shares"), dict) else 0
-                        engagement = shares + 1  # Count post itself as engagement
-                        
-                        if post_date in daily_engagement:
-                            daily_engagement[post_date] += engagement
-                        else:
-                            daily_engagement[post_date] = engagement
+                        daily_counts[post_date] = daily_counts.get(post_date, 0) + 1
                 except (ValueError, TypeError):
                     continue
             
             # Convert to time series
             time_series = []
-            for post_date, engagement in sorted(daily_engagement.items()):
+            for post_date, count in sorted(daily_counts.items()):
                 time_series.append(TimeSeriesDataPoint(
                     date=post_date,
-                    value=float(engagement),
-                    label="Engagement"
+                    value=float(count),
+                    label="Posts"
                 ))
             
             return time_series

@@ -27,6 +27,7 @@ from .facebook_analytics_service import facebook_analytics_service
 from .instagram_analytics_service import instagram_analytics_service
 from .youtube_analytics_service import youtube_analytics_service
 from .tiktok_analytics_service import tiktok_analytics_service
+from ..credentials import MetaCredentialsService
 from ...config import settings
 
 logger = logging.getLogger(__name__)
@@ -307,6 +308,12 @@ class UnifiedAnalyticsService:
                 
             elif platform == Platform.INSTAGRAM:
                 ig_user_id = credentials.get("instagram_user_id") or credentials.get("ig_user_id")
+                if not ig_user_id and credentials.get("page_id"):
+                    ig_user_id = await MetaCredentialsService._get_instagram_from_facebook_page(
+                        credentials["page_id"],
+                        credentials.get("page_access_token") or access_token
+                    )
+
                 if not ig_user_id:
                     return {"error": "No Instagram user_id configured"}
                 

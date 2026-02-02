@@ -41,12 +41,12 @@ class YouTubeAnalyticsService:
     # Core channel metrics
     CHANNEL_METRICS = [
         "views",
+        "engagedViews",
         "estimatedMinutesWatched",
         "averageViewDuration",
         "subscribersGained",
         "subscribersLost",
         "likes",
-        "dislikes",  # Returns 0 since 2021
         "comments",
         "shares"
     ]
@@ -54,6 +54,7 @@ class YouTubeAnalyticsService:
     # Video-level metrics
     VIDEO_METRICS = [
         "views",
+        "engagedViews",
         "estimatedMinutesWatched",
         "averageViewDuration",
         "averageViewPercentage",
@@ -224,6 +225,7 @@ class YouTubeAnalyticsService:
                     ),
                     thumbnail_url=snippet.get("thumbnails", {}).get("high", {}).get("url"),
                     views=analytics.get("views", 0),
+                    engaged_views=analytics.get("engagedViews", 0),
                     estimated_minutes_watched=analytics.get("estimatedMinutesWatched", 0),
                     average_view_duration=analytics.get("averageViewDuration", 0),
                     average_view_percentage=analytics.get("averageViewPercentage"),
@@ -241,6 +243,7 @@ class YouTubeAnalyticsService:
                     ),
                     thumbnail_url=snippet.get("thumbnails", {}).get("high", {}).get("url"),
                     views=int(statistics.get("viewCount", 0)),
+                    engaged_views=0,
                     estimated_minutes_watched=0,  # Not available via Data API
                     average_view_duration=0,
                     likes=int(statistics.get("likeCount", 0)),
@@ -276,7 +279,7 @@ class YouTubeAnalyticsService:
                 "ids": f"channel=={channel_id}",
                 "startDate": date_range.start_date.isoformat(),
                 "endDate": date_range.end_date.isoformat(),
-                "metrics": "views,estimatedMinutesWatched,averageViewDuration,likes,comments,shares",
+                "metrics": "views,engagedViews,estimatedMinutesWatched,averageViewDuration,likes,comments,shares",
                 "dimensions": "video",
                 "sort": "-views",
                 "maxResults": limit
@@ -294,7 +297,7 @@ class YouTubeAnalyticsService:
             rows = data.get("rows", [])
             column_headers = [h.get("name") for h in data.get("columnHeaders", [])]
             
-            # Need video info for each video
+            # Need video info and statistics for each video
             videos = []
             for row in rows:
                 row_dict = dict(zip(column_headers, row))
@@ -305,6 +308,9 @@ class YouTubeAnalyticsService:
                         video_info = await self._get_video_info(access_token, video_id)
                         if video_info:
                             snippet = video_info.get("snippet", {})
+                            statistics = video_info.get("statistics", {})
+                            
+                            # Use Data API for engagement (more reliable), Analytics API for views
                             videos.append(YouTubeVideoMetrics(
                                 video_id=video_id,
                                 title=snippet.get("title", ""),
@@ -312,11 +318,12 @@ class YouTubeAnalyticsService:
                                     snippet.get("publishedAt", "").replace("Z", "+00:00")
                                 ),
                                 thumbnail_url=snippet.get("thumbnails", {}).get("high", {}).get("url"),
-                                views=int(row_dict.get("views", 0)),
+                                views=int(row_dict.get("views", 0)) or int(statistics.get("viewCount", 0)),
+                                engaged_views=int(row_dict.get("engagedViews", 0)),
                                 estimated_minutes_watched=float(row_dict.get("estimatedMinutesWatched", 0)),
                                 average_view_duration=float(row_dict.get("averageViewDuration", 0)),
-                                likes=int(row_dict.get("likes", 0)),
-                                comments=int(row_dict.get("comments", 0)),
+                                likes=int(statistics.get("likeCount", 0)),
+                                comments=int(statistics.get("commentCount", 0)),
                                 shares=int(row_dict.get("shares", 0))
                             ))
                     except Exception as e:
@@ -554,6 +561,10 @@ class YouTubeAnalyticsService:
             views=MetricTrend.calculate(
                 float(current.get("views", 0)),
                 float(previous.get("views")) if previous.get("views") else None
+            ),
+            engaged_views=MetricTrend.calculate(
+                float(current.get("engagedViews", 0)),
+                float(previous.get("engagedViews")) if previous.get("engagedViews") else None
             ),
             estimated_minutes_watched=MetricTrend.calculate(
                 float(current.get("estimatedMinutesWatched", 0)),
