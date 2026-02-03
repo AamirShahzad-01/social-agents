@@ -247,7 +247,7 @@ class FacebookAnalyticsService:
             posts_url = f"{self.GRAPH_API_BASE}/{page_id}/published_posts"
             posts_params = {
                 "access_token": access_token,
-                "fields": "id,message,created_time,permalink_url,reactions.summary(true),comments.summary(true),shares",
+                "fields": "id,message,created_time,permalink_url,full_picture,reactions.summary(true),comments.summary(true),shares",
                 "limit": min(limit * 2, 50)
             }
             
@@ -312,6 +312,7 @@ class FacebookAnalyticsService:
                         message=post.get("message"),
                         created_time=datetime.fromisoformat(post["created_time"].replace("Z", "+00:00")),
                         post_type="published",
+                        picture_url=post.get("full_picture"),
                         post_impressions=impressions,
                         post_engaged_users=total_engagement,
                         comments=comments_count,

@@ -503,6 +503,7 @@ class UnifiedAnalyticsService:
                     platform=Platform.FACEBOOK,
                     post_id=post.post_id,
                     content_preview=post.message[:100] if post.message else None,
+                    thumbnail_url=post.picture_url,
                     created_at=post.created_time,
                     views=views,
                     reach=post.post_impressions_unique or 0,

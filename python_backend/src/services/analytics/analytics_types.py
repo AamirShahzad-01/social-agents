@@ -161,6 +161,7 @@ class FacebookPostInsights(BaseModel):
     message: Optional[str] = None
     created_time: datetime
     post_type: Optional[str] = None
+    picture_url: Optional[str] = Field(None, description="Post image/thumbnail URL")
     
     # Engagement
     post_impressions: int = Field(0, description="Times post was shown")
