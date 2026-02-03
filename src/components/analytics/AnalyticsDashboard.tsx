@@ -618,15 +618,6 @@ const TopPostsTable: React.FC<TopPostsTableProps> = ({ posts }) => {
                                     key={post.post_id}
                                     className="flex items-center gap-4 px-6 py-3 hover:bg-muted/20 transition-colors"
                                 >
-                                    {/* Rank Badge */}
-                                    <div className={`
-                                        flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-sm
-                                        ${index === 0 ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-white' :
-                                            index === 1 ? 'bg-gradient-to-br from-slate-300 to-slate-500 text-white' :
-                                                'bg-gradient-to-br from-orange-400 to-orange-600 text-white'}
-                                    `}>
-                                        {index + 1}
-                                    </div>
 
                                     {/* Thumbnail */}
                                     {post.thumbnail_url ? (
@@ -655,7 +646,9 @@ const TopPostsTable: React.FC<TopPostsTableProps> = ({ posts }) => {
                                             })}
                                         </span>
                                         <p className="text-sm truncate font-medium">
-                                            {post.content_preview || 'No caption'}
+                                            {post.content_preview
+                                                ? post.content_preview.split(' ').slice(0, 20).join(' ') + (post.content_preview.split(' ').length > 20 ? '...' : '')
+                                                : 'No caption'}
                                         </p>
                                     </div>
 
