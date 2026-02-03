@@ -5,7 +5,7 @@ Provides cross-platform comparison and unified metrics.
 """
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Tuple
 
 from .analytics_types import (
@@ -155,7 +155,7 @@ class UnifiedAnalyticsService:
                 top_posts=top_posts,
                 platform_comparison=comparison,
                 date_range=date_range,
-                generated_at=datetime.utcnow()
+                generated_at=datetime.now(timezone.utc)
             )
             
         except Exception as e:
