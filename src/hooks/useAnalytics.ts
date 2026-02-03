@@ -90,7 +90,7 @@ interface UseAnalyticsDashboardResult {
 // =============================================================================
 
 const ANALYTICS_CACHE_KEY = 'analytics_dashboard_cache';
-const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours max cache age (reduced from 24h)
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours max cache age
 const MAX_CACHE_ENTRIES = 3; // Maximum number of cache entries to keep
 
 interface CachedAnalyticsData {
@@ -320,19 +320,30 @@ export function useAnalyticsDashboard(
         }
     }, [workspaceId, datePreset]);
 
-    // Initial fetch (always fetch fresh data in background)
+    // Initial fetch - ONLY if no cached data exists
+    // User must click refresh button to get fresh data when cache exists
     useEffect(() => {
-        fetchDashboard();
+        // Check if we already have cached data
+        const cached = workspaceId ? getCachedData(workspaceId, datePreset) : null;
+
+        // Only fetch if no cache - otherwise wait for manual refresh
+        if (!cached) {
+            fetchDashboard();
+        }
 
         return () => {
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }
         };
-    }, [fetchDashboard]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [workspaceId, datePreset]);
 
-    // Auto-refresh
+    // Auto-refresh disabled - user must manually click refresh
+    // Keeping the hook structure in case auto-refresh is needed in the future
     useEffect(() => {
+        // Auto-refresh is now disabled by default to reduce API calls
+        // Data will only be refreshed when user clicks the refresh button
         if (!autoRefresh) return;
 
         const interval = setInterval(() => {

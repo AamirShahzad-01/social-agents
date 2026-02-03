@@ -229,14 +229,19 @@ class FacebookAnalyticsService:
         page_id: str,
         access_token: str,
         date_range: DateRange,
-        limit: int = 10
+        limit: int = 3
     ) -> List[FacebookPostInsights]:
         """
         Get top performing posts within date range.
         
+        OPTIMIZED: Uses concurrent insights fetching with asyncio.gather
+        to parallelize API calls and reduce total request time.
+        
         Note: As of Nov 2025, /feed endpoint requires pages_read_engagement permission
         for shares/reactions fields. We fetch engagement data from post fields directly.
         """
+        import asyncio
+        
         try:
             # Use /published_posts with engagement fields
             posts_url = f"{self.GRAPH_API_BASE}/{page_id}/published_posts"
@@ -250,19 +255,24 @@ class FacebookAnalyticsService:
             response.raise_for_status()
             posts_data = response.json().get("data", [])
             
-            # Filter by date range and create post insights
+            # Filter by date range first
             start_date = date_range.start_date
             end_date = date_range.end_date
-            posts_with_engagement = []
+            filtered_posts = []
             
             for post in posts_data:
                 try:
                     created_time = post.get("created_time")
                     if created_time:
                         post_date = datetime.fromisoformat(created_time.replace("Z", "+00:00")).date()
-                        if post_date < start_date or post_date > end_date:
-                            continue
-                    
+                        if start_date <= post_date <= end_date:
+                            filtered_posts.append(post)
+                except Exception:
+                    continue
+            
+            # OPTIMIZED: Concurrent post insights fetching using asyncio.gather
+            async def fetch_post_data(post: dict) -> Optional[tuple]:
+                try:
                     post_id = post["id"]
                     
                     # Get engagement data directly from post fields
@@ -308,12 +318,26 @@ class FacebookAnalyticsService:
                         shares=shares_count,
                         reactions_like=reactions_count  # Total reactions as "likes" equivalent
                     )
-                    posts_with_engagement.append((total_engagement, post_insight))
+                    return (total_engagement, post_insight)
+                    
                 except Exception as e:
-                    logger.warning(f"Error parsing post {post.get('id')}: {e}")
-                    continue
+                    logger.warning(f"Error processing post {post.get('id')}: {e}")
+                    return None
+            
+            # Execute all post data fetches concurrently
+            results = await asyncio.gather(
+                *[fetch_post_data(p) for p in filtered_posts],
+                return_exceptions=True
+            )
+            
+            # Filter out None results and exceptions
+            posts_with_engagement = [
+                r for r in results 
+                if r is not None and not isinstance(r, Exception)
+            ]
             
             posts_with_engagement.sort(key=lambda x: x[0], reverse=True)
+            logger.info(f"Facebook top posts: fetched {len(posts_with_engagement)} posts concurrently, returning top {min(limit, len(posts_with_engagement))}")
             return [post for _, post in posts_with_engagement[:limit]]
             
         except Exception as e:

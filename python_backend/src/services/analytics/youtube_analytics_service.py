@@ -101,7 +101,7 @@ class YouTubeAnalyticsService:
         date_range: DateRange,
         include_time_series: bool = True,
         include_top_videos: bool = True,
-        top_videos_limit: int = 10
+        top_videos_limit: int = 3
     ) -> YouTubeAnalytics:
         """
         Get comprehensive YouTube channel analytics.
@@ -260,7 +260,7 @@ class YouTubeAnalyticsService:
         access_token: str,
         channel_id: str,
         date_range: DateRange,
-        limit: int = 10
+        limit: int = 3
     ) -> List[YouTubeVideoMetrics]:
         """
         Get top performing videos by views within date range.
@@ -297,39 +297,49 @@ class YouTubeAnalyticsService:
             rows = data.get("rows", [])
             column_headers = [h.get("name") for h in data.get("columnHeaders", [])]
             
-            # Need video info and statistics for each video
-            videos = []
+            # Extract video IDs and analytics data
+            video_ids = []
+            analytics_data = {}
             for row in rows:
                 row_dict = dict(zip(column_headers, row))
                 video_id = row_dict.get("video")
-                
                 if video_id:
-                    try:
-                        video_info = await self._get_video_info(access_token, video_id)
-                        if video_info:
-                            snippet = video_info.get("snippet", {})
-                            statistics = video_info.get("statistics", {})
-                            
-                            # Use Data API for engagement (more reliable), Analytics API for views
-                            videos.append(YouTubeVideoMetrics(
-                                video_id=video_id,
-                                title=snippet.get("title", ""),
-                                published_at=datetime.fromisoformat(
-                                    snippet.get("publishedAt", "").replace("Z", "+00:00")
-                                ),
-                                thumbnail_url=snippet.get("thumbnails", {}).get("high", {}).get("url"),
-                                views=int(row_dict.get("views", 0)) or int(statistics.get("viewCount", 0)),
-                                engaged_views=int(row_dict.get("engagedViews", 0)),
-                                estimated_minutes_watched=float(row_dict.get("estimatedMinutesWatched", 0)),
-                                average_view_duration=float(row_dict.get("averageViewDuration", 0)),
-                                likes=int(statistics.get("likeCount", 0)),
-                                comments=int(statistics.get("commentCount", 0)),
-                                shares=int(row_dict.get("shares", 0))
-                            ))
-                    except Exception as e:
-                        logger.warning(f"Error fetching video info for {video_id}: {e}")
-                        continue
+                    video_ids.append(video_id)
+                    analytics_data[video_id] = row_dict
             
+            # OPTIMIZED: Batch fetch all video info in a single API call
+            # This reduces N individual API calls to 1 batch request
+            video_infos = await self._batch_get_video_info(access_token, video_ids)
+            
+            # Build video metrics using batch-fetched data
+            videos = []
+            for video_id in video_ids:
+                video_info = video_infos.get(video_id)
+                if not video_info:
+                    continue
+                    
+                row_dict = analytics_data.get(video_id, {})
+                snippet = video_info.get("snippet", {})
+                statistics = video_info.get("statistics", {})
+                
+                # Use Data API for engagement (more reliable), Analytics API for views
+                videos.append(YouTubeVideoMetrics(
+                    video_id=video_id,
+                    title=snippet.get("title", ""),
+                    published_at=datetime.fromisoformat(
+                        snippet.get("publishedAt", "").replace("Z", "+00:00")
+                    ),
+                    thumbnail_url=snippet.get("thumbnails", {}).get("high", {}).get("url"),
+                    views=int(row_dict.get("views", 0)) or int(statistics.get("viewCount", 0)),
+                    engaged_views=int(row_dict.get("engagedViews", 0)),
+                    estimated_minutes_watched=float(row_dict.get("estimatedMinutesWatched", 0)),
+                    average_view_duration=float(row_dict.get("averageViewDuration", 0)),
+                    likes=int(statistics.get("likeCount", 0)),
+                    comments=int(statistics.get("commentCount", 0)),
+                    shares=int(row_dict.get("shares", 0))
+                ))
+            
+            logger.info(f"Fetched {len(videos)} top videos with optimized batch API call")
             return videos
             
         except Exception as e:
@@ -436,6 +446,57 @@ class YouTubeAnalyticsService:
         items = data.get("items", [])
         return items[0] if items else None
     
+    async def _batch_get_video_info(
+        self,
+        access_token: str,
+        video_ids: List[str]
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Batch fetch video info for multiple videos in a single API call.
+        
+        YouTube API Best Practice: Use comma-separated IDs to reduce quota usage.
+        This reduces N individual API calls to 1 single batch request.
+        
+        Args:
+            access_token: OAuth access token
+            video_ids: List of video IDs to fetch (max 50 per request)
+            
+        Returns:
+            Dict mapping video_id to video info
+        """
+        if not video_ids:
+            return {}
+        
+        # YouTube API supports max 50 IDs per request
+        batch_size = 50
+        result = {}
+        
+        for i in range(0, len(video_ids), batch_size):
+            batch_ids = video_ids[i:i + batch_size]
+            
+            url = f"{self.DATA_API_URL}/videos"
+            params = {
+                "part": "id,snippet,statistics,contentDetails",
+                "id": ",".join(batch_ids)  # Comma-separated list of IDs
+            }
+            headers = {"Authorization": f"Bearer {access_token}"}
+            
+            try:
+                response = await self.client.get(url, params=params, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                
+                # Map video ID to video info
+                for item in data.get("items", []):
+                    result[item["id"]] = item
+                    
+            except Exception as e:
+                logger.warning(f"Batch video info fetch failed for batch {i}: {e}")
+                continue
+        
+        logger.info(f"Batch fetched {len(result)} video infos in {(len(video_ids) + batch_size - 1) // batch_size} API call(s)")
+        return result
+    
     async def _fetch_channel_metrics(
         self,
         access_token: str,
@@ -505,12 +566,17 @@ class YouTubeAnalyticsService:
         channel_id: str,
         date_range: DateRange
     ) -> List[TimeSeriesDataPoint]:
-        """Fetch daily time series for engagement (likes+comments+shares)."""
+        """
+        Fetch daily time series for views.
+        
+        Per YouTube Analytics API docs, 'views' is available with 'day' dimension.
+        Using views to align with Instagram's reach metric for consistency.
+        """
         params = {
             "ids": f"channel=={channel_id}",
             "startDate": date_range.start_date.isoformat(),
             "endDate": date_range.end_date.isoformat(),
-            "metrics": "likes,comments,shares",
+            "metrics": "views",
             "dimensions": "day",
             "sort": "day"
         }
@@ -527,16 +593,13 @@ class YouTubeAnalyticsService:
         time_series = []
         for row in data.get("rows", []):
             date_str = row[0]
-            likes = row[1] if len(row) > 1 else 0
-            comments = row[2] if len(row) > 2 else 0
-            shares = row[3] if len(row) > 3 else 0
-            engagement = likes + comments + shares
+            views = row[1] if len(row) > 1 else 0
             try:
                 dt = datetime.strptime(date_str, "%Y-%m-%d")
                 time_series.append(TimeSeriesDataPoint(
                     date=dt.date(),
-                    value=float(engagement),
-                    label="Engagement"
+                    value=float(views),
+                    label="Views"
                 ))
             except (ValueError, IndexError):
                 continue

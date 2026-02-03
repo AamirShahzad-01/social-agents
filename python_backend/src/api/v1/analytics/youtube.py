@@ -128,7 +128,7 @@ async def get_youtube_analytics(
     end_date: Optional[date] = Query(None, description="Custom end date"),
     include_time_series: bool = Query(True, description="Include daily time series"),
     include_top_videos: bool = Query(True, description="Include top videos"),
-    top_videos_limit: int = Query(10, ge=1, le=50, description="Number of top videos"),
+    top_videos_limit: int = Query(3, ge=1, le=50, description="Number of top videos"),
     credentials_service = Depends(get_credentials_service)
 ):
     """

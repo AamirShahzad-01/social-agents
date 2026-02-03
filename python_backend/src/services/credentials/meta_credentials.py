@@ -145,7 +145,7 @@ class MetaCredentialsService:
                 logger.warning(f"Token refresh failed: {refresh_result.get('error')}")
         
         # Step 5: Get Instagram Business Account ID if Facebook page exists
-        ig_user_id = credentials_data.get("igUserId") or credentials_data.get("ig_user_id")
+        ig_user_id = credentials_data.get("igUserId") or credentials_data.get("ig_user_id") or credentials_data.get("instagramAccountId")
         if not ig_user_id and page_id:
             ig_user_id = await MetaCredentialsService._get_instagram_from_facebook_page(
                 page_id, access_token
@@ -364,7 +364,7 @@ class MetaCredentialsService:
         if instagram_record:
             instagram_data = instagram_record.get("credentials") or {}
             access_token = instagram_data.get("accessToken") or instagram_data.get("access_token")
-            ig_user_id = instagram_data.get("igUserId") or instagram_data.get("ig_user_id")
+            ig_user_id = instagram_data.get("igUserId") or instagram_data.get("ig_user_id") or instagram_data.get("instagramAccountId")
             page_id = instagram_record.get("page_id")
             page_name = instagram_record.get("page_name")
             username = instagram_record.get("username")

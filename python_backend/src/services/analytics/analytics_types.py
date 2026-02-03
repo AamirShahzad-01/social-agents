@@ -422,19 +422,29 @@ class PlatformSummary(BaseModel):
 
 
 class TopPerformingPost(BaseModel):
-    """Top performing post across all platforms."""
+    """
+    Top performing post across all platforms.
+    
+    Buffer Best Practice: Posts ranked by engagement rate.
+    Engagement Rate = (Total Interactions / Total Impressions) × 100%
+    """
     platform: Platform
     post_id: str
     content_preview: Optional[str] = None
     thumbnail_url: Optional[str] = None
     created_at: datetime
     
-    # Universal metrics
-    views: int
-    likes: int
-    comments: int
-    shares: int
-    engagement_rate: float
+    # Universal metrics (Buffer-style)
+    views: int = Field(..., description="Total impressions/views")
+    reach: int = Field(0, description="Unique accounts reached (if available)")
+    likes: int = Field(..., description="Total likes/reactions")
+    comments: int = Field(..., description="Total comments")
+    shares: int = Field(..., description="Total shares/reposts")
+    saves: int = Field(0, description="Total saves (Instagram/TikTok)")
+    
+    # Calculated metrics
+    total_engagement: int = Field(..., description="Sum of all interactions: likes + comments + shares + saves")
+    engagement_rate: float = Field(..., description="(Total Interactions / Views) × 100")
     
     # Platform-specific URL
     post_url: Optional[str] = None
@@ -482,7 +492,7 @@ class AnalyticsRequest(BaseModel):
     period: AnalyticsPeriod = AnalyticsPeriod.DAY
     include_time_series: bool = True
     include_top_posts: bool = True
-    top_posts_limit: int = Field(default=10, ge=1, le=50)
+    top_posts_limit: int = Field(default=12, ge=1, le=50)
     
     def get_date_range(self) -> DateRange:
         """Get DateRange from request parameters."""

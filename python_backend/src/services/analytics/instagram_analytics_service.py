@@ -253,10 +253,21 @@ class InstagramAnalyticsService:
         ig_user_id: str,
         access_token: str,
         date_range: DateRange,
-        limit: int = 10
+        limit: int = 3
     ) -> List[InstagramMediaInsights]:
         """
         Get top performing media within date range.
+        
+        OPTIMIZED: Uses concurrent insights fetching with asyncio.gather
+        to parallelize API calls and reduce total request time.
+        
+        Uses Instagram Graph API v24.0 Media Insights.
+        Available metrics per media type:
+        - FEED (posts): views, reach, likes, comments, shares, saved, total_interactions
+        - REELS: views, reach, likes, comments, shares, saved, total_interactions
+        - STORY: views, reach, shares, total_interactions, navigation, replies
+        
+        Deprecated metrics (April 21, 2025): impressions, plays, clips_replays_count
         
         Args:
             ig_user_id: Instagram User ID
@@ -267,8 +278,10 @@ class InstagramAnalyticsService:
         Returns:
             List of InstagramMediaInsights sorted by engagement
         """
+        import asyncio
+        
         try:
-            # Fetch recent media
+            # Fetch recent media with basic fields
             media_url = f"{self.GRAPH_API_BASE}/{ig_user_id}/media"
             media_params = {
                 "access_token": access_token,
@@ -280,44 +293,77 @@ class InstagramAnalyticsService:
             response.raise_for_status()
             media_list = response.json().get("data", [])
             
-            # Filter by date range and calculate engagement
-            media_with_engagement = []
+            # Filter media by date range first
+            filtered_media = []
             for media in media_list:
                 try:
                     timestamp = datetime.fromisoformat(media["timestamp"].replace("Z", "+00:00"))
                     media_date = timestamp.date()
                     
                     # Filter by date range
-                    if not (date_range.start_date <= media_date <= date_range.end_date):
-                        continue
+                    if date_range.start_date <= media_date <= date_range.end_date:
+                        filtered_media.append((media, timestamp))
+                except Exception:
+                    continue
+            
+            # OPTIMIZED: Concurrent insights fetching using asyncio.gather
+            # This parallelizes all insights API calls for maximum efficiency
+            async def fetch_media_insights(media_data: tuple) -> Optional[tuple]:
+                media, timestamp = media_data
+                try:
+                    likes = media.get("like_count", 0) or 0
+                    comments = media.get("comments_count", 0) or 0
+                    media_type = media.get("media_type", "IMAGE")
                     
-                    likes = media.get("like_count", 0)
-                    comments = media.get("comments_count", 0)
-                    engagement = likes + comments
-                    
-                    # Try to fetch media insights for views
                     views = 0
+                    reach = 0
+                    saves = 0
+                    shares = 0
+                    
+                    # Fetch media insights
+                    insights_url = f"{self.GRAPH_API_BASE}/{media['id']}/insights"
+                    metrics = "views,reach,saved,shares"
+                    
+                    insights_params = {
+                        "access_token": access_token,
+                        "metric": metrics
+                    }
+                    
                     try:
-                        insights_url = f"{self.GRAPH_API_BASE}/{media['id']}/insights"
-                        insights_params = {
-                            "access_token": access_token,
-                            "metric": "views"
-                        }
                         insights_response = await self.client.get(insights_url, params=insights_params)
                         if insights_response.status_code == 200:
                             insights_data = insights_response.json().get("data", [])
-                            if insights_data:
-                                views = insights_data[0].get("values", [{}])[-1].get("value", 0)
-                    except Exception:
-                        pass  # Views not available for all media types
+                            for metric in insights_data:
+                                metric_name = metric.get("name")
+                                # Handle both total_value and values array response formats
+                                total_value = metric.get("total_value")
+                                if total_value is not None:
+                                    if isinstance(total_value, dict):
+                                        val = total_value.get("value", 0)
+                                    else:
+                                        val = total_value
+                                else:
+                                    values = metric.get("values", [])
+                                    val = values[-1].get("value", 0) if values else 0
+                                
+                                if isinstance(val, (int, float)):
+                                    if metric_name == "views":
+                                        views = int(val)
+                                    elif metric_name == "reach":
+                                        reach = int(val)
+                                    elif metric_name == "saved":
+                                        saves = int(val)
+                                    elif metric_name == "shares":
+                                        shares = int(val)
+                    except Exception as e:
+                        logger.debug(f"Could not fetch insights for media {media['id']}: {e}")
                     
-                    # Estimate views if not available (typical engagement rate is 5-10%)
-                    if views == 0 and engagement > 0:
-                        views = max(engagement * 15, engagement)
+                    # Calculate total engagement
+                    engagement = likes + comments + saves + shares
                     
                     media_insight = InstagramMediaInsights(
                         media_id=media["id"],
-                        media_type=media.get("media_type", "IMAGE"),
+                        media_type=media_type,
                         caption=media.get("caption"),
                         timestamp=timestamp,
                         permalink=media.get("permalink"),
@@ -325,18 +371,31 @@ class InstagramAnalyticsService:
                         likes=likes,
                         comments=comments,
                         views=views,
-                        reach=0,
-                        saves=0,
-                        shares=0
+                        reach=reach,
+                        saves=saves,
+                        shares=shares
                     )
-                    media_with_engagement.append((engagement, media_insight))
+                    return (engagement, media_insight)
                     
                 except Exception as e:
-                    logger.warning(f"Error parsing media {media.get('id')}: {e}")
-                    continue
+                    logger.warning(f"Error processing media {media.get('id')}: {e}")
+                    return None
+            
+            # Execute all insights fetches concurrently
+            results = await asyncio.gather(
+                *[fetch_media_insights(m) for m in filtered_media],
+                return_exceptions=True
+            )
+            
+            # Filter out None results and exceptions
+            media_with_engagement = [
+                r for r in results 
+                if r is not None and not isinstance(r, Exception)
+            ]
             
             # Sort by engagement and return top media
             media_with_engagement.sort(key=lambda x: x[0], reverse=True)
+            logger.info(f"Instagram top media: fetched {len(media_with_engagement)} posts concurrently, returning top {min(limit, len(media_with_engagement))}")
             return [media for _, media in media_with_engagement[:limit]]
             
         except Exception as e:
@@ -460,10 +519,68 @@ class InstagramAnalyticsService:
         """
         Fetch daily time series data for engagement.
         
-        Uses media engagement (likes + comments) aggregated by post date.
+        Per Instagram Graph API v24.0 docs:
+        - 'reach' supports metric_type=time_series
+        - 'total_interactions', 'likes', 'comments', 'shares', 'saved' only support total_value
+        
+        So we use the official reach time_series from insights API.
         """
         try:
-            # Fetch recent media with engagement
+            # Use Instagram Insights API with reach (supports time_series)
+            # API docs: https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/insights
+            clamped_end_date = min(date_range.end_date, date_range.start_date + timedelta(days=29))
+            
+            url = f"{self.GRAPH_API_BASE}/{ig_user_id}/insights"
+            params = {
+                "access_token": access_token,
+                "metric": "reach",
+                "metric_type": "time_series",
+                "period": "day",
+                "since": int(datetime.combine(date_range.start_date, datetime.min.time()).timestamp()),
+                "until": int(datetime.combine(clamped_end_date, datetime.max.time()).timestamp())
+            }
+            
+            response = await self.client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json().get("data", [])
+            
+            time_series = []
+            for metric in data:
+                if metric.get("name") == "reach":
+                    values = metric.get("values", [])
+                    for v in values:
+                        end_time = v.get("end_time", "")
+                        value = v.get("value", 0)
+                        if end_time:
+                            try:
+                                dt = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+                                time_series.append(TimeSeriesDataPoint(
+                                    date=dt.date(),
+                                    value=float(value) if isinstance(value, (int, float)) else 0.0,
+                                    label="Reach"
+                                ))
+                            except (ValueError, TypeError):
+                                continue
+            
+            logger.info(f"Instagram time series: found {len(time_series)} data points from reach metric")
+            return time_series
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch Instagram time series from insights API: {e}", exc_info=True)
+            # Fallback: aggregate engagement from media posts
+            return await self._fetch_time_series_from_media(ig_user_id, access_token, date_range)
+    
+    async def _fetch_time_series_from_media(
+        self,
+        ig_user_id: str,
+        access_token: str,
+        date_range: DateRange
+    ) -> List[TimeSeriesDataPoint]:
+        """
+        Fallback: Compute engagement time series from individual media posts.
+        Uses like_count + comments_count aggregated by post date.
+        """
+        try:
             media_url = f"{self.GRAPH_API_BASE}/{ig_user_id}/media"
             media_params = {
                 "access_token": access_token,
@@ -484,27 +601,18 @@ class InstagramAnalyticsService:
                         dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
                         media_date = dt.date()
                         
-                        # Filter by date range
                         if not (date_range.start_date <= media_date <= date_range.end_date):
                             continue
                         
-                        # Calculate engagement
-                        likes = media.get("like_count", 0)
-                        comments = media.get("comments_count", 0)
+                        likes = media.get("like_count", 0) or 0
+                        comments = media.get("comments_count", 0) or 0
                         engagement = likes + comments
                         
                         daily_engagement[media_date] = daily_engagement.get(media_date, 0) + engagement
                 except (ValueError, TypeError):
                     continue
             
-            # Fill in missing dates with 0
-            current_date = date_range.start_date
-            while current_date <= date_range.end_date:
-                if current_date not in daily_engagement:
-                    daily_engagement[current_date] = 0
-                current_date += timedelta(days=1)
-            
-            # Convert to time series
+            # Convert to time series (don't fill missing dates with 0 - only show days with data)
             time_series = []
             for post_date, engagement in sorted(daily_engagement.items()):
                 time_series.append(TimeSeriesDataPoint(
@@ -513,38 +621,58 @@ class InstagramAnalyticsService:
                     label="Engagement"
                 ))
             
-            logger.info(f"Instagram time series: found {len(time_series)} data points")
+            logger.info(f"Instagram time series (fallback): found {len(time_series)} data points from media")
             return time_series
             
         except Exception as e:
-            logger.warning(f"Failed to fetch Instagram time series: {e}", exc_info=True)
+            logger.warning(f"Failed to fetch Instagram time series from media: {e}", exc_info=True)
             return []
     
     def _parse_account_insights(self, data: List[Dict]) -> Dict[str, Any]:
-        """Parse Instagram account insights response."""
-        def _coerce_metric_value(value: Any) -> float:
-            if isinstance(value, dict):
-                if isinstance(value.get("value"), (int, float)):
-                    return float(value["value"])
-                total_value = value.get("total_value")
-                if isinstance(total_value, dict) and isinstance(total_value.get("value"), (int, float)):
-                    return float(total_value["value"])
-                if isinstance(total_value, (int, float)):
-                    return float(total_value)
-                return 0.0
-            if isinstance(value, (int, float)):
-                return float(value)
-            return 0.0
-
+        """Parse Instagram account insights response.
+        
+        Handles both total_value (when metric_type=total_value) and 
+        values array (when metric_type=time_series) formats.
+        
+        API Response format for total_value:
+        {
+            "name": "views",
+            "period": "day",
+            "total_value": {
+                "value": 1234
+            }
+        }
+        """
         metrics: Dict[str, float] = {}
+        
         for metric in data:
             name = metric.get("name")
+            if not name:
+                continue
+            
+            # Try total_value format first (metric_type=total_value)
+            total_value = metric.get("total_value")
+            if total_value is not None:
+                if isinstance(total_value, dict):
+                    value = total_value.get("value")
+                    if isinstance(value, (int, float)):
+                        metrics[name] = float(value)
+                        continue
+                elif isinstance(total_value, (int, float)):
+                    metrics[name] = float(total_value)
+                    continue
+            
+            # Fall back to values array format (metric_type=time_series)
             values = metric.get("values", [])
-
             if values:
-                total = sum(_coerce_metric_value(v.get("value")) for v in values)
-                if name:
-                    metrics[name] = total
+                total = 0.0
+                for v in values:
+                    val = v.get("value")
+                    if isinstance(val, (int, float)):
+                        total += float(val)
+                    elif isinstance(val, dict) and isinstance(val.get("value"), (int, float)):
+                        total += float(val["value"])
+                metrics[name] = total
 
         return metrics
     

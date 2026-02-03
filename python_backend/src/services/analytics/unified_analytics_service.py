@@ -196,7 +196,7 @@ class UnifiedAnalyticsService:
         user_id: str,
         workspace_id: str,
         date_range: DateRange,
-        limit: int = 10,
+        limit: int = 3,
         credentials_getter = None
     ) -> List[TopPerformingPost]:
         """
@@ -372,9 +372,15 @@ class UnifiedAnalyticsService:
         """Convert Instagram insights to platform summary."""
         metrics = insights.account_metrics
         
-        # Calculate engagement rate
+        # Calculate total engagement: likes + comments + saves + shares
+        total_likes = metrics.total_likes or 0
+        total_comments = metrics.total_comments or 0
+        total_saves = metrics.total_saves or 0
+        total_shares = metrics.total_shares or 0
+        engagement = total_likes + total_comments + total_saves + total_shares
+        
+        # Calculate engagement rate based on views
         views = metrics.views.current
-        engagement = metrics.total_likes or 0
         engagement_rate = (engagement / views * 100) if views > 0 else 0
         
         return PlatformSummary(
@@ -474,88 +480,117 @@ class UnifiedAnalyticsService:
         instagram: Optional[InstagramInsights],
         youtube: Optional[YouTubeAnalytics],
         tiktok: Optional[TikTokAnalytics],
-        limit: int = 10
+        limit: int = 3
     ) -> List[TopPerformingPost]:
-        """Aggregate and rank top posts across all platforms."""
+        """
+        Aggregate and rank top posts across all platforms.
+        
+        Buffer Best Practice:
+        - Engagement Rate = (Total Interactions / Total Impressions) × 100%
+        - Total Interactions = likes + comments + shares + saves
+        - Sort by engagement rate descending
+        """
         all_posts = []
         
         # Add Facebook posts
         if facebook and facebook.top_posts:
             for post in facebook.top_posts[:5]:
-                engagement = post.post_engaged_users
-                views = post.post_impressions or 1
+                total_engagement = post.reactions_like + post.comments + post.shares
+                views = post.post_impressions or 0
+                engagement_rate = (total_engagement / views * 100) if views > 0 else 0
+                
                 all_posts.append(TopPerformingPost(
                     platform=Platform.FACEBOOK,
                     post_id=post.post_id,
                     content_preview=post.message[:100] if post.message else None,
                     created_at=post.created_time,
-                    views=post.post_impressions or 0,
+                    views=views,
+                    reach=post.post_impressions_unique or 0,
                     likes=post.reactions_like,
                     comments=post.comments,
                     shares=post.shares,
-                    engagement_rate=round((engagement / views * 100), 2),
+                    saves=0,
+                    total_engagement=total_engagement,
+                    engagement_rate=round(engagement_rate, 2),
                     post_url=f"https://facebook.com/{post.post_id}"
                 ))
         
         # Add Instagram posts
         if instagram and instagram.top_media:
             for media in instagram.top_media[:5]:
-                engagement = media.likes + media.comments + media.saves
-                views = media.views or 1
+                total_engagement = media.likes + media.comments + media.saves + media.shares
+                views = media.views or 0
+                engagement_rate = (total_engagement / views * 100) if views > 0 else 0
+                
                 all_posts.append(TopPerformingPost(
                     platform=Platform.INSTAGRAM,
                     post_id=media.media_id,
                     content_preview=media.caption[:100] if media.caption else None,
                     thumbnail_url=media.thumbnail_url,
                     created_at=media.timestamp,
-                    views=media.views,
+                    views=views,
+                    reach=media.reach or 0,
                     likes=media.likes,
                     comments=media.comments,
                     shares=media.shares,
-                    engagement_rate=round((engagement / views * 100), 2) if views else 0,
+                    saves=media.saves,
+                    total_engagement=total_engagement,
+                    engagement_rate=round(engagement_rate, 2),
                     post_url=media.permalink
                 ))
         
         # Add YouTube videos
         if youtube and youtube.top_videos:
             for video in youtube.top_videos[:5]:
-                engagement = video.likes + video.comments + video.shares
-                views = video.views or 1
+                total_engagement = video.likes + video.comments + video.shares
+                views = video.views or 0
+                engagement_rate = (total_engagement / views * 100) if views > 0 else 0
+                
                 all_posts.append(TopPerformingPost(
                     platform=Platform.YOUTUBE,
                     post_id=video.video_id,
                     content_preview=video.title[:100] if video.title else None,
                     thumbnail_url=video.thumbnail_url,
                     created_at=video.published_at,
-                    views=video.views,
+                    views=views,
+                    reach=0,
                     likes=video.likes,
                     comments=video.comments,
                     shares=video.shares,
-                    engagement_rate=round((engagement / views * 100), 2),
+                    saves=0,
+                    total_engagement=total_engagement,
+                    engagement_rate=round(engagement_rate, 2),
                     post_url=f"https://youtube.com/watch?v={video.video_id}"
                 ))
         
         # Add TikTok videos
         if tiktok and tiktok.top_videos:
             for video in tiktok.top_videos[:5]:
-                engagement = video.like_count + video.comment_count + video.share_count
-                views = video.view_count or 1
+                total_engagement = video.like_count + video.comment_count + video.share_count
+                views = video.view_count or 0
+                engagement_rate = (total_engagement / views * 100) if views > 0 else 0
+                
                 all_posts.append(TopPerformingPost(
                     platform=Platform.TIKTOK,
                     post_id=video.video_id,
                     content_preview=video.title[:100] if video.title else None,
                     thumbnail_url=video.cover_image_url,
                     created_at=video.create_time,
-                    views=video.view_count,
+                    views=views,
+                    reach=0,
                     likes=video.like_count,
                     comments=video.comment_count,
                     shares=video.share_count,
-                    engagement_rate=round((engagement / views * 100), 2),
+                    saves=0,
+                    total_engagement=total_engagement,
+                    engagement_rate=round(engagement_rate, 2),
                     post_url=video.share_url
                 ))
         
-        # Sort by engagement rate and return top posts
+        # Sort by engagement rate descending
         all_posts.sort(key=lambda p: p.engagement_rate, reverse=True)
+        
+        logger.info(f"Aggregated {len(all_posts)} top posts, returning top {limit}")
         return all_posts[:limit]
     
     def _build_comparison_metrics(

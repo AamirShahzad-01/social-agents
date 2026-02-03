@@ -258,16 +258,29 @@ export interface PlatformSummary {
 }
 
 export interface TopPerformingPost {
+    /** 
+     * Buffer Best Practice: Posts ranked by engagement rate.
+     * Engagement Rate = (Total Interactions / Total Impressions) × 100%
+     */
     platform: Platform;
     post_id: string;
     content_preview?: string;
     thumbnail_url?: string;
     created_at: string;
-    views: number;
-    likes: number;
-    comments: number;
-    shares: number;
-    engagement_rate: number;
+
+    // Universal metrics (Buffer-style)
+    views: number;          // Total impressions/views
+    reach: number;          // Unique accounts reached (if available)
+    likes: number;          // Total likes/reactions
+    comments: number;       // Total comments
+    shares: number;         // Total shares/reposts
+    saves: number;          // Total saves (Instagram/TikTok)
+
+    // Calculated metrics
+    total_engagement: number;  // Sum of all interactions
+    engagement_rate: number;   // (Total Interactions / Views) × 100
+
+    // Platform-specific URL
     post_url?: string;
 }
 
