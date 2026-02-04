@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Users,
     Loader2,
@@ -12,9 +12,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import {
+    META_ADS_CACHE_PREFIX,
+    buildMetaAdsCacheKey,
+    getCachedData,
+    setCachedData,
+} from '@/lib/meta-ads-cache';
 
 interface SettingsTeamProps {
     onRefresh?: () => void;
+    cacheScopeId?: string;
 }
 
 interface TeamMember {
@@ -24,14 +31,25 @@ interface TeamMember {
     permissions: string[];
 }
 
-export default function SettingsTeam({ onRefresh }: SettingsTeamProps) {
+export default function SettingsTeam({ onRefresh, cacheScopeId }: SettingsTeamProps) {
     const [team, setTeam] = useState<TeamMember[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const cacheScope = cacheScopeId || 'default';
+    const teamCacheKey = useMemo(
+        () => buildMetaAdsCacheKey('settings_team', cacheScope),
+        [cacheScope]
+    );
 
     useEffect(() => {
+        const cached = getCachedData<TeamMember[]>(teamCacheKey);
+        if (cached) {
+            setTeam(cached);
+            setIsLoading(false);
+            return;
+        }
         fetchTeam();
-    }, []);
+    }, [teamCacheKey]);
 
     const fetchTeam = async () => {
         setIsLoading(true);
@@ -40,7 +58,13 @@ export default function SettingsTeam({ onRefresh }: SettingsTeamProps) {
             const response = await fetch('/api/v1/meta-ads/team/access');
             if (response.ok) {
                 const data = await response.json();
-                setTeam(data.users || []);
+                const nextTeam = data.users || [];
+                setTeam(nextTeam);
+                setCachedData(
+                    teamCacheKey,
+                    nextTeam,
+                    `${META_ADS_CACHE_PREFIX}_settings_${cacheScope}`
+                );
             } else {
                 setError('Failed to load team data');
             }

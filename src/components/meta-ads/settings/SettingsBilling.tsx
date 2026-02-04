@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     DollarSign,
     Loader2,
@@ -16,9 +16,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    META_ADS_CACHE_PREFIX,
+    buildMetaAdsCacheKey,
+    getCachedData,
+    setCachedData,
+} from '@/lib/meta-ads-cache';
 
 interface SettingsBillingProps {
     onRefresh?: () => void;
+    cacheScopeId?: string;
 }
 
 interface BillingData {
@@ -32,17 +39,29 @@ interface BillingData {
     balance_formatted?: string;
 }
 
-export default function SettingsBilling({ onRefresh }: SettingsBillingProps) {
+export default function SettingsBilling({ onRefresh, cacheScopeId }: SettingsBillingProps) {
     const [billing, setBilling] = useState<BillingData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editSpendCap, setEditSpendCap] = useState<number | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const cacheScope = cacheScopeId || 'default';
+    const billingCacheKey = useMemo(
+        () => buildMetaAdsCacheKey('settings_billing', cacheScope),
+        [cacheScope]
+    );
 
     useEffect(() => {
+        const cached = getCachedData<BillingData>(billingCacheKey);
+        if (cached) {
+            setBilling(cached);
+            setEditSpendCap(cached.spend_cap ? cached.spend_cap / 100 : null);
+            setIsLoading(false);
+            return;
+        }
         fetchBilling();
-    }, []);
+    }, [billingCacheKey]);
 
     const fetchBilling = async () => {
         setIsLoading(true);
@@ -53,6 +72,11 @@ export default function SettingsBilling({ onRefresh }: SettingsBillingProps) {
                 const data = await response.json();
                 setBilling(data);
                 setEditSpendCap(data.spend_cap ? data.spend_cap / 100 : null);
+                setCachedData(
+                    billingCacheKey,
+                    data,
+                    `${META_ADS_CACHE_PREFIX}_settings_${cacheScope}`
+                );
             } else {
                 setError('Failed to load billing data');
             }

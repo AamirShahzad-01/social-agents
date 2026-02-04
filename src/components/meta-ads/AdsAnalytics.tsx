@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -35,6 +35,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import {
+  META_ADS_CACHE_PREFIX,
+  buildMetaAdsCacheKey,
+  getCachedData,
+  setCachedData,
+} from '@/lib/meta-ads-cache';
 import type { Campaign, AdSet, Ad, DatePreset, CampaignInsights } from '@/types/metaAds';
 import AnalyticsBreakdown from './AnalyticsBreakdown';
 
@@ -43,6 +49,7 @@ interface AdsAnalyticsProps {
   adSets: AdSet[];
   ads: Ad[];
   onRefresh?: () => void;
+  cacheScopeId?: string;
 }
 
 // v25.0+ Date presets
@@ -77,7 +84,13 @@ interface AnalyticsData {
   error: string | null;
 }
 
-export default function AdsAnalytics({ campaigns = [], adSets = [], ads = [], onRefresh }: AdsAnalyticsProps) {
+export default function AdsAnalytics({
+  campaigns = [],
+  adSets = [],
+  ads = [],
+  onRefresh,
+  cacheScopeId,
+}: AdsAnalyticsProps) {
   const [datePreset, setDatePreset] = useState<DatePreset>('last_7d');
   const [selectedCampaign, setSelectedCampaign] = useState<string>('all');
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
@@ -86,6 +99,11 @@ export default function AdsAnalytics({ campaigns = [], adSets = [], ads = [], on
     error: null,
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const cacheScope = cacheScopeId || 'default';
+  const analyticsCacheKey = useMemo(
+    () => buildMetaAdsCacheKey('analytics', cacheScope, datePreset),
+    [cacheScope, datePreset]
+  );
 
   // Fetch insights from API
   const fetchInsights = useCallback(async () => {
@@ -99,6 +117,11 @@ export default function AdsAnalytics({ campaigns = [], adSets = [], ads = [], on
           loading: false,
           error: null,
         });
+        setCachedData(
+          analyticsCacheKey,
+          { insights: data.insights || [] },
+          `${META_ADS_CACHE_PREFIX}_analytics_${cacheScope}`
+        );
       } else {
         const error = await response.json();
         setAnalyticsData({
@@ -114,14 +137,24 @@ export default function AdsAnalytics({ campaigns = [], adSets = [], ads = [], on
         error: 'Network error fetching insights',
       });
     }
-  }, [datePreset]);
+  }, [analyticsCacheKey, cacheScope, datePreset]);
 
   // Fetch insights when date preset changes
   useEffect(() => {
+    const cached = getCachedData<{ insights: ExtendedInsights[] }>(analyticsCacheKey);
+    if (cached) {
+      setAnalyticsData({
+        insights: cached.insights || [],
+        loading: false,
+        error: null,
+      });
+      return;
+    }
+
     if (campaigns.length > 0) {
       fetchInsights();
     }
-  }, [datePreset, fetchInsights, campaigns.length]);
+  }, [analyticsCacheKey, campaigns.length, fetchInsights]);
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -500,7 +533,7 @@ export default function AdsAnalytics({ campaigns = [], adSets = [], ads = [], on
       </Card>
 
       {/* Demographics & Placement Breakdown */}
-      <AnalyticsBreakdown onRefresh={onRefresh} />
+      <AnalyticsBreakdown onRefresh={onRefresh} cacheScopeId={cacheScope} />
 
       {/* Breakdown Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

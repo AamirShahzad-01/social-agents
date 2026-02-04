@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
     BarChart3,
     Users,
@@ -27,6 +27,12 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import {
+    META_ADS_CACHE_PREFIX,
+    buildMetaAdsCacheKey,
+    getCachedData,
+    setCachedData,
+} from '@/lib/meta-ads-cache';
 
 // Breakdown types
 const BREAKDOWN_TYPES = [
@@ -73,15 +79,27 @@ interface BreakdownData {
 interface AnalyticsBreakdownProps {
     campaignId?: string;
     onRefresh?: () => void;
+    cacheScopeId?: string;
 }
 
-export default function AnalyticsBreakdown({ campaignId, onRefresh }: AnalyticsBreakdownProps) {
+export default function AnalyticsBreakdown({ campaignId, onRefresh, cacheScopeId }: AnalyticsBreakdownProps) {
     const [breakdownType, setBreakdownType] = useState<string>('age');
     const [datePreset, setDatePreset] = useState<string>('last_7d');
     const [level, setLevel] = useState<string>('account');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [breakdowns, setBreakdowns] = useState<BreakdownData[]>([]);
+    const cacheScope = cacheScopeId || 'default';
+    const breakdownCacheKey = useMemo(
+        () => buildMetaAdsCacheKey(
+            'breakdown',
+            cacheScope,
+            breakdownType,
+            datePreset,
+            campaignId || level
+        ),
+        [cacheScope, breakdownType, datePreset, campaignId, level]
+    );
 
     // Fetch breakdown data
     const fetchBreakdown = useCallback(async () => {
@@ -103,7 +121,13 @@ export default function AnalyticsBreakdown({ campaignId, onRefresh }: AnalyticsB
 
             if (response.ok) {
                 const data = await response.json();
-                setBreakdowns(data.breakdowns || []);
+                const nextBreakdowns = data.breakdowns || [];
+                setBreakdowns(nextBreakdowns);
+                setCachedData(
+                    breakdownCacheKey,
+                    { breakdowns: nextBreakdowns },
+                    `${META_ADS_CACHE_PREFIX}_breakdown_${cacheScope}`
+                );
             } else {
                 const errorData = await response.json();
                 setError(errorData.detail || 'Failed to fetch breakdown data');
@@ -115,12 +139,19 @@ export default function AnalyticsBreakdown({ campaignId, onRefresh }: AnalyticsB
         } finally {
             setLoading(false);
         }
-    }, [breakdownType, datePreset, level, campaignId]);
+    }, [breakdownCacheKey, breakdownType, cacheScope, datePreset, level, campaignId]);
 
     // Fetch on mount and when params change
     useEffect(() => {
+        const cached = getCachedData<{ breakdowns: BreakdownData[] }>(breakdownCacheKey);
+        if (cached) {
+            setBreakdowns(cached.breakdowns || []);
+            setLoading(false);
+            setError(null);
+            return;
+        }
         fetchBreakdown();
-    }, [fetchBreakdown]);
+    }, [breakdownCacheKey, fetchBreakdown]);
 
     // Get dimension label for display
     const getDimensionLabel = (data: BreakdownData): string => {

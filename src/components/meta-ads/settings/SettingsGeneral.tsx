@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Building2,
     Globe,
@@ -17,9 +17,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import {
+    META_ADS_CACHE_PREFIX,
+    buildMetaAdsCacheKey,
+    getCachedData,
+    setCachedData,
+} from '@/lib/meta-ads-cache';
 
 interface SettingsGeneralProps {
     onRefresh?: () => void;
+    cacheScopeId?: string;
 }
 
 interface AccountSettings {
@@ -44,17 +51,29 @@ const ACCOUNT_STATUS_MAP: Record<number, { label: string; color: string }> = {
     7: { label: 'Pending Review', color: 'text-blue-600 bg-blue-50' },
 };
 
-export default function SettingsGeneral({ onRefresh }: SettingsGeneralProps) {
+export default function SettingsGeneral({ onRefresh, cacheScopeId }: SettingsGeneralProps) {
     const [settings, setSettings] = useState<AccountSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const cacheScope = cacheScopeId || 'default';
+    const settingsCacheKey = useMemo(
+        () => buildMetaAdsCacheKey('settings_general', cacheScope),
+        [cacheScope]
+    );
 
     useEffect(() => {
+        const cached = getCachedData<AccountSettings>(settingsCacheKey);
+        if (cached) {
+            setSettings(cached);
+            setEditName(cached.name || '');
+            setIsLoading(false);
+            return;
+        }
         fetchSettings();
-    }, []);
+    }, [settingsCacheKey]);
 
     const fetchSettings = async () => {
         setIsLoading(true);
@@ -65,6 +84,11 @@ export default function SettingsGeneral({ onRefresh }: SettingsGeneralProps) {
                 const data = await response.json();
                 setSettings(data);
                 setEditName(data.name || '');
+                setCachedData(
+                    settingsCacheKey,
+                    data,
+                    `${META_ADS_CACHE_PREFIX}_settings_${cacheScope}`
+                );
             } else {
                 setError('Failed to load settings');
             }

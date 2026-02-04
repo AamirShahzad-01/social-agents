@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   BarChart3,
   Users,
@@ -52,6 +52,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import {
+  META_ADS_CACHE_PREFIX,
+  buildMetaAdsCacheKey,
+  getCachedData,
+  setCachedData,
+  removeCacheByPrefix,
+} from '@/lib/meta-ads-cache';
 
 // Import sub-components
 import CampaignManager from './CampaignManager';
@@ -117,64 +124,142 @@ export default function MetaAdsManager() {
   const [activeBusiness, setActiveBusiness] = useState<any>(null);
   const [showBusinessSelector, setShowBusinessSelector] = useState(false);
   const [isSwitchingBusiness, setIsSwitchingBusiness] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const lastCacheKeyRef = useRef<string | null>(null);
 
-  // Optimized: Load all data in parallel on mount
-  useEffect(() => {
-    const initializeAll = async () => {
-      setIsInitializing(true);
-      setIsRefreshing(true);
+  const cacheScopeId = useMemo(
+    () => activeBusiness?.id || state.adAccount?.id || user?.id || 'default',
+    [activeBusiness?.id, state.adAccount?.id, user?.id]
+  );
+  const dashboardCacheKey = useMemo(
+    () => buildMetaAdsCacheKey('dashboard', cacheScopeId),
+    [cacheScopeId]
+  );
 
-      try {
-        // Fetch all data in parallel for faster loading
-        const [statusRes, businessRes, campaignsRes, audiencesRes] = await Promise.all([
-          fetch('/api/v1/meta-ads/status', { credentials: 'include' }).catch(() => null),
-          fetch('/api/v1/meta-ads/switch-business', { credentials: 'include' }).catch(() => null),
-          fetch('/api/v1/meta-ads/campaigns', { credentials: 'include' }).catch(() => null),
-          fetch('/api/v1/meta-ads/audiences', { credentials: 'include' }).catch(() => null),
-        ]);
-
-        // Process status response
-        if (statusRes?.ok) {
-          const statusData = await statusRes.json();
-          setIsConnected(statusData.isConnected);
-          if (statusData.isConnected && statusData.adAccount) {
-            setState(prev => ({ ...prev, adAccount: statusData.adAccount }));
-          }
-        }
-
-        // Process business response
-        if (businessRes?.ok) {
-          const businessData = await businessRes.json();
-          setAvailableBusinesses(businessData.availableBusinesses || []);
-          setActiveBusiness(businessData.activeBusiness);
-        }
-
-        // Process campaigns response
-        if (campaignsRes?.ok) {
-          const campaignsData = await campaignsRes.json();
-          setState(prev => ({
-            ...prev,
-            campaigns: campaignsData.campaigns || [],
-            adSets: campaignsData.adSets || [],
-            ads: campaignsData.ads || [],
-          }));
-        }
-
-        // Process audiences response
-        if (audiencesRes?.ok) {
-          const audiencesData = await audiencesRes.json();
-          setState(prev => ({ ...prev, audiences: audiencesData.audiences || [] }));
-        }
-      } catch (error) {
-        console.error('Error initializing Meta Ads Manager:', error);
-      } finally {
-        setIsInitializing(false);
-        setIsRefreshing(false);
-      }
-    };
-
-    initializeAll();
+  const applyDashboardCache = useCallback((cached: any) => {
+    setIsConnected(Boolean(cached.isConnected));
+    setState((prev) => ({
+      ...prev,
+      adAccount: cached.adAccount || prev.adAccount,
+      campaigns: cached.campaigns || prev.campaigns,
+      adSets: cached.adSets || prev.adSets,
+      ads: cached.ads || prev.ads,
+      audiences: cached.audiences || prev.audiences,
+    }));
+    setAvailableBusinesses(cached.availableBusinesses || []);
+    setActiveBusiness(cached.activeBusiness || null);
+    setLastUpdatedAt(cached.lastUpdatedAt || null);
   }, []);
+
+  const initializeAll = useCallback(async () => {
+    setIsInitializing(true);
+    setIsRefreshing(true);
+
+    try {
+      const [statusRes, businessRes, campaignsRes, audiencesRes] = await Promise.all([
+        fetch('/api/v1/meta-ads/status', { credentials: 'include' }).catch(() => null),
+        fetch('/api/v1/meta-ads/switch-business', { credentials: 'include' }).catch(() => null),
+        fetch('/api/v1/meta-ads/campaigns', { credentials: 'include' }).catch(() => null),
+        fetch('/api/v1/meta-ads/audiences', { credentials: 'include' }).catch(() => null),
+      ]);
+
+      let nextIsConnected = isConnected;
+      let nextAdAccount = state.adAccount;
+      let nextBusinesses = availableBusinesses;
+      let nextActiveBusiness = activeBusiness;
+      let nextCampaigns = state.campaigns;
+      let nextAdSets = state.adSets;
+      let nextAds = state.ads;
+      let nextAudiences = state.audiences;
+
+      if (statusRes?.ok) {
+        const statusData = await statusRes.json();
+        nextIsConnected = statusData.isConnected;
+        nextAdAccount = statusData.adAccount || nextAdAccount;
+        setIsConnected(statusData.isConnected);
+        if (statusData.adAccount) {
+          setState(prev => ({ ...prev, adAccount: statusData.adAccount }));
+        }
+      }
+
+      if (businessRes?.ok) {
+        const businessData = await businessRes.json();
+        nextBusinesses = businessData.availableBusinesses || [];
+        nextActiveBusiness = businessData.activeBusiness || null;
+        setAvailableBusinesses(nextBusinesses);
+        setActiveBusiness(nextActiveBusiness);
+      }
+
+      if (campaignsRes?.ok) {
+        const campaignsData = await campaignsRes.json();
+        nextCampaigns = campaignsData.campaigns || [];
+        nextAdSets = campaignsData.adSets || [];
+        nextAds = campaignsData.ads || [];
+        setState(prev => ({
+          ...prev,
+          campaigns: nextCampaigns,
+          adSets: nextAdSets,
+          ads: nextAds,
+        }));
+      }
+
+      if (audiencesRes?.ok) {
+        const audiencesData = await audiencesRes.json();
+        nextAudiences = audiencesData.audiences || [];
+        setState(prev => ({ ...prev, audiences: nextAudiences }));
+      }
+
+      const nextUpdatedAt = new Date().toISOString();
+      setLastUpdatedAt(nextUpdatedAt);
+      setCachedData(
+        dashboardCacheKey,
+        {
+          isConnected: nextIsConnected,
+          adAccount: nextAdAccount,
+          availableBusinesses: nextBusinesses,
+          activeBusiness: nextActiveBusiness,
+          campaigns: nextCampaigns,
+          adSets: nextAdSets,
+          ads: nextAds,
+          audiences: nextAudiences,
+          lastUpdatedAt: nextUpdatedAt,
+        },
+        `${META_ADS_CACHE_PREFIX}_dashboard_${cacheScopeId}`
+      );
+    } catch (error) {
+      console.error('Error initializing Meta Ads Manager:', error);
+    } finally {
+      setIsInitializing(false);
+      setIsRefreshing(false);
+    }
+  }, [
+    activeBusiness,
+    availableBusinesses,
+    cacheScopeId,
+    dashboardCacheKey,
+    isConnected,
+    state.adAccount,
+    state.adSets,
+    state.ads,
+    state.audiences,
+    state.campaigns,
+  ]);
+
+  useEffect(() => {
+    if (lastCacheKeyRef.current === dashboardCacheKey) {
+      return;
+    }
+    const cached = getCachedData<any>(dashboardCacheKey);
+    if (cached) {
+      lastCacheKeyRef.current = dashboardCacheKey;
+      applyDashboardCache(cached);
+      setIsInitializing(false);
+      setIsRefreshing(false);
+      return;
+    }
+    lastCacheKeyRef.current = dashboardCacheKey;
+    initializeAll();
+  }, [applyDashboardCache, dashboardCacheKey, initializeAll]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -190,6 +275,7 @@ export default function MetaAdsManager() {
   }, [showBusinessSelector]);
 
   const handleSwitchBusiness = async (businessId: string) => {
+    const previousBusinessId = activeBusiness?.id || state.adAccount?.id || user?.id || 'default';
     setIsSwitchingBusiness(true);
     try {
       const response = await fetch('/api/v1/meta-ads/switch-business', {
@@ -206,6 +292,10 @@ export default function MetaAdsManager() {
           adAccount: data.adAccount,
         });
         setShowBusinessSelector(false);
+        removeCacheByPrefix(`${META_ADS_CACHE_PREFIX}_dashboard_${previousBusinessId}`);
+        removeCacheByPrefix(`${META_ADS_CACHE_PREFIX}_analytics_${previousBusinessId}`);
+        removeCacheByPrefix(`${META_ADS_CACHE_PREFIX}_breakdown_${previousBusinessId}`);
+        removeCacheByPrefix(`${META_ADS_CACHE_PREFIX}_settings_${previousBusinessId}`);
         // Reload all data after switching business
         await loadDashboardData();
       }
@@ -225,28 +315,59 @@ export default function MetaAdsManager() {
         fetch('/api/v1/meta-ads/audiences', { credentials: 'include' }),
       ]);
 
+      let nextIsConnected = isConnected;
+      let nextAdAccount = state.adAccount;
+      let nextCampaigns = state.campaigns;
+      let nextAdSets = state.adSets;
+      let nextAds = state.ads;
+      let nextAudiences = state.audiences;
+
       if (statusRes.ok) {
         const statusData = await statusRes.json();
+        nextIsConnected = statusData.isConnected;
+        nextAdAccount = statusData.adAccount || nextAdAccount;
         setIsConnected(statusData.isConnected);
-        if (statusData.isConnected && statusData.adAccount) {
+        if (statusData.adAccount) {
           setState(prev => ({ ...prev, adAccount: statusData.adAccount }));
         }
       }
 
       if (campaignsRes.ok) {
         const campaignsData = await campaignsRes.json();
+        nextCampaigns = campaignsData.campaigns || [];
+        nextAdSets = campaignsData.adSets || [];
+        nextAds = campaignsData.ads || [];
         setState(prev => ({
           ...prev,
-          campaigns: campaignsData.campaigns || [],
-          adSets: campaignsData.adSets || [],
-          ads: campaignsData.ads || [],
+          campaigns: nextCampaigns,
+          adSets: nextAdSets,
+          ads: nextAds,
         }));
       }
 
       if (audiencesRes.ok) {
         const audiencesData = await audiencesRes.json();
-        setState(prev => ({ ...prev, audiences: audiencesData.audiences || [] }));
+        nextAudiences = audiencesData.audiences || [];
+        setState(prev => ({ ...prev, audiences: nextAudiences }));
       }
+
+      const nextUpdatedAt = new Date().toISOString();
+      setLastUpdatedAt(nextUpdatedAt);
+      setCachedData(
+        dashboardCacheKey,
+        {
+          isConnected: nextIsConnected,
+          adAccount: nextAdAccount,
+          availableBusinesses,
+          activeBusiness,
+          campaigns: nextCampaigns,
+          adSets: nextAdSets,
+          ads: nextAds,
+          audiences: nextAudiences,
+          lastUpdatedAt: nextUpdatedAt,
+        },
+        `${META_ADS_CACHE_PREFIX}_dashboard_${cacheScopeId}`
+      );
     } catch (error) {
     } finally {
       setIsRefreshing(false);
@@ -305,10 +426,18 @@ export default function MetaAdsManager() {
           {activeTool === 'compliance' && <ComplianceCenter onRefresh={loadDashboardData} />}
           {activeTool === 'sdk' && <SDKToolbox onRefresh={loadDashboardData} />}
           {activeTool === 'account-settings' && <AccountSettingsManager onRefresh={loadDashboardData} />}
-          {activeTool === 'settings-general' && <SettingsGeneral onRefresh={loadDashboardData} />}
-          {activeTool === 'settings-team' && <SettingsTeam onRefresh={loadDashboardData} />}
-          {activeTool === 'settings-billing' && <SettingsBilling onRefresh={loadDashboardData} />}
-          {activeTool === 'settings-notifications' && <SettingsNotifications onRefresh={loadDashboardData} />}
+          {activeTool === 'settings-general' && (
+            <SettingsGeneral onRefresh={loadDashboardData} cacheScopeId={cacheScopeId} />
+          )}
+          {activeTool === 'settings-team' && (
+            <SettingsTeam onRefresh={loadDashboardData} cacheScopeId={cacheScopeId} />
+          )}
+          {activeTool === 'settings-billing' && (
+            <SettingsBilling onRefresh={loadDashboardData} cacheScopeId={cacheScopeId} />
+          )}
+          {activeTool === 'settings-notifications' && (
+            <SettingsNotifications onRefresh={loadDashboardData} cacheScopeId={cacheScopeId} />
+          )}
         </div>
       </div>
     );
@@ -695,6 +824,7 @@ export default function MetaAdsManager() {
                   campaigns={state.campaigns}
                   adSets={state.adSets}
                   ads={state.ads}
+                  cacheScopeId={cacheScopeId}
                 />
               </div>
             </TabsContent>
@@ -705,6 +835,9 @@ export default function MetaAdsManager() {
             </TabsContent>
           </Tabs>
         </div>
+        <p className="text-xs text-center text-muted-foreground pt-4">
+          Last updated: {lastUpdatedAt ? new Date(lastUpdatedAt).toLocaleString() : 'N/A'}
+        </p>
       </div>
 
       {/* Ad Set Creation Modal */}

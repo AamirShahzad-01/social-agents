@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Bell,
     Loader2,
@@ -13,9 +13,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import {
+    META_ADS_CACHE_PREFIX,
+    buildMetaAdsCacheKey,
+    getCachedData,
+    setCachedData,
+} from '@/lib/meta-ads-cache';
 
 interface SettingsNotificationsProps {
     onRefresh?: () => void;
+    cacheScopeId?: string;
 }
 
 interface NotificationRule {
@@ -27,14 +34,25 @@ interface NotificationRule {
     };
 }
 
-export default function SettingsNotifications({ onRefresh }: SettingsNotificationsProps) {
+export default function SettingsNotifications({ onRefresh, cacheScopeId }: SettingsNotificationsProps) {
     const [notifications, setNotifications] = useState<NotificationRule[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const cacheScope = cacheScopeId || 'default';
+    const notificationsCacheKey = useMemo(
+        () => buildMetaAdsCacheKey('settings_notifications', cacheScope),
+        [cacheScope]
+    );
 
     useEffect(() => {
+        const cached = getCachedData<NotificationRule[]>(notificationsCacheKey);
+        if (cached) {
+            setNotifications(cached);
+            setIsLoading(false);
+            return;
+        }
         fetchNotifications();
-    }, []);
+    }, [notificationsCacheKey]);
 
     const fetchNotifications = async () => {
         setIsLoading(true);
@@ -43,7 +61,13 @@ export default function SettingsNotifications({ onRefresh }: SettingsNotificatio
             const response = await fetch('/api/v1/meta-ads/notifications/settings');
             if (response.ok) {
                 const data = await response.json();
-                setNotifications(data.notification_rules || []);
+                const nextNotifications = data.notification_rules || [];
+                setNotifications(nextNotifications);
+                setCachedData(
+                    notificationsCacheKey,
+                    nextNotifications,
+                    `${META_ADS_CACHE_PREFIX}_settings_${cacheScope}`
+                );
             } else {
                 setError('Failed to load notifications');
             }
