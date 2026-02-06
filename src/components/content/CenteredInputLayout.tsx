@@ -3,7 +3,7 @@ import { Bot, PlusCircle, Mic, MicOff, Send, X, FileText, Paperclip, Sparkles, L
 import { AI_MODELS, DEFAULT_AI_MODEL_ID } from '@/constants/aiModels';
 import Image from 'next/image';
 
-import logoImage from '../../../logo.png';
+import logoImage from '../../../public/zaik_light.png';
 
 // Supported file types
 const SUPPORTED_IMAGE_TYPES = '.jpg,.jpeg,.png,.gif,.webp,.svg,.bmp,.ico,.tiff,.heic,.heif';
@@ -95,7 +95,7 @@ export const CenteredInputLayout: React.FC<CenteredInputLayoutProps> = ({
                 {/* Canva-style Greeting Message with Gradient Text */}
                 <div className="text-center space-y-3">
                     <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center mx-auto bg-white/60 backdrop-blur-sm border border-white/40 shadow-lg">
-                        <Image src={logoImage} alt="Social Agent" width={36} height={36} className="object-cover" />
+                        <Image src={logoImage} alt="Zaik" width={36} height={36} className="object-cover" />
                     </div>
                     <h1 className="text-3xl md:text-4xl font-semibold italic bg-gradient-to-r from-[#5B3FFF] via-[#8B6DFF] to-[#B8A3FF] bg-clip-text text-transparent">
                         What will you design today?

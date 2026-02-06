@@ -1,22 +1,22 @@
 {
-    "name": "Social Agent",
-    "short_name": "Social Agent",
+    "name": "Zaik",
+    "short_name": "Zaik",
     "description": "Multi Agents System for Social Media Marketing",
     "start_url": "/dashboard",
     "display": "standalone",
     "background_color": "#0f0f23",
-    "theme_color": "#14b8a6",
+    "theme_color": "#a8dce4ff",
     "orientation": "portrait-primary",
     "scope": "/",
     "icons": [
         {
-            "src": "/icon.png",
+            "src": "/zaik_light.png",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "/icon.png",
+            "src": "/zaik_light.png",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "any maskable"

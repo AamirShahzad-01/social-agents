@@ -102,7 +102,7 @@ services:
       # ==========================================================================
       - RESEND_API_KEY=${RESEND_API_KEY}
       - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL}
-      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-Social Agent}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-Zaik}
       
       # ==========================================================================
       # Cron/Scheduled Jobs

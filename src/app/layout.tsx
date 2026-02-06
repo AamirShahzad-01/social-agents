@@ -29,19 +29,19 @@ export const metadata: Metadata = {
   description: 'Professional Multi Agents System for Social Media Marketing and Content generation and management',
   manifest: '/manifest.json',
   icons: {
-    icon: '/icon.png',
-    apple: '/icon.png',
+    icon: '/zaik_light.png',
+    apple: '/zaik_light.png',
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Social Agent',
+    title: 'Zaik',
   },
-  applicationName: 'Social Agent',
+  applicationName: 'Zaik',
 }
 
 export const viewport: Viewport = {
-  themeColor: '#c5ebefff',
+  themeColor: '#a8dce4ff',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,

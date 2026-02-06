@@ -175,7 +175,7 @@ services:
       - key: SMTP_FROM_EMAIL
         sync: false
       - key: SMTP_FROM_NAME
-        value: Social Agent
+        value: Zaik
       
       # ==========================================================================
       # Cron/Scheduled Jobs Authentication

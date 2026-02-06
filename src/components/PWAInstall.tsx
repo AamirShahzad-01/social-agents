@@ -104,7 +104,7 @@ export function PWAInstallButton() {
         <button
             onClick={handleInstallClick}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-lg hover:from-teal-600 hover:to-cyan-600 transition-all duration-200 shadow-lg hover:shadow-xl"
-            title="Install Social Agent App"
+            title="Install Zaik App"
         >
             <svg
                 xmlns="http://www.w3.org/2000/svg"

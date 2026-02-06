@@ -94,10 +94,12 @@ export default function AuthPage({ inviteToken }: AuthPageProps) {
       <div className="hidden lg:flex lg:w-1/2 relative z-10">
         <div className="flex flex-col justify-center p-12 w-full">
           <div className="absolute top-8 left-12 flex items-center gap-3">
-            <div className="bg-white p-2 rounded-lg">
-              <Rocket className="w-6 h-6 text-slate-900" />
-            </div>
-            <span className="text-2xl font-bold text-white tracking-tight">Social Agent</span>
+            <img
+              src="/zaik_light.png"
+              alt="Zaik"
+              className="h-10 w-10 object-contain rounded-lg"
+            />
+            <span className="text-2xl font-bold text-white tracking-tight">Zaik</span>
           </div>
 
           <div>
@@ -116,10 +118,12 @@ export default function AuthPage({ inviteToken }: AuthPageProps) {
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-2">
-              <div className="bg-white p-2 rounded-lg">
-                <Rocket className="w-6 h-6 text-slate-900" />
-              </div>
-              <span className="text-2xl font-bold text-white">Social Agent</span>
+              <img
+                src="/zaik_light.png"
+                alt="Zaik"
+                className="h-10 w-10 object-contain"
+              />
+              <span className="text-2xl font-bold text-white">Zaik</span>
             </div>
           </div>
 

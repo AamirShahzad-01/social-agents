@@ -1,11 +1,11 @@
-// Social Agent Service Worker
+// Zaik Service Worker
 const CACHE_NAME = 'content-os-v1';
 const OFFLINE_URL = '/offline.html';
 
 // Assets to cache on install
 const PRECACHE_ASSETS = [
     '/',
-    '/icon.png',
+    '/zaik_light.png',
     '/favicon.ico'
 ];
 

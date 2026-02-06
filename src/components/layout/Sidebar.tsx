@@ -127,14 +127,11 @@ export function Sidebar() {
                                 onClick={() => window.location.reload()}
                                 className="group focus:outline-none transition-all duration-300 hover:scale-105 active:scale-95"
                             >
-                                <div className="relative flex h-11 w-11 items-center justify-center rounded-xl overflow-hidden bg-white/20 border border-white/30 shadow-md transition-all duration-500 group-hover:shadow-lg group-hover:rotate-6">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                    <img
-                                        src="/frappe-framework-logo.svg"
-                                        alt="Logo"
-                                        className="h-11 w-11 transition-all duration-700 group-hover:scale-110"
-                                    />
-                                </div>
+                                <img
+                                    src="/zaik_light.png"
+                                    alt="Zaik"
+                                    className="h-9 w-9 object-contain rounded-lg transition-all duration-700 group-hover:scale-110"
+                                />
                             </button>
                         </TooltipTrigger>
                         <TooltipContent side="right" sideOffset={8} className="bg-slate-900/90 backdrop-blur-md border-slate-700/50 text-white shadow-2xl px-3 py-2">

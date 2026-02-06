@@ -177,10 +177,12 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="bg-white p-2 rounded-lg">
-            <Rocket className="w-6 h-6 text-slate-900" />
-          </div>
-          <span className="text-2xl font-bold text-white">Social Agent</span>
+          <img
+            src="/zaik_light.png"
+            alt="Zaik"
+            className="h-10 w-10 object-contain rounded-lg"
+          />
+          <span className="text-2xl font-bold text-white">Zaik</span>
         </div>
 
         {/* Card */}
