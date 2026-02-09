@@ -24,6 +24,7 @@ import {
     Check,
     Mic,
     MicOff,
+    Brain,
 } from "lucide-react";
 import { FiSend } from "react-icons/fi";
 import { ChatMessage } from "./ChatMessage";
@@ -64,6 +65,8 @@ interface ChatInterfaceProps {
     error: string | null;
     selectedModelId: string;
     onModelChange: (modelId: string) => void;
+    enableReasoning?: boolean;
+    onEnableReasoningChange?: (enabled: boolean) => void;
     showInput?: boolean;
     inputPlaceholder?: string;
     onStopStream?: () => void;
@@ -78,6 +81,8 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
         error,
         selectedModelId,
         onModelChange,
+        enableReasoning = true,
+        onEnableReasoningChange,
         showInput = true,
         inputPlaceholder = "Ask the strategist anything...",
         onStopStream,
@@ -563,7 +568,22 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
                                 </div>
                             </div>
                         </form>
-                        <div className="mt-2 flex justify-end">
+                        <div className="mt-2 flex justify-end gap-2">
+                            {/* Reasoning Toggle */}
+                            <button
+                                type="button"
+                                onClick={() => onEnableReasoningChange?.(!enableReasoning)}
+                                disabled={isLoading}
+                                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${enableReasoning
+                                        ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                    }`}
+                                title={enableReasoning ? "Reasoning enabled" : "Reasoning disabled"}
+                            >
+                                <Brain className="h-3.5 w-3.5" />
+                                <span>Thinking</span>
+                            </button>
+
                             <div className="relative" ref={modelMenuRef}>
                                 <button
                                     type="button"

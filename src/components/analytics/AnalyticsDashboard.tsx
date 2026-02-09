@@ -250,17 +250,17 @@ const EngagementTimeSeriesChart: React.FC<TimeSeriesChartProps> = ({ data }) => 
                                 </linearGradient>
                             ))}
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.15} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.15} />
                         <XAxis
                             dataKey="date"
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                            tick={{ fill: 'var(--color-muted-foreground)', fontSize: 11 }}
                             axisLine={false}
                             tickLine={false}
                             dy={10}
                         />
                         <YAxis
                             tickFormatter={formatNumber}
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                            tick={{ fill: 'var(--color-muted-foreground)', fontSize: 11 }}
                             axisLine={false}
                             tickLine={false}
                             dx={-10}
@@ -268,13 +268,13 @@ const EngagementTimeSeriesChart: React.FC<TimeSeriesChartProps> = ({ data }) => 
                         <Tooltip
                             formatter={(value) => [formatNumber(value as number), '']}
                             contentStyle={{
-                                backgroundColor: 'hsl(var(--popover))',
-                                border: '1px solid hsl(var(--border))',
+                                backgroundColor: 'var(--color-popover)',
+                                border: '1px solid var(--color-border)',
                                 borderRadius: '12px',
                                 boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
                                 padding: '12px 16px',
                             }}
-                            labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: '8px' }}
+                            labelStyle={{ color: 'var(--color-foreground)', fontWeight: 600, marginBottom: '8px' }}
                         />
                         <Legend
                             wrapperStyle={{ paddingTop: '16px' }}
@@ -375,32 +375,32 @@ const ViewsChart: React.FC<ViewsChartProps> = ({ platforms }) => {
                                 </linearGradient>
                             ))}
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.15} vertical={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.15} vertical={false} />
                         <XAxis
                             dataKey="name"
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12, fontWeight: 500 }}
+                            tick={{ fill: 'var(--color-muted-foreground)', fontSize: 12, fontWeight: 500 }}
                             axisLine={false}
                             tickLine={false}
                             dy={10}
                         />
                         <YAxis
                             tickFormatter={formatNumber}
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                            tick={{ fill: 'var(--color-muted-foreground)', fontSize: 11 }}
                             axisLine={false}
                             tickLine={false}
                             dx={-10}
                         />
                         <Tooltip
-                            cursor={{ fill: 'hsl(var(--muted))', opacity: 0.2, radius: 8 }}
+                            cursor={{ fill: 'var(--color-muted)', opacity: 0.2, radius: 8 }}
                             formatter={(value) => [formatNumber(value as number), 'Views']}
                             contentStyle={{
-                                backgroundColor: 'hsl(var(--popover))',
-                                border: '1px solid hsl(var(--border))',
+                                backgroundColor: 'var(--color-popover)',
+                                border: '1px solid var(--color-border)',
                                 borderRadius: '12px',
                                 boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
                                 padding: '12px 16px',
                             }}
-                            labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: '8px' }}
+                            labelStyle={{ color: 'var(--color-foreground)', fontWeight: 600, marginBottom: '8px' }}
                         />
                         <Bar
                             dataKey="views"
@@ -528,8 +528,8 @@ const EngagementDistributionChart: React.FC<EngagementDistributionChartProps> = 
                         <Tooltip
                             formatter={(value) => [formatNumber(value as number), 'Engagement']}
                             contentStyle={{
-                                backgroundColor: 'hsl(var(--popover))',
-                                border: '1px solid hsl(var(--border))',
+                                backgroundColor: 'var(--color-popover)',
+                                border: '1px solid var(--color-border)',
                                 borderRadius: '12px',
                                 boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
                             }}

@@ -39,15 +39,9 @@ import NotificationBell from '@/components/ui/NotificationBell';
 const sidebarItems = [
     {
         icon: SquarePen,
-        label: 'Create Content',
+        label: 'Content Strategist',
         href: '/dashboard/create',
         tint: 'before:from-rose-500/25 before:via-rose-400/10',
-    },
-    {
-        icon: CalendarCheck,
-        label: 'Content Calendar',
-        href: '/dashboard/content-calendar',
-        tint: 'before:from-amber-400/25 before:via-amber-300/10',
     },
     {
         icon: Clapperboard,
@@ -74,22 +68,28 @@ const sidebarItems = [
         tint: 'before:from-cyan-400/25 before:via-cyan-300/10',
     },
     {
+        icon: Megaphone,
+        label: 'Meta Ads',
+        href: '/dashboard/meta-ads',
+        tint: 'before:from-orange-400/25 before:via-orange-300/10',
+    },
+    {
         icon: LineChart,
         label: 'Analytics',
         href: '/dashboard/analytics',
         tint: 'before:from-blue-500/20 before:via-blue-400/10',
     },
     {
+        icon: CalendarCheck,
+        label: 'Content Calendar',
+        href: '/dashboard/content-calendar',
+        tint: 'before:from-amber-400/25 before:via-amber-300/10',
+    },
+    {
         icon: MessageCircle,
         label: 'Inbox',
         href: '/dashboard/comments',
         tint: 'before:from-teal-400/25 before:via-teal-300/10',
-    },
-    {
-        icon: Megaphone,
-        label: 'Meta Ads',
-        href: '/dashboard/meta-ads',
-        tint: 'before:from-orange-400/25 before:via-orange-300/10',
     },
 ];
 

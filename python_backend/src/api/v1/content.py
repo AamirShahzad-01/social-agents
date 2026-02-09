@@ -53,7 +53,12 @@ async def chat_strategist(request: StrategistChatRequest):
     async def generate():
         """Wrapper that formats events as SSE."""
         try:
-            async for event in stream_agent_response(message, thread_id, request.contentBlocks):
+            async for event in stream_agent_response(
+                message, 
+                thread_id, 
+                request.contentBlocks,
+                enable_reasoning=request.enableReasoning,
+            ):
                 yield format_sse(event)
         except Exception as e:
             yield format_sse({"step": "error", "content": str(e)})

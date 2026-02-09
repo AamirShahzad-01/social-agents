@@ -28,6 +28,7 @@ import {
   Facebook,
   Twitter,
   Linkedin,
+  Download,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -94,6 +95,7 @@ export function ImageResizer({ onResizeComplete }: ImageResizerProps) {
   const [useTransparentBackground, setUseTransparentBackground] = useState(false);
   const [jpegQuality, setJpegQuality] = useState(95);
   const [isResizing, setIsResizing] = useState(false);
+  const [resizedImageUrl, setResizedImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPresets();
@@ -195,6 +197,9 @@ export function ImageResizer({ onResizeComplete }: ImageResizerProps) {
       if (response.ok) {
         const data = await response.json();
         toast.success(`Image resized for ${data.platform}!`);
+
+        // Store the resized image URL for download
+        setResizedImageUrl(data.url);
 
         // Reset state
         setSelectedImage(null);
@@ -674,6 +679,46 @@ export function ImageResizer({ onResizeComplete }: ImageResizerProps) {
                 step={1}
                 onValueChange={(value) => setJpegQuality(value[0])}
               />
+            </div>
+          )}
+
+          {/* Download Section - Shows when resize is complete */}
+          {resizedImageUrl && (
+            <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200 dark:border-green-800 rounded-lg space-y-3">
+              <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                <Check className="w-5 h-5" />
+                <span className="font-medium text-sm">Resize Complete!</span>
+              </div>
+              <Button
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+                onClick={async () => {
+                  try {
+                    const response = await fetch(resizedImageUrl);
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `resized-image-${Date.now()}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                  } catch (error) {
+                    toast.error('Failed to download image');
+                  }
+                }}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download Resized Image
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground"
+                onClick={() => setResizedImageUrl(null)}
+              >
+                Dismiss
+              </Button>
             </div>
           )}
         </CardContent>

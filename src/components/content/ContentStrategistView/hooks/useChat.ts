@@ -57,11 +57,11 @@ export function useChat(options: UseChatOptionsType): UseChatReturn {
 
     // Local state
     const [isThreadLoading, setIsThreadLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [toolCalls, setToolCalls] = useState<ToolCallWithResult[]>([]);
 
     // Refs
     const abortControllerRef = useRef<AbortController | null>(null);
-    const isSubmittingRef = useRef(false);
     const runIdRef = useRef<string | null>(null);
 
     // Session persistence helpers
@@ -115,7 +115,7 @@ export function useChat(options: UseChatOptionsType): UseChatReturn {
         content: string,
         submitOptions?: SubmitOptions
     ): Promise<string> => {
-        if (!content.trim() || isSubmittingRef.current) {
+        if (!content.trim() || isSubmitting) {
             return '';
         }
 
@@ -126,7 +126,7 @@ export function useChat(options: UseChatOptionsType): UseChatReturn {
 
         const controller = new AbortController();
         abortControllerRef.current = controller;
-        isSubmittingRef.current = true;
+        setIsSubmitting(true);
 
         // Generate or use existing thread ID
         let currentThreadId = threadId;
@@ -424,10 +424,10 @@ export function useChat(options: UseChatOptionsType): UseChatReturn {
 
             return '';
         } finally {
-            isSubmittingRef.current = false;
+            setIsSubmitting(false);
             abortControllerRef.current = null;
         }
-    }, [threadId, workspaceId, modelId, enableReasoning, onThreadCreated, onHistoryRevalidate, addMessage, setMessages, setError, setTodoState, setFileState, saveRunId, clearRunId]);
+    }, [threadId, workspaceId, modelId, enableReasoning, isSubmitting, onThreadCreated, onHistoryRevalidate, addMessage, setMessages, setError, setTodoState, setFileState, saveRunId, clearRunId]);
 
     /**
      * Stop the current stream
@@ -437,7 +437,7 @@ export function useChat(options: UseChatOptionsType): UseChatReturn {
             abortControllerRef.current.abort();
             abortControllerRef.current = null;
         }
-        isSubmittingRef.current = false;
+        setIsSubmitting(false);
         clearRunId();
     }, [clearRunId]);
 
@@ -535,7 +535,7 @@ export function useChat(options: UseChatOptionsType): UseChatReturn {
 
     return {
         messages,
-        isLoading: isSubmittingRef.current,
+        isLoading: isSubmitting,
         isThreadLoading,
         error,
         toolCalls,

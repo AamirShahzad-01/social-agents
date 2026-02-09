@@ -237,11 +237,18 @@ async def stream_agent_response(
     message: str,
     thread_id: str,
     content_blocks: list = None,
+    enable_reasoning: bool = True,
 ) -> AsyncGenerator[dict, None]:
     """Stream agent response using events stream mode.
     
     This provides token-by-token streaming for a better UI experience.
     Supports multimodal content via content_blocks.
+    
+    Args:
+        message: The user message
+        thread_id: Thread ID for conversation persistence
+        content_blocks: Optional multimodal content blocks
+        enable_reasoning: Whether to yield thinking/reasoning events (default: True)
     """
     try:
         logger.info(f"Streaming chat - Thread: {thread_id}, Message: {message[:100]}, Blocks: {len(content_blocks) if content_blocks else 0}")
@@ -276,7 +283,8 @@ async def stream_agent_response(
                 
                 if thinking:
                     accumulated_thinking += thinking
-                    yield {"step": "thinking", "content": accumulated_thinking}
+                    if enable_reasoning:
+                        yield {"step": "thinking", "content": accumulated_thinking}
                 
                 # Method 2: Check content_blocks attribute (newer LangChain pattern)
                 if hasattr(chunk, "content_blocks") and chunk.content_blocks:
@@ -286,7 +294,8 @@ async def stream_agent_response(
                             reasoning_text = block.get("text", "") or block.get("content", "")
                             if reasoning_text:
                                 accumulated_thinking += reasoning_text
-                                yield {"step": "thinking", "content": accumulated_thinking}
+                                if enable_reasoning:
+                                    yield {"step": "thinking", "content": accumulated_thinking}
                             
                             # Handle reasoning summaries (responses/v1 format)
                             summaries = block.get("summary", [])
@@ -296,7 +305,8 @@ async def stream_agent_response(
                                         summary_text = summary.get("text", "")
                                         if summary_text:
                                             accumulated_thinking += f"\n{summary_text}"
-                                            yield {"step": "thinking", "content": accumulated_thinking, "summary": True}
+                                            if enable_reasoning:
+                                                yield {"step": "thinking", "content": accumulated_thinking, "summary": True}
                 
                 # === Handle Regular Content ===
                 content = chunk.content
@@ -319,7 +329,8 @@ async def stream_agent_response(
                                 reasoning_text = part.get("text", "") or part.get("content", "")
                                 if reasoning_text:
                                     accumulated_thinking += reasoning_text
-                                    yield {"step": "thinking", "content": accumulated_thinking}
+                                    if enable_reasoning:
+                                        yield {"step": "thinking", "content": accumulated_thinking}
                                 
                                 # Reasoning summaries (responses/v1 format)
                                 summaries = part.get("summary", [])
@@ -329,7 +340,8 @@ async def stream_agent_response(
                                             summary_text = summary.get("text", "")
                                             if summary_text:
                                                 accumulated_thinking += f"\n{summary_text}"
-                                                yield {"step": "thinking", "content": accumulated_thinking, "summary": True}
+                                                if enable_reasoning:
+                                                    yield {"step": "thinking", "content": accumulated_thinking, "summary": True}
                             
                             # Tool use blocks (handled separately)
                             elif part_type == "tool_use":
@@ -538,6 +550,7 @@ async def chat_stream(request: ChatRequest):
                 message=message,
                 thread_id=request.threadId,
                 content_blocks=request.contentBlocks,
+                enable_reasoning=request.enableReasoning,
             ):
                 yield format_sse(event)
                 

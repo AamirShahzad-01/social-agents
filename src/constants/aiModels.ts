@@ -102,7 +102,7 @@ export const AI_MODELS: AIModelOption[] = [
 /**
  * Default model ID for content improvement
  */
-export const DEFAULT_AI_MODEL_ID = 'google_genai:gemini-3-flash-preview';
+export const DEFAULT_AI_MODEL_ID = 'openai:gpt-5.2';
 
 /**
  * Get model by ID

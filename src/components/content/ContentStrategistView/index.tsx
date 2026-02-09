@@ -46,6 +46,7 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
     const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
     const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
     const [selectedModelId, setSelectedModelId] = useState(DEFAULT_AI_MODEL_ID);
+    const [enableReasoning, setEnableReasoning] = useState(true);
 
     // Thread management
     const {
@@ -74,7 +75,7 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
         threadId: langThreadId,
         workspaceId: workspaceId || undefined,
         modelId: selectedModelId,
-        enableReasoning: true,
+        enableReasoning,
         reconnectOnMount: true,
         onThreadCreated: (newThreadId) => {
             setLangThreadId(newThreadId);
@@ -207,6 +208,8 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
                         error={error}
                         selectedModelId={selectedModelId}
                         onModelChange={setSelectedModelId}
+                        enableReasoning={enableReasoning}
+                        onEnableReasoningChange={setEnableReasoning}
                         showInput={true}
                         inputPlaceholder="What content would you like to create today?"
                         onStopStream={stop}
