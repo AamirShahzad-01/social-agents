@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: Optional[str] = Field(default=None, description="DeepSeek API key")
     ELEVENLABS_API_KEY: Optional[str] = Field(default=None, description="ElevenLabs API key")
     RUNWAY_API_KEY: Optional[str] = Field(default=None, description="Runway Gen4 API key")
+    KLING_ACCESS_KEY: Optional[str] = Field(default=None, description="Kling AI Access Key (AK)")
+    KLING_SECRET_KEY: Optional[str] = Field(default=None, description="Kling AI Secret Key (SK)")
     
     # Cloudinary Configuration (for media storage)
     CLOUDINARY_CLOUD_NAME: Optional[str] = Field(default=None, description="Cloudinary cloud name")

@@ -105,6 +105,28 @@ from ...agents.media_agents.runway_agent import (
     RUNWAY_DURATIONS,
     RUNWAY_GENERATION_MODES,
 )
+from ...agents.media_agents.kling_agent import (
+    text_to_video as kling_text_to_video,
+    image_to_video as kling_image_to_video,
+    motion_control as kling_motion_control,
+    extend_video as kling_extend_video,
+    lip_sync as kling_lip_sync,
+    multi_image_to_video as kling_multi_image_to_video,
+    avatar_generation as kling_avatar_generation,
+    get_task_status as kling_get_task_status,
+    get_models as kling_get_models,
+    KlingTextToVideoRequest,
+    KlingImageToVideoRequest,
+    KlingMotionControlRequest,
+    KlingVideoExtendRequest,
+    KlingLipSyncRequest,
+    KlingMultiImageRequest,
+    KlingAvatarRequest,
+    KlingTaskStatusRequest,
+    KlingGenerationResponse,
+    KlingTaskStatusResponse,
+    KLING_MODELS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1023,6 +1045,204 @@ async def get_runway_models():
 
 
 # ============================================================================
+# KLING ENDPOINTS - Kling AI v2.6 Video Generation
+# ============================================================================
+
+@router.post("/kling/text-to-video", response_model=KlingGenerationResponse)
+async def api_kling_text_to_video(request: KlingTextToVideoRequest):
+    """
+    Generate video from text prompt using Kling v2.6
+    
+    Returns task ID for polling. Use POST /kling/status to check completion.
+    
+    Features:
+    - kling-v2.6-pro: 1080p, higher quality
+    - kling-v2.6-standard: 720p, faster generation
+    - Native audio generation (English/Chinese)
+    """
+    try:
+        logger.info(f"Kling text-to-video: {request.prompt[:50]}...")
+        result = await kling_text_to_video(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kling text-to-video error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/kling/image-to-video", response_model=KlingGenerationResponse)
+async def api_kling_image_to_video(request: KlingImageToVideoRequest):
+    """
+    Animate image using Kling v2.6
+    
+    Supports first/last frame specification for interpolation.
+    Use voice_ids for character-specific audio.
+    """
+    try:
+        logger.info(f"Kling image-to-video: {request.prompt[:50]}...")
+        result = await kling_image_to_video(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kling image-to-video error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/kling/motion-control", response_model=KlingGenerationResponse)
+async def api_kling_motion_control(request: KlingMotionControlRequest):
+    """
+    Transfer motion from reference video to character image using Kling v2.6
+    
+    Supports:
+    - character_orientation='video': Full-body motion (up to 30s)
+    - character_orientation='image': Portrait animation (up to 10s)
+    """
+    try:
+        logger.info(f"Kling motion control: orientation={request.character_orientation}")
+        result = await kling_motion_control(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kling motion control error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/kling/status", response_model=KlingTaskStatusResponse)
+async def api_kling_status(request: KlingTaskStatusRequest):
+    """
+    Get Kling video generation task status
+    
+    Poll every 8-10 seconds until status is 'succeed' or 'failed'
+    """
+    try:
+        result = await kling_get_task_status(request)
+        return result
+        
+    except Exception as e:
+        logger.error(f"Kling status error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/kling/models")
+async def get_kling_models():
+    """Get available Kling models and configuration options"""
+    return kling_get_models().model_dump()
+
+
+@router.post("/kling/video-extend", response_model=KlingGenerationResponse)
+async def api_kling_video_extend(request: KlingVideoExtendRequest):
+    """
+    Extend an existing video by 4-5 seconds using Kling v2.6
+    
+    Source video must be from text2video, image2video, or previous extension.
+    Maximum cumulative extension: 3 minutes total.
+    """
+    try:
+        logger.info(f"Kling video-extend: video_id={request.video_id}")
+        result = await kling_extend_video(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kling video-extend error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/kling/lip-sync", response_model=KlingGenerationResponse)
+async def api_kling_lip_sync(request: KlingLipSyncRequest):
+    """
+    Synchronize lip movements with audio using Kling v2.6
+    
+    Video should have clear frontal face visibility.
+    """
+    try:
+        logger.info(f"Kling lip-sync: video={request.video_url[:50]}...")
+        result = await kling_lip_sync(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kling lip-sync error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/kling/multi-image", response_model=KlingGenerationResponse)
+async def api_kling_multi_image(request: KlingMultiImageRequest):
+    """
+    Generate video from multiple images using Kling v2.6
+    
+    Creates smooth AI interpolation between keyframe images.
+    Supports 2-8 images.
+    """
+    try:
+        logger.info(f"Kling multi-image: {len(request.images)} images")
+        result = await kling_multi_image_to_video(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kling multi-image error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/kling/avatar", response_model=KlingGenerationResponse)
+async def api_kling_avatar(request: KlingAvatarRequest):
+    """
+    Generate AI avatar video from image + audio using Kling v2.6
+    
+    Creates realistic talking head video with lip-sync and facial expressions.
+    Pricing: std (0.4/sec), pro (0.8/sec)
+    """
+    try:
+        logger.info(f"Kling avatar: mode={request.mode}")
+        result = await kling_avatar_generation(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Kling avatar error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
 # INFO ENDPOINT
 # ============================================================================
 
@@ -1062,6 +1282,11 @@ async def media_info():
                 "models": ["gen4_turbo", "gen4_aleph", "veo3.1"],
                 "features": ["text-to-video", "image-to-video", "video-to-video", "video-upscale"],
                 "endpoints": ["/runway/text-to-video", "/runway/image-to-video", "/runway/video-to-video", "/runway/upscale", "/runway/status", "/runway/models"]
+            },
+            "video-kling": {
+                "models": ["kling-v2.6-pro", "kling-v2.6-standard"],
+                "features": ["text-to-video", "image-to-video", "motion-control", "native-audio"],
+                "endpoints": ["/kling/text-to-video", "/kling/image-to-video", "/kling/motion-control", "/kling/status", "/kling/models"]
             }
         }
     }

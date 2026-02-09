@@ -3,24 +3,26 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Volume2, Bot, Wand2 } from 'lucide-react';
+import { Sparkles, Volume2, Bot, Wand2, Video } from 'lucide-react';
 import { VideoGenerator } from './VideoGenerator';
 import { VeoVideoGenerator } from './veo';
 import { RunwayVideoGenerator } from './runway';
-import type { GeneratedVideo, GeneratedImage, GeneratedVeoVideo, GeneratedRunwayVideo } from '../types/mediaStudio.types';
+import { KlingVideoGenerator } from './kling';
+import type { GeneratedVideo, GeneratedImage, GeneratedVeoVideo, GeneratedRunwayVideo, GeneratedKlingVideo } from '../types/mediaStudio.types';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-type VideoProvider = 'openai' | 'google' | 'runway';
+type VideoProvider = 'openai' | 'google' | 'runway' | 'kling';
 
 interface VideoGeneratorWithVeoProps {
-  onVideoStarted: (video: GeneratedVideo | GeneratedVeoVideo | GeneratedRunwayVideo) => void;
-  onVideoUpdate: (videoId: string, updates: Partial<GeneratedVideo | GeneratedVeoVideo | GeneratedRunwayVideo>) => void;
+  onVideoStarted: (video: GeneratedVideo | GeneratedVeoVideo | GeneratedRunwayVideo | GeneratedKlingVideo) => void;
+  onVideoUpdate: (videoId: string, updates: Partial<GeneratedVideo | GeneratedVeoVideo | GeneratedRunwayVideo | GeneratedKlingVideo>) => void;
   recentVideos: GeneratedVideo[];
   recentVeoVideos: GeneratedVeoVideo[];
   recentRunwayVideos?: GeneratedRunwayVideo[];
+  recentKlingVideos?: GeneratedKlingVideo[];
   recentImages: GeneratedImage[];
 }
 
@@ -34,6 +36,7 @@ export function VideoGeneratorWithVeo({
   recentVideos,
   recentVeoVideos,
   recentRunwayVideos = [],
+  recentKlingVideos = [],
   recentImages,
 }: VideoGeneratorWithVeoProps) {
   const [provider, setProvider] = useState<VideoProvider>('openai');
@@ -80,6 +83,24 @@ export function VideoGeneratorWithVeo({
             <span className="font-medium text-xs">Google Veo</span>
           </TabsTrigger>
           <TabsTrigger
+            value="kling"
+            className={`
+              flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-200
+              data-[state=active]:shadow-sm
+              data-[state=inactive]:hover:bg-white/50 dark:data-[state=inactive]:hover:bg-white/20
+              data-[state=inactive]:text-foreground
+            `}
+            style={provider === 'kling' ? { background: 'linear-gradient(135deg, #00d4aa 0%, #00a080 100%)', color: 'white' } : undefined}
+          >
+            <div
+              className="w-4 h-4 rounded flex items-center justify-center"
+              style={{ background: provider === 'kling' ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg, #00d4aa 0%, #00a080 100%)' }}
+            >
+              <Video className="w-2.5 h-2.5 text-white" />
+            </div>
+            <span className="font-medium text-xs">Kling AI</span>
+          </TabsTrigger>
+          <TabsTrigger
             value="runway"
             className={`
               flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-200
@@ -115,6 +136,16 @@ export function VideoGeneratorWithVeo({
             onVideoStarted={onVideoStarted as (video: GeneratedVeoVideo) => void}
             onVideoUpdate={onVideoUpdate as (videoId: string, updates: Partial<GeneratedVeoVideo>) => void}
             recentVideos={recentVeoVideos}
+            recentImages={recentImages}
+          />
+        </TabsContent>
+
+        {/* Kling AI Content */}
+        <TabsContent value="kling" className="mt-4">
+          <KlingVideoGenerator
+            onVideoStarted={onVideoStarted as (video: GeneratedKlingVideo) => void}
+            onVideoUpdate={onVideoUpdate as (videoId: string, updates: Partial<GeneratedKlingVideo>) => void}
+            recentVideos={recentKlingVideos}
             recentImages={recentImages}
           />
         </TabsContent>

@@ -17,13 +17,14 @@ import { VideoGeneratorWithVeo } from './VideoGeneratorWithVeo';
 import { ImageEditor } from './ImageEditor';
 import { AudioGenerator } from './audio-generator';
 import { useAuth } from '@/contexts/AuthContext';
-import type { MediaStudioTab, GeneratedImage, GeneratedVideo, GeneratedVeoVideo, GeneratedRunwayVideo } from '../types/mediaStudio.types';
+import type { MediaStudioTab, GeneratedImage, GeneratedVideo, GeneratedVeoVideo, GeneratedRunwayVideo, GeneratedKlingVideo } from '../types/mediaStudio.types';
 
 interface MediaStudioState {
   recentImages: GeneratedImage[];
   recentVideos: GeneratedVideo[];
   recentVeoVideos: GeneratedVeoVideo[];
   recentRunwayVideos: GeneratedRunwayVideo[];
+  recentKlingVideos: GeneratedKlingVideo[];
   isGenerating: boolean;
 }
 
@@ -35,6 +36,7 @@ export function MediaStudioDashboard() {
     recentVideos: [],
     recentVeoVideos: [],
     recentRunwayVideos: [],
+    recentKlingVideos: [],
     isGenerating: false,
   });
 
@@ -47,10 +49,17 @@ export function MediaStudioDashboard() {
     }));
   }, []);
 
-  // Handle video generation started (Sora, Veo, or Runway)
-  const handleVideoStarted = useCallback((video: GeneratedVideo | GeneratedVeoVideo | GeneratedRunwayVideo) => {
-    // Check if it's a Runway video
-    if ('taskId' in video && 'config' in video && (video as GeneratedRunwayVideo).config?.generation_mode) {
+  // Handle video generation started (Sora, Veo, Runway, or Kling)
+  const handleVideoStarted = useCallback((video: GeneratedVideo | GeneratedVeoVideo | GeneratedRunwayVideo | GeneratedKlingVideo) => {
+    // Check if it's a Kling video (has taskId and config with model like 'kling-v2-6-')
+    if ('taskId' in video && 'config' in video && (video as GeneratedKlingVideo).config?.model?.startsWith('kling')) {
+      setState(prev => ({
+        ...prev,
+        recentKlingVideos: [video as GeneratedKlingVideo, ...prev.recentKlingVideos].slice(0, 50),
+        isGenerating: true,
+      }));
+      // Check if it's a Runway video
+    } else if ('taskId' in video && 'config' in video && (video as GeneratedRunwayVideo).config?.generation_mode) {
       setState(prev => ({
         ...prev,
         recentRunwayVideos: [video as GeneratedRunwayVideo, ...prev.recentRunwayVideos].slice(0, 50),
@@ -72,15 +81,25 @@ export function MediaStudioDashboard() {
     }
   }, []);
 
-  // Handle video status update (Sora, Veo, & Runway)
-  const handleVideoUpdate = useCallback((videoId: string, updates: Partial<GeneratedVideo | GeneratedVeoVideo | GeneratedRunwayVideo>) => {
+  // Handle video status update (Sora, Veo, Runway, & Kling)
+  const handleVideoUpdate = useCallback((videoId: string, updates: Partial<GeneratedVideo | GeneratedVeoVideo | GeneratedRunwayVideo | GeneratedKlingVideo>) => {
     setState(prev => {
+      // Check if it's in Kling videos
+      const isKlingVideo = prev.recentKlingVideos.some(v => v.id === videoId || v.taskId === videoId);
       // Check if it's in Runway videos
       const isRunwayVideo = prev.recentRunwayVideos.some(v => v.id === videoId || v.taskId === videoId);
       // Check if it's in Veo videos
       const isVeoVideo = prev.recentVeoVideos.some(v => v.id === videoId);
 
-      if (isRunwayVideo) {
+      if (isKlingVideo) {
+        return {
+          ...prev,
+          recentKlingVideos: prev.recentKlingVideos.map(v =>
+            (v.id === videoId || v.taskId === videoId) ? { ...v, ...updates } as GeneratedKlingVideo : v
+          ),
+          isGenerating: (updates as any).status === 'processing' || (updates as any).status === 'submitted',
+        };
+      } else if (isRunwayVideo) {
         return {
           ...prev,
           recentRunwayVideos: prev.recentRunwayVideos.map(v =>
@@ -234,6 +253,7 @@ export function MediaStudioDashboard() {
               recentVideos={state.recentVideos}
               recentVeoVideos={state.recentVeoVideos}
               recentRunwayVideos={state.recentRunwayVideos}
+              recentKlingVideos={state.recentKlingVideos}
               recentImages={state.recentImages}
             />
           </TabsContent>

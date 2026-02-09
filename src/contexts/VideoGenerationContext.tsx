@@ -6,7 +6,7 @@ import React, { createContext, useContext, useState, useCallback, useRef, useEff
 // Types
 // ============================================================================
 
-type VideoProvider = 'sora' | 'veo';
+type VideoProvider = 'sora' | 'veo' | 'kling';
 
 interface VideoJob {
     id: string;
@@ -21,6 +21,8 @@ interface VideoJob {
     // Veo-specific
     operationName?: string;
     veoVideoId?: string;
+    // Kling-specific
+    coverUrl?: string;
 }
 
 interface VideoGenerationContextType {
@@ -28,9 +30,12 @@ interface VideoGenerationContextType {
     completedJobs: VideoJob[];
     startSoraPolling: (videoId: string, prompt: string, model: string) => void;
     startVeoPolling: (operationId: string, operationName: string, prompt: string, model: string) => void;
+    startKlingPolling: (taskId: string, prompt: string, model: string) => void;
     getJobStatus: (jobId: string) => VideoJob | undefined;
     clearCompletedJob: (jobId: string) => void;
     isAnyJobProcessing: boolean;
+    // Kling-specific job data
+    coverUrl?: string;
 }
 
 const VideoGenerationContext = createContext<VideoGenerationContextType | undefined>(undefined);
@@ -53,8 +58,10 @@ export function useVideoGeneration() {
 
 const MAX_POLLS_SORA = 96;      // 8 minutes at 5s intervals
 const MAX_POLLS_VEO = 48;       // 8 minutes at 10s intervals (docs recommend 10s)
+const MAX_POLLS_KLING = 60;     // 10 minutes at 10s intervals
 const SORA_POLL_INTERVAL = 5000;
 const VEO_POLL_INTERVAL = 10000; // Google docs: "checks the job status every 10 seconds"
+const KLING_POLL_INTERVAL = 10000; // Kling API polling interval
 
 // ============================================================================
 // Provider Component
@@ -344,6 +351,111 @@ export function VideoGenerationProvider({ children }: VideoGenerationProviderPro
     }, [pollVeoJob]);
 
     // ========================================================================
+    // Poll Kling job status
+    // ========================================================================
+    const pollKlingJob = useCallback(async (taskId: string) => {
+        const currentCount = pollCountsRef.current.get(taskId) || 0;
+        pollCountsRef.current.set(taskId, currentCount + 1);
+
+        // Check timeout
+        if (currentCount >= MAX_POLLS_KLING) {
+            markJobTimedOut(taskId);
+            return;
+        }
+
+        // Skip if already downloading or completed (deduplication guard)
+        if (downloadingRef.current.has(taskId) || completedDownloadsRef.current.has(taskId)) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/ai/media/kling/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ task_id: taskId }),
+            });
+
+            if (!response.ok) return;
+            const data = await response.json();
+
+            if (!data.success) return;
+
+            // Kling status: submitted, processing, succeed, failed
+            if (data.status === 'succeed' && data.videos && data.videos.length > 0) {
+                // CRITICAL: Deduplication check before marking complete
+                if (downloadingRef.current.has(taskId) || completedDownloadsRef.current.has(taskId)) {
+                    console.log(`[VideoGenerationContext] Skipping duplicate Kling completion for ${taskId}`);
+                    return;
+                }
+
+                completedDownloadsRef.current.add(taskId);
+
+                const video = data.videos[0];
+                console.log(`[VideoGenerationContext] Kling job complete for ${taskId}: ${video.url?.substring(0, 60)}...`);
+
+                updateJob(taskId, {
+                    status: 'completed',
+                    progress: 100,
+                    url: video.url,
+                    coverUrl: video.cover_url,
+                });
+
+                stopPolling(taskId);
+            } else if (data.status === 'failed') {
+                updateJob(taskId, {
+                    status: 'failed',
+                    progress: 0,
+                    error: data.message || 'Generation failed',
+                });
+                stopPolling(taskId);
+            } else {
+                // Still processing - update progress
+                updateJob(taskId, {
+                    status: 'processing',
+                    progress: 50, // Kling doesn't provide granular progress
+                });
+            }
+        } catch (err) {
+            console.error('[VideoGenerationContext] Kling poll error:', err);
+        }
+    }, [markJobTimedOut, updateJob, stopPolling]);
+
+    // ========================================================================
+    // Start Kling polling
+    // ========================================================================
+    const startKlingPolling = useCallback((taskId: string, prompt: string, model: string) => {
+        // Prevent duplicate polling for same job
+        if (pollIntervalsRef.current.has(taskId)) {
+            console.log(`[VideoGenerationContext] Already polling Kling job ${taskId}`);
+            return;
+        }
+
+        // Clear any previous completion state for this task (for retries)
+        completedDownloadsRef.current.delete(taskId);
+        downloadingRef.current.delete(taskId);
+
+        const job: VideoJob = {
+            id: taskId,
+            prompt,
+            model,
+            provider: 'kling',
+            status: 'pending',
+            progress: 0,
+            createdAt: Date.now(),
+        };
+
+        setJobs(prev => new Map(prev).set(taskId, job));
+        pollCountsRef.current.set(taskId, 0);
+
+        // Start polling interval
+        const interval = setInterval(() => pollKlingJob(taskId), KLING_POLL_INTERVAL);
+        pollIntervalsRef.current.set(taskId, interval);
+
+        // Poll immediately for faster response
+        pollKlingJob(taskId);
+    }, [pollKlingJob]);
+
+    // ========================================================================
     // Get job status
     // ========================================================================
     const getJobStatus = useCallback((jobId: string) => jobs.get(jobId), [jobs]);
@@ -394,6 +506,7 @@ export function VideoGenerationProvider({ children }: VideoGenerationProviderPro
             completedJobs,
             startSoraPolling,
             startVeoPolling,
+            startKlingPolling,
             getJobStatus,
             clearCompletedJob,
             isAnyJobProcessing,

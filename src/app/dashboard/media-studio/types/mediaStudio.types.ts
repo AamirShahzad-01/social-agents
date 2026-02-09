@@ -499,3 +499,85 @@ export const RUNWAY_PLATFORM_PRESETS = [
   { id: 'landscape_hd', name: 'HD Video', icon: '🎬', ratio: '1920:1080' as const, duration: 10 as const, model: 'gen4_turbo' as const },
 ] as const;
 
+// ============================================================================
+// Kling AI v2.6 Video Generation Types
+// ============================================================================
+
+export type KlingModel = 'kling-v2-6-pro' | 'kling-v2-6-standard';
+export type KlingAspectRatio = '16:9' | '9:16' | '1:1';
+export type KlingDuration = '5' | '10';
+export type KlingGenerationMode = 'text' | 'image' | 'motion' | 'lipsync' | 'multi-image' | 'avatar' | 'extend';
+export type KlingTaskStatus = 'submitted' | 'processing' | 'succeed' | 'failed';
+export type KlingOrientation = 'video' | 'image';
+
+export interface KlingVideoGenerationConfig {
+  prompt: string;
+  model: KlingModel;
+  aspectRatio: KlingAspectRatio;
+  duration: KlingDuration;
+  negativePrompt?: string;
+  cfgScale?: number;
+  generateAudio?: boolean;
+
+  // Image-to-video specific
+  startImageUrl?: string;
+  endImageUrl?: string;
+  voiceIds?: string[];
+
+  // Motion control specific
+  referenceImageUrl?: string;
+  motionReferenceVideoUrl?: string;
+  characterOrientation?: KlingOrientation;
+  keepOriginalSound?: boolean;
+
+  // Generation mode tracking
+  generation_mode?: KlingGenerationMode;
+}
+
+export interface GeneratedKlingVideo {
+  id: string;
+  url?: string;
+  coverUrl?: string;
+  prompt: string;
+  config: KlingVideoGenerationConfig;
+  status: KlingTaskStatus;
+  progress?: number;
+  createdAt: number;
+  thumbnailUrl?: string;
+  duration?: number;
+  taskId?: string;
+  videoId?: string; // Kling video ID for extensions
+  hasAudio: boolean;
+  error?: string;
+}
+
+export const KLING_MODEL_OPTIONS = [
+  { value: 'kling-v2-6-pro', label: 'Kling v2.6 Pro', description: '1080p, higher quality', resolution: '1080p', estimatedTime: '2-4 min' },
+  { value: 'kling-v2-6-standard', label: 'Kling v2.6 Standard', description: '720p, faster generation', resolution: '720p', estimatedTime: '1-2 min' },
+] as const;
+
+export const KLING_ASPECT_RATIO_OPTIONS = [
+  { value: '16:9', label: 'Landscape (16:9)', description: 'Standard widescreen' },
+  { value: '9:16', label: 'Portrait (9:16)', description: 'Vertical/mobile' },
+  { value: '1:1', label: 'Square (1:1)', description: 'Social media' },
+] as const;
+
+export const KLING_DURATION_OPTIONS = [
+  { value: '5', label: '5 seconds', description: 'Quick clip' },
+  { value: '10', label: '10 seconds', description: 'Extended' },
+] as const;
+
+export const KLING_ORIENTATION_OPTIONS = [
+  { value: 'video', label: 'Match Video', description: 'Use reference video orientation (up to 30s)' },
+  { value: 'image', label: 'Match Image', description: 'Use character image orientation (up to 10s)' },
+] as const;
+
+export const KLING_PLATFORM_PRESETS = [
+  { id: 'youtube_short', name: 'YouTube Short', icon: '📹', aspectRatio: '9:16' as const, duration: '10' as const, model: 'kling-v2-6-pro' as const },
+  { id: 'tiktok', name: 'TikTok', icon: '🎵', aspectRatio: '9:16' as const, duration: '10' as const, model: 'kling-v2-6-standard' as const },
+  { id: 'instagram_reel', name: 'Insta Reel', icon: '📱', aspectRatio: '9:16' as const, duration: '10' as const, model: 'kling-v2-6-standard' as const },
+  { id: 'twitter', name: 'Twitter/X', icon: '🐦', aspectRatio: '16:9' as const, duration: '10' as const, model: 'kling-v2-6-pro' as const },
+  { id: 'linkedin', name: 'LinkedIn', icon: '💼', aspectRatio: '16:9' as const, duration: '10' as const, model: 'kling-v2-6-pro' as const },
+  { id: 'square', name: 'Square', icon: '⬜', aspectRatio: '1:1' as const, duration: '5' as const, model: 'kling-v2-6-standard' as const },
+] as const;
+
